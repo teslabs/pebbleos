@@ -22,6 +22,10 @@
 
 #define NRF5_COMPATIBLE
 #include <mcu.h>
+#include <hal/nrf_gpio.h>
+#include <hal/nrf_rtc.h>
+#include <nrfx_gpiote.h>
+#include <nrfx_gppi.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -140,23 +144,102 @@ uint32_t display_baud_rate_change(uint32_t new_frequency_hz) {
   return old_spi_clock_hz;
 }
 
+static uint8_t s_ppi_ch[2];
+static uint8_t s_gpiote_ch;
+static const nrfx_gpiote_t s_gpiote = NRFX_GPIOTE_INSTANCE(0);
+
+static void prv_extcomin_toggle_init(void) {
+  nrfx_err_t err;
+  uint32_t psel;
+  NRF_RTC_Type *rtc;
+  const nrfx_gpiote_t *gpiote;
+  NRF_GPIOTE_Type *gpiote_reg;
+  uint32_t pulse_end_event_address, period_end_event_address;
+  nrf_gpiote_task_t pulse_end_task, period_end_task;
+  uint32_t pulse_end_task_address, period_end_task_address, clear_task_address;
+  uint32_t ppi_mask;
+
+  psel = NRF_GPIO_PIN_MAP(1, 15);
+  rtc = NRF_RTC2;
+  gpiote = &s_gpiote;
+  gpiote_reg = gpiote->p_reg;
+
+  if (!nrfx_gpiote_init_check(gpiote)) {
+    nrfx_err_t err = nrfx_gpiote_init(gpiote, NRFX_GPIOTE_DEFAULT_CONFIG_IRQ_PRIORITY);
+    PBL_ASSERTN(err == NRFX_SUCCESS);
+  }
+
+  err = nrfx_gppi_channel_alloc(&s_ppi_ch[0]);
+  PBL_ASSERTN(err == NRFX_SUCCESS);
+
+  err = nrfx_gppi_channel_alloc(&s_ppi_ch[1]);
+  PBL_ASSERTN(err == NRFX_SUCCESS);
+
+  ppi_mask = (1UL << s_ppi_ch[0]) | (1UL << s_ppi_ch[1]);
+
+  err = nrfx_gpiote_channel_alloc(gpiote, &s_gpiote_ch);
+  PBL_ASSERTN(err == NRFX_SUCCESS);
+
+  nrf_gpio_pin_write(psel, 0);
+  nrf_gpio_cfg_output(psel);
+
+  nrf_rtc_prescaler_set(rtc, NRF_RTC_FREQ_TO_PRESCALER(32768));
+  nrf_rtc_event_enable(rtc,
+                       (NRF_RTC_INT_COMPARE0_MASK |
+                        NRF_RTC_INT_COMPARE1_MASK));
+
+  nrf_gpio_pin_write(psel, 0);
+  nrf_gpiote_te_default(gpiote_reg, s_gpiote_ch);
+  nrf_rtc_task_trigger(rtc, NRF_RTC_TASK_STOP);
+
+  nrfx_gppi_channels_disable(ppi_mask);
+
+  nrf_rtc_event_clear(rtc, nrf_rtc_compare_event_get(1));
+  nrf_rtc_event_clear(rtc, nrf_rtc_compare_event_get(0));
+
+  nrf_rtc_cc_set(rtc, 1, 128 - 1);
+  nrf_rtc_cc_set(rtc, 0, 32768 / 120 - 1);
+  nrf_rtc_task_trigger(rtc, NRF_RTC_TASK_CLEAR);
+
+  gpiote_reg->CONFIG[s_gpiote_ch] =
+    (GPIOTE_CONFIG_MODE_Task << GPIOTE_CONFIG_MODE_Pos) |
+    (psel << 8U) |
+    (GPIOTE_CONFIG_POLARITY_Toggle << GPIOTE_CONFIG_POLARITY_Pos) |
+    (1UL << GPIOTE_CONFIG_OUTINIT_Pos);
+
+  pulse_end_task  = nrf_gpiote_set_task_get(s_gpiote_ch);
+  period_end_task = nrf_gpiote_clr_task_get(s_gpiote_ch);
+
+  pulse_end_task_address = nrf_gpiote_task_address_get(gpiote_reg, pulse_end_task);
+  period_end_task_address = nrf_gpiote_task_address_get(gpiote_reg, period_end_task);
+
+  clear_task_address = nrf_rtc_event_address_get(rtc, NRF_RTC_TASK_CLEAR);
+  pulse_end_event_address = nrf_rtc_event_address_get(rtc, nrf_rtc_compare_event_get(1));
+  period_end_event_address = nrf_rtc_event_address_get(rtc, nrf_rtc_compare_event_get(0));
+
+  nrfx_gppi_fork_endpoint_setup(s_ppi_ch[1], clear_task_address);
+
+  nrfx_gppi_channel_endpoints_setup(s_ppi_ch[0], pulse_end_event_address, pulse_end_task_address);
+  nrfx_gppi_channel_endpoints_setup(s_ppi_ch[1], period_end_event_address, period_end_task_address);
+  nrfx_gppi_channels_enable(ppi_mask);
+
+  nrf_rtc_task_trigger(rtc, NRF_RTC_TASK_START);
+}
+
 void display_init(void) {
   if (s_initialized) {
     return;
   }
 
-  s_spi_clock_hz = MHZ_TO_HZ(1);
+  //s_spi_clock_hz = MHZ_TO_HZ(1);
 
-  prv_display_context_init(&s_display_context);
+  //prv_display_context_init(&s_display_context);
 
-  vSemaphoreCreateBinary(s_dma_update_in_progress_semaphore);
+  //vSemaphoreCreateBinary(s_dma_update_in_progress_semaphore);
 
-  prv_display_start();
+  //prv_display_start();
 
-  // Generate PWM signal for EXTCOMIN (120Hz, ~100us pulse width)
-  pwm_init(&BOARD_CONFIG_DISPLAY.extcomin, 125000 / 120, 125000);
-  pwm_set_duty_cycle(&BOARD_CONFIG_DISPLAY.extcomin, (100U * 125000UL) / 1000000UL);
-  pwm_enable(&BOARD_CONFIG_DISPLAY.extcomin, true);
+  prv_extcomin_toggle_init();
 
   s_initialized = true;
 }

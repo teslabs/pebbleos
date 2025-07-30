@@ -205,7 +205,6 @@ MicDevice * const MIC = &s_mic_device;
 /* asterix shares SPI with flash, which we don't support */
 
 PwmState BACKLIGHT_PWM_STATE;
-IRQ_MAP_NRFX(PWM0, nrfx_pwm_0_irq_handler);
 
 IRQ_MAP_NRFX(RTC1, rtc_irq_handler);
 
