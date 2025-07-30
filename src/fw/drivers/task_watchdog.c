@@ -165,6 +165,7 @@ static void prv_log_failed_message(RebootReason *reboot_reason) {
 // The Timer ISR. This runs at super high priority (higher than configMAX_SYSCALL_INTERRUPT_PRIORITY), so
 // it is not safe to call ANY FreeRTOS functions from here.
 #if MICRO_FAMILY_NRF5
+/*
 void RTC2_IRQHandler(void) {
   nrf_rtc_event_clear(NRF_RTC2, NRF_RTC_EVENT_COMPARE_0);
   nrf_rtc_task_trigger(NRF_RTC2, NRF_RTC_TASK_CLEAR);
@@ -174,6 +175,7 @@ void RTC2_IRQHandler(void) {
   s_ticks_since_successful_feed++;
   prv_task_watchdog_feed();
 }
+*/
 #elif MICRO_FAMILY_SF32LB52
 // TODO(SF32LB52): Add implementation
 #else
@@ -279,6 +281,7 @@ void WATCHDOG_FREERTOS_IRQHandler(void) {
 // which resets the watchdog timer if it detects that none of our watchable tasks are stuck.
 void task_watchdog_init(void) {
 #if MICRO_FAMILY_NRF5
+/*
   // We use RTC2 as the WDT kicker; RTC1 is used by the OS RTC
   nrf_rtc_prescaler_set(NRF_RTC2, NRF_RTC_FREQ_TO_PRESCALER(TIMER_CLOCK_HZ));
 
@@ -293,6 +296,7 @@ void task_watchdog_init(void) {
   NVIC_EnableIRQ(RTC2_IRQn);
 
   nrf_rtc_task_trigger(NRF_RTC2, NRF_RTC_TASK_START);
+*/
 #elif MICRO_FAMILY_SF32LB52
 // TODO(SF32LB52): Add implementation
 #else
@@ -343,8 +347,10 @@ void task_watchdog_init(void) {
   // level functions (like PBL_LOG), we trigger this lower-priority interrupt to fire. Since it runs at
   // configMAX_SYSCALL_INTERRUPT_PRIORITY or lower, it can at least call FreeRTOS ISR functions.
 #if MICRO_FAMILY_NRF5
+/*
   NVIC_SetPriority(WATCHDOG_FREERTOS_IRQn, configMAX_SYSCALL_INTERRUPT_PRIORITY);
   NVIC_EnableIRQ(WATCHDOG_FREERTOS_IRQn);
+*/
 #elif MICRO_FAMILY_SF32LB52
   // TODO(SF32LB52): Add implementation
 #else
@@ -362,7 +368,9 @@ void task_watchdog_init(void) {
 
 static void task_watchdog_disable_interrupt() {
 #if MICRO_FAMILY_NRF5
+/*
   NVIC_DisableIRQ(RTC2_IRQn);
+*/
 #elif MICRO_FAMILY_SF32LB52
 // TODO(SF32LB52): Add implementation
 #else
@@ -374,7 +382,9 @@ static void task_watchdog_disable_interrupt() {
 static void task_watchdog_enable_interrupt() {
   taskEXIT_CRITICAL();
 #if MICRO_FAMILY_NRF5
+/*
   NVIC_EnableIRQ(RTC2_IRQn);
+*/
 #elif MICRO_FAMILY_SF32LB52
 // TODO(SF32LB52): Add implementation
 #else
