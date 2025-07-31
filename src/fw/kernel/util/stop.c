@@ -152,6 +152,7 @@ void enter_stop_mode(void) {
 #endif
 
 void stop_mode_disable( StopModeInhibitor inhibitor ) {
+#if !MICRO_FAMILY_NRF5
   portENTER_CRITICAL();
   ++s_num_items_disallowing_stop_mode;
 
@@ -162,9 +163,11 @@ void stop_mode_disable( StopModeInhibitor inhibitor ) {
   // report the wrong number of nostop ticks.
   s_inhibitor_profile[inhibitor].ticks_when_stop_mode_disabled = rtc_get_ticks();
   portEXIT_CRITICAL();
+#endif
 }
 
 void stop_mode_enable( StopModeInhibitor inhibitor ) {
+#if !MICRO_FAMILY_NRF5
   portENTER_CRITICAL();
   PBL_ASSERTN(s_num_items_disallowing_stop_mode != 0);
   PBL_ASSERTN(s_inhibitor_profile[inhibitor].active_count != 0);
@@ -176,6 +179,7 @@ void stop_mode_enable( StopModeInhibitor inhibitor ) {
         s_inhibitor_profile[inhibitor].ticks_when_stop_mode_disabled;
   }
   portEXIT_CRITICAL();
+#endif
 }
 
 bool stop_mode_is_allowed(void) {
