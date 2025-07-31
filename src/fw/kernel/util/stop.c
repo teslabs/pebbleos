@@ -57,7 +57,7 @@ static InhibitorTickProfile s_inhibitor_profile[InhibitorNumItems];
 
 #if MICRO_FAMILY_NRF5
 void enter_stop_mode(void) {
-  dbgserial_enable_rx_exti();
+  // dbgserial_enable_rx_exti();
 
   // FIXME(NRF5): QSPI transfer does not succeed, causing an ASSERTION
   // flash_power_down_for_stop_mode();

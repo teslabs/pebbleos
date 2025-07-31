@@ -196,7 +196,7 @@ bool pmic_init(void) {
   uint8_t val;
 
   s_i2c_lock = mutex_create();
-  s_debounce_charger_timer = new_timer_create();
+  //s_debounce_charger_timer = new_timer_create();
 
   uint8_t buck_out;
   if (!prv_read_register(PmicRegisters_BUCK_BUCK1NORMVOUT, &buck_out)) {
@@ -213,19 +213,11 @@ bool pmic_init(void) {
   ok &= prv_write_register(PmicRegisters_BUCK_BUCK2NORMVOUT, 20 /* 3.0V */);
   ok &= prv_write_register(PmicRegisters_BUCK_BUCKSWCTRLSEL, 3 /* both of them, load */);
   
-  if (!prv_read_register(PmicRegisters_LDSW_LDSWSTATUS, &val)) {
-    PBL_LOG(LOG_LEVEL_ERROR, "failed to read LDSWSTATUS");
-    return false;
-  }
+  // BUCK2ENACLR
+  ok &= prv_write_register(0x0403, 1);
 
-  if ((val & PmicRegisters_LDSW_LDSWSTATUS__LDSW2PWRUPLDO) == 0U) {
-    ok &= prv_write_register(PmicRegisters_LDSW_TASKLDSW2CLR, 0x01);
-    ok &= prv_write_register(PmicRegisters_LDSW_LDSW2VOUTSEL, 8 /* 1.8V */);
-    ok &= prv_write_register(PmicRegisters_LDSW_LDSW2LDOSEL, 1 /* LDO */);
-    ok &= prv_write_register(PmicRegisters_LDSW_TASKLDSW2SET, 0x01);
-  } else {
-    ok &= prv_write_register(PmicRegisters_LDSW_LDSW2VOUTSEL, 8 /* 1.8V */);
-  }
+  ok &= prv_write_register(PmicRegisters_LDSW_TASKLDSW2CLR, 0x01);
+  ok &= prv_write_register(PmicRegisters_LDSW_TASKLDSW1CLR, 0x01);
 
   ok &= prv_write_register(PmicRegisters_MAIN_EVENTSBCHARGER1CLR, PmicRegisters_MAIN_EVENTSBCHARGER1__EVENTCHGCOMPLETED);
   ok &= prv_write_register(PmicRegisters_MAIN_INTENEVENTSBCHARGER1SET, PmicRegisters_MAIN_EVENTSBCHARGER1__EVENTCHGCOMPLETED);
@@ -295,7 +287,19 @@ bool pmic_init(void) {
 
   ok &= prv_write_register(PmicRegisters_BCHARGER_BCHGENABLESET, 1);
 
-  prv_configure_interrupts();
+#define TASKLDSW1SET 0x800U
+#define LDSW1GPISEL 0x805U
+#define LDSW1LDOSEL 0x808U
+#define LDSWLDOSEL_LDO 0x01U
+#define LDSW1VOUTSEL 0x80CU
+#define LDSWVOUTSEL_1V8 0x08U
+
+    ok &= prv_write_register(LDSW1GPISEL, 0x00U);
+    ok &= prv_write_register(LDSW1VOUTSEL, LDSWVOUTSEL_1V8);
+    ok &= prv_write_register(LDSW1LDOSEL, LDSWLDOSEL_LDO);
+    ok &= prv_write_register(TASKLDSW1SET, 0x01U);
+
+  //prv_configure_interrupts();
 
   if (!ok) {
     PBL_LOG(LOG_LEVEL_ERROR, "one or more PMIC transactions failed");

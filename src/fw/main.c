@@ -52,6 +52,7 @@
 #include "drivers/vibe.h"
 #include "drivers/voltage_monitor.h"
 #include "drivers/watchdog.h"
+#include "drivers/i2c.h"
 
 #include "resource/resource.h"
 #include "resource/system_resource.h"
@@ -419,6 +420,8 @@ static NOINLINE void prv_main_task_init(void) {
 
   kernel_applib_init();
 
+  return;
+
   system_task_init();
 
   events_init();
@@ -518,7 +521,29 @@ static NOINLINE void prv_main_task_init(void) {
 #endif
 }
 
+#include <hal/nrf_gpio.h>
+
 static void main_task(void *parameter) {
+  //nrf_gpio_cfg_output(NRF_GPIO_PIN_MAP(1, 15));
+
   prv_main_task_init();
-  launcher_main_loop();
+  rtc_alarm_init();
+  board_init();
+#if CAPABILITY_HAS_PMIC
+  pmic_init();
+#endif // CAPABILITY_HAS_PMIC
+  /*
+  uint8_t da7212_powerdown[] = { 0xFD, 0 };
+  i2c_use(I2C_DA7212);
+  i2c_write_block(I2C_DA7212, 2, da7212_powerdown);
+  i2c_release(I2C_DA7212);
+  imu_init();
+  */
+  //launcher_main_loop();
+
+  while (1) {
+    //PBL_LOG_SYNC(LOG_LEVEL_ERROR, "BEEP");
+    //nrf_gpio_pin_toggle(NRF_GPIO_PIN_MAP(1, 15));
+    psleep(1000);
+  }
 }
