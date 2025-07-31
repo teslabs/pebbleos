@@ -59,7 +59,8 @@ static InhibitorTickProfile s_inhibitor_profile[InhibitorNumItems];
 void enter_stop_mode(void) {
   dbgserial_enable_rx_exti();
 
-  flash_power_down_for_stop_mode();
+  // FIXME(NRF5): QSPI transfer does not succeed, causing an ASSERTION
+  // flash_power_down_for_stop_mode();
   rtc_systick_pause();
 
   /* XXX(nrf5): LATER: have MPSL turn off HFCLK */
@@ -69,7 +70,8 @@ void enter_stop_mode(void) {
   __ISB(); // Let the pipeline catch up (force the WFI to activate before moving on).
 
   rtc_systick_resume();
-  flash_power_up_after_stop_mode();
+  // FIXME(NRF5): QSPI transfer does not succeed, causing an ASSERTION
+  // flash_power_up_after_stop_mode();
 }
 #elif MICRO_FAMILY_SF32LB52
 void enter_stop_mode(void) {
