@@ -57,7 +57,7 @@ static InhibitorTickProfile s_inhibitor_profile[InhibitorNumItems];
 
 #if MICRO_FAMILY_NRF5
 void enter_stop_mode(void) {
-  dbgserial_enable_rx_exti();
+  // dbgserial_enable_rx_exti();
 
   flash_power_down_for_stop_mode();
   rtc_systick_pause();
