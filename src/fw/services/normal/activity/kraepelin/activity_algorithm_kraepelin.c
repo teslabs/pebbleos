@@ -883,11 +883,21 @@ bool activity_algorithm_deinit(void) {
   PBL_ASSERTN(s_alg_state);
   PBL_ASSERTN(s_alg_state->k_state);
 
-  mutex_destroy((PebbleMutex *)s_alg_state->mutex);
-  kernel_free(s_alg_state->k_state);
+  // Save local copies before clearing global
+  AlgState *state = s_alg_state;
 
-  kernel_free(s_alg_state);
+  // Clear global pointer FIRST - this makes prv_lock() fail for new operations
   s_alg_state = NULL;
+
+  // Now acquire lock to wait for any in-flight operations to complete
+  mutex_lock_recursive(state->mutex);
+  mutex_unlock_recursive(state->mutex);
+
+  // Safe to destroy now
+  mutex_destroy((PebbleMutex *)state->mutex);
+  kernel_free(state->k_state);
+  kernel_free(state);
+
   return true;
 }
 
