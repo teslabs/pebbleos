@@ -36,11 +36,10 @@
   MACRO(FIRMWARE_SLOT_1,         0x0100000 /*  1024K */, arg) /* 0x0100000 - 0x01FFFFF */ \
   MACRO(SYSTEM_RESOURCES_BANK_0, 0x0100000 /*  1024K */, arg) /* 0x0200000 - 0x02FFFFF */ \
   MACRO(SYSTEM_RESOURCES_BANK_1, 0x0100000 /*  1024K */, arg) /* 0x0300000 - 0x03FFFFF */ \
-  MACRO(FILESYSTEM,              0x19D0000 /* 26432K */, arg) /* 0x0400000 - 0x1DCFFFF */ \
-  MACRO(RSVD2,                   0x0200000 /*  2048K */, arg) /* 0x1DD0000 - 0x1FCFFFF */ \
-  MACRO(DEBUG_DB,                0x0020000 /*   128K */, arg) /* 0x1FD0000 - 0x1FEFFFF */ \
-  MACRO(RSVD3,                   0x000F000 /*    60K */, arg) /* 0x1FF0000 - 0x1FFEFFF */ \
-  MACRO(SHARED_PRF_STORAGE,      0x0001000 /*     4K */, arg) /* 0x1FFF000 - 0x1FFFFFF */
+  MACRO(FILESYSTEM,              0x03D0000 /*  3904K */, arg) /* 0x0400000 - 0x07CFFFF */ \
+  MACRO(DEBUG_DB,                0x0020000 /*   128K */, arg) /* 0x07D0000 - 0x07EFFFF */ \
+  MACRO(RSVD3,                   0x000F000 /*    60K */, arg) /* 0x07F0000 - 0x07FEFFF */ \
+  MACRO(SHARED_PRF_STORAGE,      0x0001000 /*     4K */, arg) /* 0x07FF000 - 0x07FFFFF */
 
 #include "flash_region_def_helper.h"
 
@@ -81,5 +80,5 @@
 // make sure all the sizes are multiples of the subsector size (4k)
 FLASH_REGION_SIZE_CHECK(SUBSECTOR_SIZE_BYTES)
 
-// make sure the total size is what we expect (32mb)
-_Static_assert(BOARD_NOR_FLASH_SIZE == 0x2000000, "Flash size should be 32mb");
+// make sure the total size is what we expect (8mb)
+_Static_assert(BOARD_NOR_FLASH_SIZE == 0x800000, "Flash size should be 8mb");

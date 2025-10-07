@@ -72,12 +72,12 @@ static QSPIFlashPart QSPI_FLASH_PART = {
     .supports_block_lock = false,
     .reset_latency_ms = 12,
     .suspend_to_read_latency_us = 20,
-    .standby_to_low_power_latency_us = 3,
-    .low_power_to_standby_latency_us = 20,
+    .standby_to_low_power_latency_us = 10,
+    .low_power_to_standby_latency_us = 35,
     .supports_fast_read_ddr = false,
-    .qer_type = JESD216_DW15_QER_S2B1v1,
-    .qspi_id_value = 0x1960c8,
-    .size = 0x2000000, /* 32MB */
+    .qer_type = JESD216_DW15_QER_S1B6,
+    .qspi_id_value = 0x1728c2,
+    .size = 0x800000, /* 8MB */
     .name = "GD25LQ255E",
 };
 

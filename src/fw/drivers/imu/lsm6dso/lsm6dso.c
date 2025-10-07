@@ -162,7 +162,8 @@ uint32_t accel_set_sampling_interval(uint32_t interval_us) {
   PBL_LOG(LOG_LEVEL_DEBUG, "LSM6DSO: Requesting update of sampling interval to %lu us",
           interval_us);
   s_lsm6dso_state_target.sampling_interval_us = interval_us;
-  prv_lsm6dso_chase_target_state();
+  s_lsm6dso_state.sampling_interval_us = interval_us;
+  //prv_lsm6dso_chase_target_state();
   return s_lsm6dso_state.sampling_interval_us;
 }
 
@@ -179,7 +180,7 @@ int accel_peek(AccelDriverSample *data) { return prv_lsm6dso_read_sample(data); 
 void accel_enable_shake_detection(bool on) {
   PBL_LOG(LOG_LEVEL_DEBUG, "LSM6DSO: %s shake detection.", on ? "Enabling" : "Disabling");
   s_lsm6dso_state_target.shake_detection_enabled = on;
-  prv_lsm6dso_chase_target_state();
+  //prv_lsm6dso_chase_target_state();
 }
 
 bool accel_get_shake_detection_enabled(void) { return s_lsm6dso_state.shake_detection_enabled; }
@@ -187,7 +188,7 @@ bool accel_get_shake_detection_enabled(void) { return s_lsm6dso_state.shake_dete
 void accel_enable_double_tap_detection(bool on) {
   PBL_LOG(LOG_LEVEL_DEBUG, "LSM6DSO: %s double tap detection.", on ? "Enabling" : "Disabling");
   s_lsm6dso_state_target.double_tap_detection_enabled = on;
-  prv_lsm6dso_chase_target_state();
+  //prv_lsm6dso_chase_target_state();
 }
 
 bool accel_get_double_tap_detection_enabled(void) {
@@ -198,7 +199,7 @@ void accel_set_shake_sensitivity_high(bool sensitivity_high) {
   PBL_LOG(LOG_LEVEL_DEBUG, "LSM6DSO: Setting shake sensitivity to %s.",
           sensitivity_high ? "high" : "normal");
   s_lsm6dso_state_target.shake_sensitivity_high = sensitivity_high;
-  prv_lsm6dso_chase_target_state();
+  //prv_lsm6dso_chase_target_state();
 }
 
 // HAL context implementations

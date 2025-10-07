@@ -50,7 +50,7 @@ static QSPIFlash QSPI_FLASH_DEVICE = {
     .qspi = &QSPI_PORT,
     .default_fast_read_ddr_enabled = false,
     .read_mode = QSPI_FLASH_READ_READ4IO,
-    .write_mode = QSPI_FLASH_WRITE_PP4O,
+    .write_mode = QSPI_FLASH_WRITE_PP4IO,
     .reset_gpio = {GPIO_Port_NULL},
 };
 QSPIFlash *const QSPI_FLASH = &QSPI_FLASH_DEVICE;
@@ -60,8 +60,8 @@ IRQ_MAP_NRFX(QSPI, nrfx_qspi_irq_handler);
 static UARTDeviceState s_dbg_uart_state;
 static UARTDevice DBG_UART_DEVICE = {
     .state = &s_dbg_uart_state,
-    .tx_gpio = NRF_GPIO_PIN_MAP(0, 27),
-    .rx_gpio = NRF_GPIO_PIN_MAP(0, 5),
+    .tx_gpio = NRF_GPIO_PIN_MAP(0, 6),
+    .rx_gpio = NRF_GPIO_PIN_MAP(0, 8),
     .rts_gpio = NRF_UARTE_PSEL_DISCONNECTED,
     .cts_gpio = NRF_UARTE_PSEL_DISCONNECTED,
     .periph = NRFX_UARTE_INSTANCE(0),
@@ -235,11 +235,13 @@ void board_early_init(void) {
 }
 
 void board_init(void) {
+  /*
   i2c_init(&I2C_NPMC_IIC1_BUS);
   i2c_init(&I2C_IIC2_BUS);
 
-  uint8_t da7212_powerdown[] = { 0xFD /* SYSTEM_ACTIVE */, 0 };
+  uint8_t da7212_powerdown[] = { 0xFD, 0 };
   i2c_use(I2C_DA7212);
   i2c_write_block(I2C_DA7212, 2, da7212_powerdown);
   i2c_release(I2C_DA7212);
+  */
 }

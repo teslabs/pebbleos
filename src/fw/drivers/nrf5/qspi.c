@@ -182,7 +182,7 @@ static void prv_use(QSPIFlash *dev) {
      */
   }
 
-  PBL_ASSERTN(s_is_init);
+  PBL_ASSERT(s_is_init, "QSPIFlash not initialized");
   s_is_active++;
 
   /* As soon as we're s_is_active, prv_sleep_timeout will not interrupt us
@@ -208,8 +208,9 @@ static void prv_use(QSPIFlash *dev) {
   clocksource_hfxo_request();
 
   nrfx_err_t err;
-  err = nrfx_qspi_activate(true /* wait */);
-  PBL_ASSERTN(err == NRFX_SUCCESS);
+  do {
+    err = nrfx_qspi_activate(true /* wait */);
+  } while (err != NRFX_SUCCESS);
 
   prv_write_cmd_no_addr(dev->qspi, dev->state->part->instructions.exit_low_power);
   delay_us(dev->state->part->low_power_to_standby_latency_us);

@@ -70,7 +70,7 @@ static bool s_backlight_pwm_enabled = false;
 static uint32_t s_led_enable;
 
 static void prv_backlight_pwm_enable(bool on) {
-  pwm_enable(&BOARD_CONFIG_BACKLIGHT.pwm, on);
+  //pwm_enable(&BOARD_CONFIG_BACKLIGHT.pwm, on);
 
   if (on != s_backlight_pwm_enabled) {
     if (on) {
@@ -99,11 +99,13 @@ void backlight_init(void) {
   }
 
   if (BOARD_CONFIG_BACKLIGHT.options & ActuatorOptions_Pwm) {
+    /*
     periph_config_acquire_lock();
     pwm_init(&BOARD_CONFIG_BACKLIGHT.pwm,
              TIMER_PERIOD_RESOLUTION,
              TIMER_PERIOD_RESOLUTION * PWM_OUTPUT_FREQUENCY_HZ);
     periph_config_release_lock();
+    */
     s_initialized = true;
   }
 
@@ -156,10 +158,12 @@ void backlight_set_brightness(uint16_t brightness) {
       // counter is 2^10. We want to rescale the brightness range into a subset of the timer
       // counter range. Different boards will have a different duty cycle that represent the
       // "fully on" state.
+      /*
       const uint32_t pwm_scaling_factor = BACKLIGHT_BRIGHTNESS_MAX / TIMER_PERIOD_RESOLUTION;
       const uint32_t desired_duty_cycle = brightness * BOARD_CONFIG.backlight_max_duty_cycle_percent
                                           / pwm_scaling_factor / 100;
       pwm_set_duty_cycle(&BOARD_CONFIG_BACKLIGHT.pwm, desired_duty_cycle);
+      */
       PWR_TRACK_BACKLIGHT("ON", PWM_OUTPUT_FREQUENCY_HZ,
                           (desired_duty_cycle * 100) / TIMER_PERIOD_RESOLUTION);
     }

@@ -31,6 +31,8 @@ char * otp_get_slot(const uint8_t index) {
   const FlashSecurityRegisters *info;
   status_t ret;
 
+  return NULL;
+
   if (index >= NUM_OTP_SLOTS) {
     return NULL;
   }
@@ -61,6 +63,8 @@ uint8_t * otp_get_lock(const uint8_t index) {
 }
 
 bool otp_is_locked(const uint8_t index) {
+  return false;
+
   status_t ret;
   bool locked;
 
@@ -81,6 +85,8 @@ OtpWriteResult otp_write_slot(const uint8_t index, const char *value) {
   char *existing_val;
   status_t ret;
   size_t len;
+
+  return OtpWriteFailCorrupt;
 
   if (index >= NUM_OTP_SLOTS) {
     return OtpWriteFailCorrupt;

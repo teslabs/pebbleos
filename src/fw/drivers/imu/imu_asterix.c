@@ -34,6 +34,7 @@ void imu_init(void) {
   bool rv;
   uint8_t result;
 
+  /*
   rv = prv_read_register(I2C_BMP390, BMP390_CHIP_ID, &result);
   if (!rv || result != BMP390_CHIP_ID_VALUE) {
     PBL_LOG(LOG_LEVEL_DEBUG, "BMP390 probe failed; rv %d, result 0x%02x", rv, result);
@@ -44,12 +45,13 @@ void imu_init(void) {
   
   lsm6dso_init();
   mmc5603nj_init();
+  */
 }
 
 void imu_power_up(void) {
-  lsm6dso_power_up();
+  //lsm6dso_power_up();
 }
 
 void imu_power_down(void) {
-  lsm6dso_power_down();
+  //lsm6dso_power_down();
 }

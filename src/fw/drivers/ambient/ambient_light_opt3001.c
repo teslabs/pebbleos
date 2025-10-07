@@ -65,6 +65,7 @@ static uint32_t prv_get_default_ambient_light_dark_threshold(void) {
 }
 
 void ambient_light_init(void) {
+  return;
   s_sensor_light_dark_threshold = prv_get_default_ambient_light_dark_threshold();
 
   uint16_t mf, id;

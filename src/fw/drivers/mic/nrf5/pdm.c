@@ -219,11 +219,13 @@ void mic_init(const MicDevice *this) {
   PBL_ASSERTN(state->mutex);
   
   // Initialize PDM driver once during init
+  /*
   nrfx_err_t err = nrfx_pdm_init(&this->pdm_instance, &state->pdm_config, prv_pdm_event_handler);
   if (err != NRFX_SUCCESS) {
     PBL_LOG(LOG_LEVEL_ERROR, "Failed to initialize PDM: %d", err);
     return;
   }
+  */
   
   state->is_initialized = true;
 }

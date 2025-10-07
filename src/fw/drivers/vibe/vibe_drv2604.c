@@ -69,6 +69,7 @@ static bool prv_write_register(uint8_t register_address, uint8_t datum) {
 }
 
 void vibe_init(void) {
+  return;
   gpio_output_init(&BOARD_CONFIG_VIBE.ctl, GPIO_OType_PP, GPIO_Speed_2MHz);
   gpio_output_set(&BOARD_CONFIG_VIBE.ctl, true);
   uint8_t rv;
@@ -113,6 +114,7 @@ static bool s_vibe_ctl_on = false;
  * modulate DRIVE_TIME too?
  */
 void vibe_set_strength(int8_t strength) {
+  return;
   int32_t strength_scale = strength * 0x7FL / 100L;
   gpio_output_set(&BOARD_CONFIG_VIBE.ctl, true);
   prv_write_register(DRV2604_MODE, DRV2604_MODE_RTP); /* exit standby, RTP mode */
@@ -121,6 +123,7 @@ void vibe_set_strength(int8_t strength) {
 }
 
 void vibe_ctl(bool on) {
+  return;
   if (!s_initialized) {
     return;
   }
@@ -153,6 +156,7 @@ void vibe_ctl(bool on) {
 }
 
 void vibe_force_off(void) {
+  return;
   if (!s_initialized) {
     return;
   }

@@ -23,6 +23,7 @@ def configure(conf):
         conf.env.append_unique('DEFINES', 'NRFX_TWIM1_ENABLED=1')
         conf.env.append_unique('DEFINES', 'NRFX_UARTE_ENABLED=1')
         conf.env.append_unique('DEFINES', 'NRFX_UARTE0_ENABLED=1')
+        conf.env.append_unique('DEFINES', 'ENABLE_TRACE')
 
 
 def build(bld):

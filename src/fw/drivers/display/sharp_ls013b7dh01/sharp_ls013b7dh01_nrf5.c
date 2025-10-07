@@ -158,11 +158,11 @@ void display_init(void) {
 
   gpio_output_init(&BOARD_CONFIG_DISPLAY.cs, GPIO_OType_PP, GPIO_Speed_50MHz);
 
-  gpio_output_init(&BOARD_CONFIG_DISPLAY.on_ctrl, BOARD_CONFIG_DISPLAY.on_ctrl_otype,
-                   GPIO_Speed_50MHz);
-  gpio_output_set(&BOARD_CONFIG_DISPLAY.on_ctrl, true);
+  //gpio_output_init(&BOARD_CONFIG_DISPLAY.on_ctrl, BOARD_CONFIG_DISPLAY.on_ctrl_otype,
+  //                 GPIO_Speed_50MHz);
+  //gpio_output_set(&BOARD_CONFIG_DISPLAY.on_ctrl, true);
 
-  prv_extcomin_init();
+  //prv_extcomin_init();
 
   s_sem = xSemaphoreCreateBinary();
 }
@@ -185,7 +185,7 @@ void display_clear(void) {
 }
 
 void display_set_enabled(bool enabled) {
-  gpio_output_set(&BOARD_CONFIG_DISPLAY.on_ctrl, enabled);
+  //gpio_output_set(&BOARD_CONFIG_DISPLAY.on_ctrl, enabled);
 }
 
 void display_update(NextRowCallback nrcb, UpdateCompleteCallback uccb) {
