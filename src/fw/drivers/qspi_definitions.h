@@ -17,11 +17,6 @@
 #pragma once
 
 #include "board/board.h"
-#if MICRO_FAMILY_NRF5
-#include "drivers/rtc.h"
-#include "os/mutex.h"
-#include "services/common/new_timer/new_timer.h"
-#endif
 
 #include "freertos_types.h"
 
@@ -39,11 +34,6 @@ typedef struct QSPIPortState {
 #if MICRO_FAMILY_NRF5
   SemaphoreHandle_t sem;
   bool initialized;
-  uint8_t use_count;
-  TimerID stop_timer;
-  bool timer_scheduled;
-  PebbleMutex *lock;
-  RtcTicks last_used;
 #elif MICRO_FAMILY_SF32LB52
   QSPI_FLASH_CTX_T ctx;
   DMA_HandleTypeDef hdma;
