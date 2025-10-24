@@ -24,6 +24,7 @@
 #include "flash_region/flash_region.h"
 #include "kernel/util/delay.h"
 #include "kernel/util/sleep.h"
+#include "os/tick.h"
 #include "system/passert.h"
 #include "util/math.h"
 
@@ -49,6 +50,9 @@
 // Minimum address to enable 4-byte addressing
 #define ADDR_4BYTE_THRESHOLD 0x1000000UL
 
+// Disable timeout (ms)
+#define QSPI_DISABLE_TIMEOUT_MS 100U
+
 static uint8_t __attribute__((aligned(4))) s_bounce_buf[32];
 
 void QSPI_IRQHandler(void) {
@@ -63,7 +67,7 @@ void QSPI_IRQHandler(void) {
 // -----------------------------------------------------------------------------
 // Internal helpers
 
-static void prv_get(QSPIFlash *dev) {
+static void prv_enable(void) {
   nrf_qspi_enable(NRF_QSPI);
 
   nrf_qspi_int_disable(NRF_QSPI, NRF_QSPI_INT_READY_MASK);
@@ -74,12 +78,85 @@ static void prv_get(QSPIFlash *dev) {
   nrf_qspi_event_clear(NRF_QSPI, NRF_QSPI_EVENT_READY);
 }
 
-static void prv_put(QSPIFlash *dev) {
+static void prv_disable(void) {
   nrf_qspi_int_disable(NRF_QSPI, NRF_QSPI_INT_READY_MASK);
   nrf_qspi_task_trigger(NRF_QSPI, NRF_QSPI_TASK_DEACTIVATE);
   nrf_qspi_event_clear(NRF_QSPI, NRF_QSPI_EVENT_READY);
 
   nrf_qspi_disable(NRF_QSPI);
+}
+
+static void prv_on_disable(void *data) {
+  QSPIFlash *dev = (QSPIFlash *)data;
+  QSPIPortState *state = dev->qspi->state;
+
+  mutex_lock(state->lock);
+
+  // If being used, or recently used again, reschedule a disable
+  if ((state->use_count != 0U) ||
+      (rtc_get_ticks() - state->last_used) < milliseconds_to_ticks(QSPI_DISABLE_TIMEOUT_MS)) {
+    bool res;
+
+    res = new_timer_start(state->stop_timer, QSPI_DISABLE_TIMEOUT_MS, prv_on_disable, data, 0U);
+    if (!res && state->use_count == 0U) {
+      // Disable if we fail to schedule and it is not in use
+      prv_disable();
+      state->timer_scheduled = false;
+    }
+  } else {
+    prv_disable();
+    state->timer_scheduled = false;
+  }
+
+  mutex_unlock(state->lock);
+}
+
+static void prv_get(QSPIFlash *dev) {
+  QSPIPortState *state = dev->qspi->state;
+
+  if (dev->state->coredump_mode) {
+    return;
+  }
+
+  mutex_lock(state->lock);
+
+  state->use_count++;
+  if (state->use_count == 1U) {
+    prv_enable();
+  }
+
+  mutex_unlock(state->lock);
+}
+
+static void prv_put(QSPIFlash *dev) {
+  QSPIPortState *state = dev->qspi->state;
+
+  if (dev->state->coredump_mode) {
+    return;
+  }
+
+  mutex_lock(state->lock);
+
+  state->last_used = rtc_get_ticks();
+
+  PBL_ASSERTN(state->use_count > 0U);
+  state->use_count--;
+
+  // Scheduling a new timer is expensive (requires a context switch!), so only do it
+  // there is no timer already scheduled.
+  if (state->use_count == 0U && !state->timer_scheduled) {
+    bool res;
+
+    res = new_timer_start(state->stop_timer, QSPI_DISABLE_TIMEOUT_MS, prv_on_disable, (void *)dev, 0U);
+    if (!res) {
+      // Immediately disable if we couldn't schedule the timer
+      prv_disable();
+    } else {
+      state->timer_scheduled = true;
+    }
+  }
+
+  mutex_unlock(state->lock);
 }
 
 static void prv_cinstr_write_read(QSPIFlash *dev, uint8_t instr, const void *data, void *buf,
@@ -274,6 +351,10 @@ void qspi_flash_init(QSPIFlash *dev, QSPIFlashPart *part, bool coredump_mode) {
   dev->state->coredump_mode = coredump_mode;
 
   if (dev->qspi->state->initialized) {
+    if (coredump_mode) {
+      prv_enable();
+    }
+
     return;
   }
 
@@ -342,7 +423,7 @@ void qspi_flash_init(QSPIFlash *dev, QSPIFlashPart *part, bool coredump_mode) {
 
   nrf_qspi_ifconfig1_set(NRF_QSPI, &conf_phy);
 
-  prv_get(dev);
+  prv_enable();
 
   // Reset the flash to stop any program's or erase in progress from before reboot
   prv_cinstr(dev, part->instructions.reset_enable);
@@ -358,12 +439,15 @@ void qspi_flash_init(QSPIFlash *dev, QSPIFlashPart *part, bool coredump_mode) {
   // Configure QE if needed
   prv_configure_qe(dev);
 
-  prv_put(dev);
+  prv_disable();
 
   NVIC_SetPriority(QSPI_IRQn, 5);
   NVIC_EnableIRQ(QSPI_IRQn);
 
   dev->qspi->state->sem = xSemaphoreCreateBinary();
+  dev->qspi->state->use_count = 0U;
+  dev->qspi->state->lock = mutex_create();
+  dev->qspi->state->stop_timer = new_timer_create();
   dev->qspi->state->initialized = true;
 }
 
