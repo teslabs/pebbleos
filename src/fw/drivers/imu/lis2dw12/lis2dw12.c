@@ -70,6 +70,7 @@
 
 // CTRL2 fields
 #define LIS2DW12_CTRL2_SOFT_RESET (1U << 6U)
+#define LIS2DW12_CTRL2_BOOT (1U << 7U)
 
 // CTRL3 fields
 #define LIS2DW12_CTRL3_SLP_MODE_1 (1U << 0U)
@@ -397,6 +398,14 @@ void accel_init(void) {
   }
 
   delay_us(LIS2DW12_RESET_TIME_US);
+
+  do {
+    ret = prv_lis2dw12_read(LIS2DW12_CTRL2, &val, 1);
+    if (!ret) {
+      PBL_LOG(LOG_LEVEL_ERROR, "Could not read CTRL2 register");
+      return;
+    }
+  } while ((val & LIS2DW12_CTRL2_BOOT) != 0U);
 
   // Disable ADDR pull-up if requested
   // NOTE: This is an undocumented register (provided by FAE)
