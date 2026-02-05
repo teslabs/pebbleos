@@ -6,7 +6,9 @@
 #include "drivers/exti.h"
 #include "drivers/i2c.h"
 #include "drivers/rtc.h"
+#include "drivers/gpio.h"
 #include "services/imu/units.h"
+#include "services/common/regular_timer.h"
 #include "system/logging.h"
 #include "system/status_codes.h"
 #include "kernel/util/delay.h"
@@ -129,9 +131,21 @@
 #define LIS2DW12_CTRL7_INTERRUPTS_ENABLE (1U << 5U)
 #define LIS2DW12_CTRL7_INT2_ON_INT1 (1U << 6U)
 
+// INT1 watchdog timer interval (10 seconds)
+#define LIS2DW12_INT1_WATCHDOG_INTERVAL_S 10
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private
 ////////////////////////////////////////////////////////////////////////////////
+
+// INT1 interrupt tracking
+static uint64_t s_last_int1_timestamp_ms = 0;
+
+// Forward declaration
+static void prv_int1_watchdog_callback(void *data);
+
+// INT1 watchdog timer
+static RegularTimerInfo s_int1_watchdog_timer = {.cb = prv_int1_watchdog_callback, .cb_data = NULL};
 
 static bool prv_lis2dw12_write(uint8_t reg, const uint8_t *data, uint16_t len) {
   bool ret;
@@ -194,6 +208,15 @@ static uint64_t prv_get_curr_system_time_us(void) {
   rtc_get_time_ms(&time_s, &time_ms);
 
   return (((uint64_t)time_s) * 1000 + time_ms) * 1000ULL;
+}
+
+static uint64_t prv_get_curr_system_time_ms(void) {
+  time_t time_s;
+  uint16_t time_ms;
+
+  rtc_get_time_ms(&time_s, &time_ms);
+
+  return ((uint64_t)time_s) * 1000 + time_ms;
 }
 
 static void prv_lis2dw12_read_samples(uint8_t num_samples) {
@@ -262,7 +285,8 @@ static void prv_lis2dw12_int1_work_handler(void) {
         return;
       }
 
-      val = LIS2DW12_FIFO_CTRL_FTH(LIS2DW12->state->num_samples) | LIS2DW12_FIFO_CTRL_FIFO_MODE_CONT;
+      val =
+          LIS2DW12_FIFO_CTRL_FTH(LIS2DW12->state->num_samples) | LIS2DW12_FIFO_CTRL_FIFO_MODE_CONT;
       if (!prv_lis2dw12_write(LIS2DW12_FIFO_CTRL, &val, 1)) {
         PBL_LOG(LOG_LEVEL_ERROR, "Could not write FIFO_CTRL register");
         return;
@@ -273,6 +297,7 @@ static void prv_lis2dw12_int1_work_handler(void) {
 
 static void prv_lis2dw12_int1_irq_handler(bool *should_context_switch) {
   PBL_LOG(LOG_LEVEL_DEBUG, "INT1 IRQ");
+  s_last_int1_timestamp_ms = prv_get_curr_system_time_ms();
   accel_offload_work_from_isr(prv_lis2dw12_int1_work_handler, should_context_switch);
 }
 
@@ -367,6 +392,119 @@ static bool prv_configure_int1(bool shake_detection_enabled, bool fifo_enabled) 
   PBL_LOG(LOG_LEVEL_DEBUG, "Enabled interrupts: %u", ctrl7 != 0U);
 
   return true;
+}
+
+static void prv_int1_watchdog_callback(void *data) {
+  uint64_t now_ms = prv_get_curr_system_time_ms();
+  uint64_t time_since_last_int1_ms = now_ms - s_last_int1_timestamp_ms;
+
+  // Check if we haven't received INT1 in the last 10 seconds
+  if (s_last_int1_timestamp_ms == 0) {
+    // First run, just record the current time
+    s_last_int1_timestamp_ms = now_ms;
+    return;
+  }
+
+  if (time_since_last_int1_ms >= (LIS2DW12_INT1_WATCHDOG_INTERVAL_S * 1000ULL)) {
+    bool ret;
+    uint8_t val;
+
+    PBL_LOG(LOG_LEVEL_WARNING, "INT1 not received in %" PRIu32 " ms",
+            (uint32_t)time_since_last_int1_ms);
+
+    InputConfig int1_cfg = {
+      .gpio = LIS2DW12->int1.peripheral,
+      .gpio_pin = LIS2DW12->int1.gpio_pin,
+    };
+
+    ret = gpio_input_read(&int1_cfg);
+    PBL_LOG(LOG_LEVEL_DEBUG, "INT1 GPIO state: %u", ret);
+
+    val = LIS2DW12_CTRL2_SOFT_RESET;
+    ret = prv_lis2dw12_write(LIS2DW12_CTRL2, &val, 1);
+    if (!ret) {
+      PBL_LOG(LOG_LEVEL_ERROR, "Could not write CTRL2 register");
+      return;
+    }
+
+    delay_us(LIS2DW12_RESET_TIME_US);
+
+    do {
+      ret = prv_lis2dw12_read(LIS2DW12_CTRL2, &val, 1);
+      if (!ret) {
+        PBL_LOG(LOG_LEVEL_ERROR, "Could not read CTRL2 register");
+        return;
+      }
+    } while ((val & LIS2DW12_CTRL2_BOOT) != 0U);
+
+    // Disable ADDR pull-up if requested
+    // NOTE: This is an undocumented register (provided by FAE)
+    if (LIS2DW12->disable_addr_pullup) {
+      ret = prv_lis2dw12_read(LIS2DW12_UNDOC, &val, 1);
+      if (!ret) {
+        PBL_LOG(LOG_LEVEL_ERROR, "Failed to read LIS2DW12 register 0x17");
+        return;
+      }
+
+      val |= LIS2DW12_UNDOC_ADDR_PULLUP_DIS;
+      ret = prv_lis2dw12_write(LIS2DW12_UNDOC, &val, 1);
+      if (!ret) {
+        PBL_LOG(LOG_LEVEL_ERROR, "Failed to write LIS2DW12 register 0x17");
+        return;
+      }
+    }
+
+    // Single-data conversion via SLP_MODE_1
+    val = LIS2DW12_CTRL3_SLP_MODE_SEL_SLP_MODE_1;
+    ret = prv_lis2dw12_write(LIS2DW12_CTRL3, &val, 1);
+    if (!ret) {
+      PBL_LOG(LOG_LEVEL_ERROR, "Could not write CTRL3 register");
+      return;
+    }
+
+    // Configure scale
+    switch (LIS2DW12->scale_mg) {
+      case 2000U:
+        val = LIS2DW12_CTRL6_FS_2G;
+        break;
+      case 4000U:
+        val = LIS2DW12_CTRL6_FS_4G;
+        break;
+      case 8000U:
+        val = LIS2DW12_CTRL6_FS_8G;
+        break;
+      case 16000U:
+        val = LIS2DW12_CTRL6_FS_16G;
+        break;
+      default:
+        PBL_LOG(LOG_LEVEL_ERROR, "Invalid scale: %" PRIu16, LIS2DW12->scale_mg);
+        return;
+    }
+
+    ret = prv_lis2dw12_write(LIS2DW12_CTRL6, &val, 1);
+    if (!ret) {
+      PBL_LOG(LOG_LEVEL_ERROR, "Could not write CTRL6 register");
+      return;
+    }
+
+    // Configure wake-up threshold defaults
+    val = LIS2DW12_WAKE_UP_DUR_WAKE_DUR(LIS2DW12->wk_dur_default);
+    ret = prv_lis2dw12_write(LIS2DW12_WAKE_UP_DUR, &val, 1);
+    if (!ret) {
+      PBL_LOG(LOG_LEVEL_ERROR, "Could not write WAKE_UP_DUR register");
+      return;
+    }
+
+    val = LIS2DW12_WAKE_UP_THS_WK_THS(LIS2DW12->wk_ths_default);
+    ret = prv_lis2dw12_write(LIS2DW12_WAKE_UP_THS, &val, 1);
+    if (!ret) {
+      PBL_LOG(LOG_LEVEL_ERROR, "Could not write WAKE_UP_THS register");
+      return;
+    }
+
+    accel_set_sampling_interval(LIS2DW12->state->sampling_interval_us);
+    accel_set_num_samples(LIS2DW12->state->num_samples);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -532,6 +670,10 @@ void accel_set_num_samples(uint32_t num_samples) {
     if (!prv_lis2dw12_write(LIS2DW12_FIFO_CTRL, &val, 1)) {
       PBL_LOG(LOG_LEVEL_ERROR, "Could not write FIFO_CTRL register");
     }
+
+    // Stop the INT1 watchdog timer when FIFO is disabled
+    regular_timer_remove_callback(&s_int1_watchdog_timer);
+    s_last_int1_timestamp_ms = 0;
   } else {
     // FIXME: we should ideally drain the FIFO here if the new threshold is
     // lower than the current one, otherwise samples may be lost due to overrun
@@ -541,6 +683,11 @@ void accel_set_num_samples(uint32_t num_samples) {
     if (!prv_lis2dw12_write(LIS2DW12_FIFO_CTRL, &val, 1)) {
       PBL_LOG(LOG_LEVEL_ERROR, "Could not write FIFO_CTRL register");
     }
+
+    // Start the INT1 watchdog timer when FIFO is enabled
+    s_last_int1_timestamp_ms = prv_get_curr_system_time_ms();
+    regular_timer_add_multisecond_callback(&s_int1_watchdog_timer,
+                                           LIS2DW12_INT1_WATCHDOG_INTERVAL_S);
   }
 
   // Re-configure INT1
