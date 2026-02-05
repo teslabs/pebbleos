@@ -271,7 +271,7 @@ static void prv_lis2dw12_int1_work_handler(void) {
 }
 
 static void prv_lis2dw12_int1_irq_handler(bool *should_context_switch) {
-  PBL_LOG(LOG_LEVEL_DEBUG_VERBOSE, "INT1 IRQ");
+  PBL_LOG(LOG_LEVEL_DEBUG, "INT1 IRQ");
   accel_offload_work_from_isr(prv_lis2dw12_int1_work_handler, should_context_switch);
 }
 
