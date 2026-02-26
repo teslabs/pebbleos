@@ -79,6 +79,16 @@ static RTC_HandleTypeDef RTC_Handler = {
         },
 };
 
+void RTC_IRQHandler(void) {
+  HAL_RTC_IRQHandler(&RTC_Handler);
+}
+
+static void prv_rtc_callback(int reason) {
+  PBL_ASSERTN(reason == RTC_CBK_WAKEUP);
+
+  PBL_LOG_ALWAYS("RTC wakeup callback triggered");
+}
+
 #ifndef SF32LB52_USE_LXT
 static uint32_t prv_rtc_get_lpcycle() {
   uint32_t value;
@@ -111,6 +121,9 @@ static void prv_rtc_reconfig() {
 
   ret = HAL_RTC_Init(&RTC_Handler, RTC_INIT_REINIT);
   PBL_ASSERTN(ret == HAL_OK);
+
+  HAL_RTC_RegCallback(&RTC_Handler, prv_rtc_callback);
+  HAL_RTC_SetWakeUpTimer(&RTC_Handler, 1 * DIV_B, RTC_WAKEUP_SUBSEC);
 }
 
 static void prv_rtc_cal_timer_cb(void* data) {
@@ -198,6 +211,9 @@ void rtc_init(void) {
 
   ret = HAL_RTC_Init(&RTC_Handler, RTC_INIT_NORMAL);
   PBL_ASSERTN(ret == HAL_OK);
+
+  HAL_RTC_RegCallback(&RTC_Handler, prv_rtc_callback);
+  HAL_RTC_SetWakeUpTimer(&RTC_Handler, 1 * DIV_B, RTC_WAKEUP_SUBSEC);
 #else
   prv_rtc_reconfig();
 #endif
