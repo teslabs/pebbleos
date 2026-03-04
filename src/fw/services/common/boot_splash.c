@@ -128,7 +128,7 @@ static void prv_boot_splash_task(void *param) {
 
 void boot_splash_start(void) {
   // Initialize the display
-  display_init();
+  //display_init();
 
   // Allocate framebuffer for boot splash
   s_boot_splash_fb = kernel_malloc(DISPLAY_FRAMEBUFFER_BYTES);

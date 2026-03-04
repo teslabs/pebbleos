@@ -9,7 +9,7 @@
 #include "drivers/gpio.h"
 #include "kernel/events.h"
 #include "kernel/pbl_malloc.h"
-#include "kernel/util/sleep.h"
+#include "kernel/util/delay.h"
 #include "kernel/util/stop.h"
 #include "os/mutex.h"
 #include "system/logging.h"
@@ -41,47 +41,11 @@ static bool s_rotated_180 = true;
 static bool s_rotated_180 = false;
 #endif
 
-static void prv_power_cycle(void){
-  OutputConfig cfg = {
-    .gpio = hwp_gpio1,
-    .active_high = true,
-  };
-
-  // This will disable all JDI pull-ups/downs so that VLCD can fully turn off,
-  // allowing for a clean power cycle.
-
-  cfg.gpio_pin = DISPLAY->pinmux.b1.pad - PAD_PA00;
-  gpio_output_init(&cfg, GPIO_OType_PP, GPIO_Speed_2MHz);
-  gpio_output_set(&cfg, false);
-
-  cfg.gpio_pin = DISPLAY->pinmux.vck.pad - PAD_PA00;
-  gpio_output_init(&cfg, GPIO_OType_PP, GPIO_Speed_2MHz);
-  gpio_output_set(&cfg, false);
-
-  cfg.gpio_pin = DISPLAY->pinmux.xrst.pad - PAD_PA00;
-  gpio_output_init(&cfg, GPIO_OType_PP, GPIO_Speed_2MHz);
-  gpio_output_set(&cfg, false);
-
-  cfg.gpio_pin = DISPLAY->pinmux.hck.pad - PAD_PA00;
-  gpio_output_init(&cfg, GPIO_OType_PP, GPIO_Speed_2MHz);
-  gpio_output_set(&cfg, false);
-
-  cfg.gpio_pin = DISPLAY->pinmux.r2.pad - PAD_PA00;
-  gpio_output_init(&cfg, GPIO_OType_PP, GPIO_Speed_2MHz);
-  gpio_output_set(&cfg, false);
-
-  gpio_output_init(&DISPLAY->vlcd, GPIO_OType_PP, GPIO_Speed_2MHz);
-  gpio_output_set(&cfg, false);
-
-  psleep(POWER_RESET_CYCLE_DELAY_TIME);
-}
-
-// TODO(SF32LB52): Improve/clarify display on/off code
 static void prv_display_on() {
-  gpio_output_set(&DISPLAY->vlcd, false);
-  psleep(POWER_SEQ_DELAY_TIME);
+  gpio_output_set(&DISPLAY->vlcd, true);
+  delay_us(POWER_SEQ_DELAY_TIME * 1000);
   gpio_output_set(&DISPLAY->vddp, true);
-  psleep(POWER_SEQ_DELAY_TIME);
+  delay_us(POWER_SEQ_DELAY_TIME * 1000);
 
   LPTIM_TypeDef *lptim = DISPLAY->vcom.lptim;
 
@@ -90,15 +54,6 @@ static void prv_display_on() {
   lptim->CMP = lptim->ARR / 2;
   lptim->CR |= LPTIM_CR_ENABLE;
   lptim->CR |= LPTIM_CR_CNTSTRT;
-
-  MODIFY_REG(hwp_hpsys_aon->CR1, HPSYS_AON_CR1_PINOUT_SEL0_Msk, 3 << HPSYS_AON_CR1_PINOUT_SEL0_Pos);
-  MODIFY_REG(hwp_hpsys_aon->CR1, HPSYS_AON_CR1_PINOUT_SEL1_Msk, 3 << HPSYS_AON_CR1_PINOUT_SEL1_Pos);
-
-  MODIFY_REG(hwp_rtc->PBR0R, RTC_PBR0R_SEL_Msk, 3 << RTC_PBR0R_SEL_Pos);
-  MODIFY_REG(hwp_rtc->PBR1R, RTC_PBR1R_SEL_Msk, 2 << RTC_PBR1R_SEL_Pos);
-
-  MODIFY_REG(hwp_rtc->PBR0R, RTC_PBR0R_OE_Msk, 1 << RTC_PBR0R_OE_Pos);
-  MODIFY_REG(hwp_rtc->PBR1R, RTC_PBR1R_OE_Msk, 1 << RTC_PBR1R_OE_Pos);
 }
 
 static void prv_display_off() {
@@ -110,20 +65,10 @@ static void prv_display_off() {
   lptim->CR &= ~LPTIM_CR_ENABLE;
   lptim->CR &= ~LPTIM_CR_CNTSTRT;
 
-  MODIFY_REG(hwp_hpsys_aon->CR1, HPSYS_AON_CR1_PINOUT_SEL0_Msk, 0 << HPSYS_AON_CR1_PINOUT_SEL0_Pos);
-  MODIFY_REG(hwp_hpsys_aon->CR1, HPSYS_AON_CR1_PINOUT_SEL1_Msk, 0 << HPSYS_AON_CR1_PINOUT_SEL1_Pos);
-
-  MODIFY_REG(hwp_rtc->PBR0R, RTC_PBR0R_SEL_Msk | RTC_PBR0R_OE_Msk, 0);
-  MODIFY_REG(hwp_rtc->PBR1R, RTC_PBR1R_SEL_Msk | RTC_PBR1R_OE_Msk, 0);
-
-  // IE=0, PE=0, OE=0
-  MODIFY_REG(hwp_rtc->PBR0R, RTC_PBR0R_IE_Msk | RTC_PBR0R_PE_Msk | RTC_PBR0R_OE_Msk, 0);
-  MODIFY_REG(hwp_rtc->PBR1R, RTC_PBR1R_IE_Msk | RTC_PBR1R_PE_Msk | RTC_PBR1R_OE_Msk, 0);
-
-  psleep(POWER_SEQ_DELAY_TIME);
+  delay_us(POWER_SEQ_DELAY_TIME * 1000);
   gpio_output_set(&DISPLAY->vddp, false);
-  psleep(POWER_SEQ_DELAY_TIME);
-  gpio_output_set(&DISPLAY->vlcd, true);
+  delay_us(POWER_SEQ_DELAY_TIME * 1000);
+  gpio_output_set(&DISPLAY->vlcd, false);
 }
 
 static void prv_display_update_start(void) {
@@ -199,11 +144,6 @@ void display_init(void) {
 
   DisplayJDIState *state = DISPLAY->state;
 
-  prv_power_cycle();
-
-  gpio_output_init(&DISPLAY->vddp, GPIO_OType_PP, GPIO_Speed_2MHz);
-  gpio_output_init(&DISPLAY->vlcd, GPIO_OType_PP, GPIO_Speed_2MHz);
-
   HAL_PIN_Set(DISPLAY->pinmux.xrst.pad, DISPLAY->pinmux.xrst.func, DISPLAY->pinmux.xrst.flags, 1);
   HAL_PIN_Set(DISPLAY->pinmux.vst.pad, DISPLAY->pinmux.vst.func, DISPLAY->pinmux.vst.flags, 1);
   HAL_PIN_Set(DISPLAY->pinmux.vck.pad, DISPLAY->pinmux.vck.func, DISPLAY->pinmux.vck.flags, 1);
@@ -216,9 +156,17 @@ void display_init(void) {
   HAL_PIN_Set(DISPLAY->pinmux.g2.pad, DISPLAY->pinmux.g2.func, DISPLAY->pinmux.g2.flags, 1);
   HAL_PIN_Set(DISPLAY->pinmux.b1.pad, DISPLAY->pinmux.b1.func, DISPLAY->pinmux.b1.flags, 1);
   HAL_PIN_Set(DISPLAY->pinmux.b2.pad, DISPLAY->pinmux.b2.func, DISPLAY->pinmux.b2.flags, 1);
-  HAL_PIN_Set(DISPLAY->pinmux.vcom.pad, DISPLAY->pinmux.vcom.func, DISPLAY->pinmux.vcom.flags, 1);
-  HAL_PIN_Set(DISPLAY->pinmux.va.pad, DISPLAY->pinmux.va.func, DISPLAY->pinmux.va.flags, 1);
-  HAL_PIN_Set(DISPLAY->pinmux.vb.pad, DISPLAY->pinmux.vb.func, DISPLAY->pinmux.vb.flags, 1);
+  HAL_PIN_Set(DISPLAY->pinmux.vcom_frp.pad, DISPLAY->pinmux.vcom_frp.func, DISPLAY->pinmux.vcom_frp.flags, 1);
+  HAL_PIN_Set(DISPLAY->pinmux.xfrp.pad, DISPLAY->pinmux.xfrp.func, DISPLAY->pinmux.xfrp.flags, 1);
+
+  gpio_output_init(&DISPLAY->vddp, GPIO_OType_PP, GPIO_Speed_2MHz);
+  gpio_output_init(&DISPLAY->vlcd, GPIO_OType_PP, GPIO_Speed_2MHz);
+
+  prv_display_off();
+  uint32_t sysclk_m = HAL_RCC_GetHCLKFreq(CORE_ID_DEFAULT) / 1000000;
+  PBL_LOG_DBG("System clock: %lu MHz", sysclk_m);
+  delay_us(100000);
+  prv_display_on();
 
   HAL_LCDC_Init(&state->hlcdc);
   HAL_LCDC_LayerReset(&state->hlcdc, HAL_LCDC_LAYER_DEFAULT);
@@ -230,8 +178,6 @@ void display_init(void) {
   HAL_NVIC_EnableIRQ(DISPLAY->irqn);
 
   s_sem = xSemaphoreCreateBinary();
-
-  prv_display_on();
 
   s_initialized = true;
 }
@@ -341,6 +287,7 @@ void display_update(NextRowCallback nrcb, UpdateCompleteCallback uccb) {
 }
 
 void display_update_boot_frame(uint8_t *framebuffer) {
+  return;
   if (s_rotated_180) {
     // HMirror in software (VMirror is done by hardware)
     for (uint16_t y = 0; y < PBL_DISPLAY_HEIGHT; y++) {
