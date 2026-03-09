@@ -39,6 +39,11 @@ def build(bld):
             'pebbleos-nonfree/gh3x2x/demo_code/demo_mp_code/inc',
         ]
 
+        # Add platform-specific header directory for gh3x2x integration
+        platform_includes = [
+            '../../src/fw/drivers/hrm/gh3x2x',
+        ]
+
         bld.read_stlib(
             'star-mc1_arm-gcc14.2.1_softfp+Os_common_dl',
             paths=['pebbleos-nonfree/gh3x2x/algo_lib/COMMON_DL'],
@@ -94,11 +99,14 @@ def build(bld):
                 ],
             )
 
+        # Add platform includes to the includes list
+        all_includes = includes + platform_includes
+
         bld.objects(
             name='gh3x2x',
             source=sources,
-            includes=includes,
-            export_includes=includes,
+            includes=all_includes,
+            export_includes=includes,  # Don't export platform includes
             use=[
                 'star-mc1_arm-gcc14.2.1_softfp+Os_common_dl',
                 'star-mc1_arm-gcc14.2.1_softfp+Os_common_dsp',

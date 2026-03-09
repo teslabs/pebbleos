@@ -116,20 +116,45 @@ void gh3x2x_result_report(uint8_t type, uint32_t val, uint8_t quality) {
     hrm_data.features = HRMFeature_BPM;
     hrm_data.hrm_bpm = val & 0xff;
 
-    if (quality == 254U) {
-      hrm_data.hrm_quality = HRMQuality_OffWrist;
-    } else if (quality >= 80U) {
-      hrm_data.hrm_quality = HRMQuality_Excellent;
-    } else if (quality >= 70U) {
-      hrm_data.hrm_quality = HRMQuality_Good;
-    } else if (quality >= 60U) {
-      hrm_data.hrm_quality = HRMQuality_Acceptable;
-    } else if (quality >= 50U) {
-      hrm_data.hrm_quality = HRMQuality_Poor;
-    } else if (quality >= 30U) {
-      hrm_data.hrm_quality = HRMQuality_Worst;
+    // Use NADT wear state to override quality if off-wrist is detected
+    if (HRM && HRM->state) {
+      int32_t nadt_state = HRM->state->nadt_wear_state;
+      // nadt_state: 0=default, 1=worn, 2=off-wrist, 3=non-alive
+      if (nadt_state == 2 || nadt_state == 3) {
+        // Off-wrist or non-alive detected by NADT
+        hrm_data.hrm_quality = HRMQuality_OffWrist;
+      } else if (quality == 254U) {
+        hrm_data.hrm_quality = HRMQuality_OffWrist;
+      } else if (quality >= 80U) {
+        hrm_data.hrm_quality = HRMQuality_Excellent;
+      } else if (quality >= 70U) {
+        hrm_data.hrm_quality = HRMQuality_Good;
+      } else if (quality >= 60U) {
+        hrm_data.hrm_quality = HRMQuality_Acceptable;
+      } else if (quality >= 50U) {
+        hrm_data.hrm_quality = HRMQuality_Poor;
+      } else if (quality >= 30U) {
+        hrm_data.hrm_quality = HRMQuality_Worst;
+      } else {
+        hrm_data.hrm_quality = HRMQuality_NoSignal;
+      }
     } else {
-      hrm_data.hrm_quality = HRMQuality_NoSignal;
+      // Fallback to original quality mapping
+      if (quality == 254U) {
+        hrm_data.hrm_quality = HRMQuality_OffWrist;
+      } else if (quality >= 80U) {
+        hrm_data.hrm_quality = HRMQuality_Excellent;
+      } else if (quality >= 70U) {
+        hrm_data.hrm_quality = HRMQuality_Good;
+      } else if (quality >= 60U) {
+        hrm_data.hrm_quality = HRMQuality_Acceptable;
+      } else if (quality >= 50U) {
+        hrm_data.hrm_quality = HRMQuality_Poor;
+      } else if (quality >= 30U) {
+        hrm_data.hrm_quality = HRMQuality_Worst;
+      } else {
+        hrm_data.hrm_quality = HRMQuality_NoSignal;
+      }
     }
 
     hrm_manager_new_data_cb(&hrm_data);
@@ -141,21 +166,45 @@ void gh3x2x_result_report(uint8_t type, uint32_t val, uint8_t quality) {
     hrm_data.features = HRMFeature_SpO2;
     hrm_data.spo2_percent = val & 0xff;
 
-    // FIXME(GH3X2X): This mapping is wrong, we need to understand the actual quality values
-    if (quality == 254U) {
-      hrm_data.spo2_quality = HRMQuality_OffWrist;
-    } else if (quality >= 80U) {
-      hrm_data.spo2_quality = HRMQuality_Excellent;
-    } else if (quality >= 70U) {
-      hrm_data.spo2_quality = HRMQuality_Good;
-    } else if (quality >= 60U) {
-      hrm_data.spo2_quality = HRMQuality_Acceptable;
-    } else if (quality >= 50U) {
-      hrm_data.spo2_quality = HRMQuality_Poor;
-    } else if (quality >= 30U) {
-      hrm_data.spo2_quality = HRMQuality_Worst;
+    // Use NADT wear state to override quality if off-wrist is detected
+    if (HRM && HRM->state) {
+      int32_t nadt_state = HRM->state->nadt_wear_state;
+      // nadt_state: 0=default, 1=worn, 2=off-wrist, 3=non-alive
+      if (nadt_state == 2 || nadt_state == 3) {
+        // Off-wrist or non-alive detected by NADT
+        hrm_data.spo2_quality = HRMQuality_OffWrist;
+      } else if (quality == 254U) {
+        hrm_data.spo2_quality = HRMQuality_OffWrist;
+      } else if (quality >= 80U) {
+        hrm_data.spo2_quality = HRMQuality_Excellent;
+      } else if (quality >= 70U) {
+        hrm_data.spo2_quality = HRMQuality_Good;
+      } else if (quality >= 60U) {
+        hrm_data.spo2_quality = HRMQuality_Acceptable;
+      } else if (quality >= 50U) {
+        hrm_data.spo2_quality = HRMQuality_Poor;
+      } else if (quality >= 30U) {
+        hrm_data.spo2_quality = HRMQuality_Worst;
+      } else {
+        hrm_data.spo2_quality = HRMQuality_NoSignal;
+      }
     } else {
-      hrm_data.spo2_quality = HRMQuality_NoSignal;
+      // Fallback to original quality mapping
+      if (quality == 254U) {
+        hrm_data.spo2_quality = HRMQuality_OffWrist;
+      } else if (quality >= 80U) {
+        hrm_data.spo2_quality = HRMQuality_Excellent;
+      } else if (quality >= 70U) {
+        hrm_data.spo2_quality = HRMQuality_Good;
+      } else if (quality >= 60U) {
+        hrm_data.spo2_quality = HRMQuality_Acceptable;
+      } else if (quality >= 50U) {
+        hrm_data.spo2_quality = HRMQuality_Poor;
+      } else if (quality >= 30U) {
+        hrm_data.spo2_quality = HRMQuality_Worst;
+      } else {
+        hrm_data.spo2_quality = HRMQuality_NoSignal;
+      }
     }
 
     hrm_manager_new_data_cb(&hrm_data);
@@ -224,6 +273,38 @@ void gh3x2x_wear_evt_notify(bool is_wear) {
     p_dev->state->is_wear = is_wear;
   }
   PBL_LOG_DBG("wear notify: %d", is_wear);
+}
+
+void gh3x2x_nadt_result_handler(const void* algo_result) {
+  if (algo_result == NULL) {
+    return;
+  }
+
+  const STGh3x2xAlgoResult* result = (const STGh3x2xAlgoResult*)algo_result;
+
+  // NADT result format:
+  // snResult[0]: (bit0-bit1): wear state (0=default, 1=worn, 2=off-wrist, 3=non-alive)
+  //              (bit2): suspected off-wrist flag (0=normal, 1=suspected)
+  // snResult[1]: confidence level
+
+  int32_t wear_state = result->snResult[0] & 0x3;
+  int32_t suspected_off_wrist = (result->snResult[0] >> 2) & 0x1;
+  int32_t confidence = result->snResult[1];
+
+  PBL_LOG_DBG("NADT: wear_state=%d, suspected=%d, confidence=%d",
+              (int)wear_state, (int)suspected_off_wrist, (int)confidence);
+
+  // Update wear state
+  bool is_worn = (wear_state == 1);  // 1 = worn
+  gh3x2x_wear_evt_notify(is_worn);
+
+  // Report quality based on NADT state
+  // This will be used by the HRM result reporting to set appropriate quality
+  if (HRM && HRM->state) {
+    HRM->state->nadt_wear_state = wear_state;
+    HRM->state->nadt_confidence = confidence;
+    HRM->state->nadt_suspected_off = suspected_off_wrist;
+  }
 }
 
 // GH3X2X calibration/factory testing
@@ -458,10 +539,17 @@ bool hrm_enable(HRMDevice *dev) {
 
   s_hrm_int_flag = false;
 
-  dev->state->work_mode = GH3X2X_FUNCTION_HR | GH3X2X_FUNCTION_SPO2;
+  // Enable HR, SpO2, and NADT (wear detection) algorithms
+  dev->state->work_mode = GH3X2X_FUNCTION_HR | GH3X2X_FUNCTION_SPO2 | GH3X2X_FUNCTION_SOFT_ADT_IR;
 #ifdef MANUFACTURING_FW
+  // Already included above, but keep for clarity
   dev->state->work_mode |= GH3X2X_FUNCTION_SOFT_ADT_IR;
 #endif
+
+  // Initialize NADT state
+  dev->state->nadt_wear_state = 0;      // default
+  dev->state->nadt_confidence = 0;
+  dev->state->nadt_suspected_off = 0;
 
   GH3X2X_FifoWatermarkThrConfig(GH3X2X_FIFO_WATERMARK_CONFIG);
   GH3X2X_SetSoftEvent(GH3X2X_SOFT_EVENT_NEED_FORCE_READ_FIFO);

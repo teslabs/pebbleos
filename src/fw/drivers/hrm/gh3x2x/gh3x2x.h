@@ -33,6 +33,10 @@ typedef struct HRMDeviceState {
   AppTimer *timer;
   GH3x2xFTData* factory;
   bool initialized;
+  // NADT (Non-Alive Detection Technology) state
+  int32_t nadt_wear_state;      // 0=default, 1=worn, 2=off-wrist, 3=non-alive
+  int32_t nadt_confidence;      // Confidence level
+  int32_t nadt_suspected_off;   // Suspected off-wrist flag
 } HRMDeviceState;
 
 typedef const struct HRMDevice {
