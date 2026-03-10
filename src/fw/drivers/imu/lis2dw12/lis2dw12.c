@@ -226,7 +226,7 @@ static void prv_lis2dw12_read_samples(uint8_t num_samples) {
   }
 }
 
-static bool prv_lis2dw12_enable_fifo(uint8_t num_samples) {
+static bool prv_lis2dw12_disable_fifo(void) {
   bool ret;
   uint8_t val;
 
@@ -236,6 +236,15 @@ static bool prv_lis2dw12_enable_fifo(uint8_t num_samples) {
     PBL_LOG_ERR("Could not write FIFO_CTRL register");
     return ret;
   }
+
+  PBL_LOG_DBG("FIFO disabled");
+
+  return true;
+}
+
+static bool prv_lis2dw12_enable_fifo(uint8_t num_samples) {
+  bool ret;
+  uint8_t val;
 
   val = LIS2DW12_FIFO_CTRL_FTH(num_samples) | LIS2DW12_FIFO_CTRL_FIFO_MODE_CONT;
   ret = prv_lis2dw12_write(LIS2DW12_FIFO_CTRL, &val, 1);
@@ -249,30 +258,47 @@ static bool prv_lis2dw12_enable_fifo(uint8_t num_samples) {
   return true;
 }
 
+static bool prv_lis2dw12_drain_fifo(bool *did_overrun) {
+  bool ret;
+  uint8_t val;
+  uint8_t samples;
+
+  ret = prv_lis2dw12_read(LIS2DW12_FIFO_SAMPLES, &val, 1);
+  if (!ret) {
+    PBL_LOG_ERR("Could not read FIFO_SAMPLES register");
+    return false;
+  }
+
+  if (did_overrun != NULL) {
+    *did_overrun = (val & LIS2DW12_FIFO_SAMPLES_FIFO_OVR) != 0U;
+  }
+
+  samples = LIS2DW12_FIFO_SAMPLES_DIFF_GET(val);
+  if (samples > 0U) {
+    PBL_LOG_DBG("Draining FIFO with %u samples", samples);
+    prv_lis2dw12_read_samples(samples);
+  }
+
+  return true;
+}
+
 static void prv_lis2dw12_int1_work_handler(void) {
   bool ret;
   uint8_t val;
-  bool action_taken = false;
 
   if (LIS2DW12->state->num_samples > 0U) {
-    ret = prv_lis2dw12_read(LIS2DW12_FIFO_SAMPLES, &val, 1);
+    bool did_overrun;
+
+    ret = prv_lis2dw12_drain_fifo(&did_overrun);
     if (!ret) {
-      PBL_LOG_ERR("Could not read FIFO_SAMPLES register");
+      PBL_LOG_ERR("Failed to drain FIFO");
       return;
     }
 
-    if ((val & LIS2DW12_FIFO_SAMPLES_FIFO_OVR) != 0U) {
+    if (did_overrun) {
       PBL_LOG_WRN("FIFO overrun detected, re-arming");
+      prv_lis2dw12_disable_fifo();
       prv_lis2dw12_enable_fifo(LIS2DW12->state->num_samples);
-      action_taken = true;
-    } else if ((val & LIS2DW12_FIFO_SAMPLES_FIFO_FTH) != 0U) {
-      uint8_t samples;
-
-      samples = LIS2DW12_FIFO_SAMPLES_DIFF_GET(val);
-      if (samples > 0U) {
-        prv_lis2dw12_read_samples(samples);
-        action_taken = true;
-      }
     }
   }
 
@@ -288,12 +314,7 @@ static void prv_lis2dw12_int1_work_handler(void) {
       // TODO: provide more info about the shake (axis, direction, etc.) or
       // refactor shake to be non-dimensional
       accel_cb_shake_detected(AXIS_Z, 0);
-      action_taken = true;
     }
-  }
-
-  if (!action_taken) {
-    PBL_LOG_WRN("INT1 triggered but no action taken");
   }
 }
 
@@ -407,6 +428,12 @@ static void prv_int1_wdt_work_cb(void) {
     PBL_LOG_WRN("INT1 not received in %" PRIu32 " ms", ms_since_last_int1);
 
     // Re-enable FIFO, and clear any event INT source
+    ret = prv_lis2dw12_disable_fifo();
+    if (!ret) {
+      PBL_LOG_ERR("Failed to disable FIFO");
+      return;
+    }
+
     ret = prv_lis2dw12_enable_fifo(LIS2DW12->state->num_samples);
     if (!ret) {
       PBL_LOG_ERR("Failed to re-enable FIFO");
@@ -550,17 +577,32 @@ uint32_t accel_set_sampling_interval(uint32_t interval_us) {
   if (!LIS2DW12->state->initialized) {
     // Just pretend we can achieve any requested interval
     LIS2DW12->state->sampling_interval_us = interval_us;
-  } else {
-    // FIXME: we should technically stop and drain the FIFO here, otherwise
-    // we may report existing samples in the FIFO buffer with an incorrect timestamp
+  } else if (interval_us != LIS2DW12->state->sampling_interval_us) {
+    // If FIFO is enabled, disable and drain it
+    if (LIS2DW12->state->num_samples > 0U) {
+      bool ret;
+
+      ret = prv_lis2dw12_disable_fifo();
+      if (!ret) {
+        PBL_LOG_ERR("Could not disable FIFO");
+        return LIS2DW12->state->sampling_interval_us;
+      }
+
+      ret = prv_lis2dw12_drain_fifo(NULL);
+      if (!ret) {
+        PBL_LOG_ERR("Could not drain FIFO");
+        return LIS2DW12->state->sampling_interval_us;
+      }
+    }
 
     if (!prv_configure_odr(interval_us, LIS2DW12->state->shake_detection_enabled)) {
       PBL_LOG_ERR("Could not configure ODR");
+      return LIS2DW12->state->sampling_interval_us;
     }
-  }
 
-  PBL_LOG_DBG("Set sampling interval to %" PRIu32 " us",
-          LIS2DW12->state->sampling_interval_us);
+    PBL_LOG_DBG("Set sampling interval to %" PRIu32 " us",
+                LIS2DW12->state->sampling_interval_us);
+  }
 
   return LIS2DW12->state->sampling_interval_us;
 }
@@ -582,19 +624,23 @@ void accel_set_num_samples(uint32_t num_samples) {
     num_samples = LIS2DW12->fifo_threshold;
   }
 
+  // Disable FIFO
+  prv_lis2dw12_disable_fifo();
+
   // Disable all INT1 before changing FIFO threshold
   prv_configure_int1(false, false);
 
   if (num_samples == 0U) {
-    // Bypass FIFO (disable)
-    val = LIS2DW12_FIFO_CTRL_FIFO_MODE_BYPASS;
-    if (!prv_lis2dw12_write(LIS2DW12_FIFO_CTRL, &val, 1)) {
-      PBL_LOG_ERR("Could not write FIFO_CTRL register");
-    }
-
     regular_timer_remove_callback(&LIS2DW12->state->int1_wdt_timer);
   } else {
-    // FIXME: we should ideally drain the FIFO here to not discard existing samples
+    if (num_samples < LIS2DW12->state->num_samples) {
+      // If reducing the number of samples, drain the FIFO to avoid stale samples
+      ret = prv_lis2dw12_drain_fifo(NULL);
+      if (!ret) {
+        PBL_LOG_ERR("Could not drain FIFO");
+        return;
+      }
+    }
 
     // Configure FIFO in CONT mode with threshold
     ret = prv_lis2dw12_enable_fifo((uint8_t)num_samples);
