@@ -27,10 +27,6 @@
 // HAL tick counter (milliseconds) - used by HAL timeout functions
 extern __IO uint32_t uwTick;
 
-static LPTIM_HandleTypeDef s_lptim = {
-    .Instance = LPTIM1,
-};
-
 // CPU analytics tracking
 typedef enum {
   SleepTypeNone = 0,
@@ -49,8 +45,6 @@ static bool s_force_deepwfi;
 static const uint32_t EARLY_WAKEUP_TICKS = 4;
 //! Minimum ticks to enter deep sleep
 static const uint32_t MIN_DEEPSLEEP_TICKS = RTC_TICKS_HZ / 20;
-//! Maximum LPTIM counter value (24-bit)
-static const uint32_t MAX_LPTIM_CNT = 0xFFFFFFUL;
 
 static uint32_t s_iser_bak[16];
 
@@ -200,22 +194,23 @@ void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime) {
         uint32_t gtimer_stop;
         uint32_t gtimer_delta;
         uint32_t sleep_ticks;
-        uint32_t lptim_ticks;
+        uint32_t rtc_ticks;
         uint32_t elapsed_ticks;
 
         // stop systick
         SysTick->CTRL &= ~(SysTick_CTRL_ENABLE_Msk | SysTick_CTRL_TICKINT_Msk);
         SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
 
-        // configure LPTIM to wake us up after expected idle time
+        // configure RTC to wake us up after expected idle time
         sleep_ticks = xExpectedIdleTime - EARLY_WAKEUP_TICKS;
-        lptim_ticks = MIN(sleep_ticks * rc10k_get_freq_hz() / RTC_TICKS_HZ,
-                          MAX_LPTIM_CNT);
-        HAL_LPTIM_Counter_Start_IT(&s_lptim, lptim_ticks);
+        rtc_ticks = MIN(sleep_ticks, RTC_WUTR_WUT);
+        rtc_alarm_set(rtc_ticks);
 
         gtimer_start = HAL_GTIMER_READ();
 
+        HAL_GPIO_WritePin(hwp_gpio1, 25, GPIO_PIN_SET);
         prv_enter_deepslep();
+        HAL_GPIO_WritePin(hwp_gpio1, 25, GPIO_PIN_RESET);
 
         // NOTE: GTIMER needs at least 1 LP clock cycle to be updated after sleep,
         // so spin until we see a change
@@ -230,7 +225,9 @@ void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime) {
         }
 
         elapsed_ticks = prv_calc_elapsed_ticks(gtimer_delta);
+        PBL_LOG_INFO("RTC ticks: %lu, Elapsed ticks: %lu, %lu", rtc_ticks, elapsed_ticks, (uint32_t)rtc_alarm_get_elapsed_ticks());
 
+        elapsed_ticks = rtc_ticks;
         vTaskStepTick(elapsed_ticks);
 
         // increment HAL tick counter by elapsed ticks
@@ -240,9 +237,6 @@ void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime) {
 
         // Track deep sleep time for analytics
         s_analytics_deepsleep_ticks += elapsed_ticks;
-
-        // stop LPTIM
-        HAL_LPTIM_Counter_Stop_IT(&s_lptim);
 
         // enable systick
         SysTick->CTRL |= (SysTick_CTRL_ENABLE_Msk | SysTick_CTRL_TICKINT_Msk);
@@ -254,8 +248,14 @@ void vPortSuppressTicksAndSleep(TickType_t xExpectedIdleTime) {
 }
 
 bool vPortEnableTimer() {
-  HAL_LPTIM_InitDefault(&s_lptim);
-  HAL_LPTIM_Init(&s_lptim);
+  GPIO_InitTypeDef GPIO_InitStruct;
+  GPIO_InitStruct.Pin = 25;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+
+  HAL_PIN_Set(PAD_PA25, GPIO_A25, PIN_NOPULL, 1); 
+
+  HAL_GPIO_Init(hwp_gpio1, &GPIO_InitStruct);
 
   // configure SYSTICK
   // - use HXT48 as TICK reference clock

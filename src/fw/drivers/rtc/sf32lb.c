@@ -83,12 +83,6 @@ void RTC_IRQHandler(void) {
   HAL_RTC_IRQHandler(&RTC_Handler);
 }
 
-static void prv_rtc_callback(int reason) {
-  PBL_ASSERTN(reason == RTC_CBK_WAKEUP);
-
-  PBL_LOG_ALWAYS("RTC wakeup callback triggered");
-}
-
 #ifndef SF32LB52_USE_LXT
 static uint32_t prv_rtc_get_lpcycle() {
   uint32_t value;
@@ -121,9 +115,6 @@ static void prv_rtc_reconfig() {
 
   ret = HAL_RTC_Init(&RTC_Handler, RTC_INIT_REINIT);
   PBL_ASSERTN(ret == HAL_OK);
-
-  HAL_RTC_RegCallback(&RTC_Handler, prv_rtc_callback);
-  HAL_RTC_SetWakeUpTimer(&RTC_Handler, 1 * DIV_B, RTC_WAKEUP_SUBSEC);
 }
 
 static void prv_rtc_cal_timer_cb(void* data) {
@@ -211,9 +202,6 @@ void rtc_init(void) {
 
   ret = HAL_RTC_Init(&RTC_Handler, RTC_INIT_NORMAL);
   PBL_ASSERTN(ret == HAL_OK);
-
-  HAL_RTC_RegCallback(&RTC_Handler, prv_rtc_callback);
-  HAL_RTC_SetWakeUpTimer(&RTC_Handler, 1 * DIV_B, RTC_WAKEUP_SUBSEC);
 #else
   prv_rtc_reconfig();
 #endif
@@ -341,10 +329,40 @@ RtcTicks rtc_get_ticks(void) {
 
 void rtc_alarm_init(void) {}
 
-void rtc_alarm_set(RtcTicks num_ticks) {}
+static uint32_t s_alarm_set_total_subsec;
+
+static void prv_get_rtc_time(RTC_TimeTypeDef *rtc_time) {
+  RTC_DateTypeDef rtc_date;
+  HAL_RTC_GetTime(&RTC_Handler, rtc_time, RTC_FORMAT_BIN);
+  while (HAL_RTC_GetDate(&RTC_Handler, &rtc_date, RTC_FORMAT_BIN) == HAL_ERROR) {
+    HAL_RTC_GetTime(&RTC_Handler, rtc_time, RTC_FORMAT_BIN);
+  }
+}
+
+void rtc_alarm_set(RtcTicks num_ticks) {
+  RTC_TimeTypeDef rtc_time;
+  prv_get_rtc_time(&rtc_time);
+  uint32_t divb = RTC_Handler.Init.DivB;
+  s_alarm_set_total_subsec =
+      ((uint32_t)rtc_time.Minutes * 60 + rtc_time.Seconds) * divb + rtc_time.SubSeconds;
+  HAL_RTC_SetWakeUpTimer(&RTC_Handler, (num_ticks * divb) / RTC_TICKS_HZ, RTC_WAKEUP_SUBSEC);
+}
 
 RtcTicks rtc_alarm_get_elapsed_ticks(void) {
-  return 0;
+  // After deep sleep, the shadow registers are stale. Force a resync.
+  HAL_RTC_WaitForSynchro(&RTC_Handler);
+  RTC_TimeTypeDef rtc_time;
+  prv_get_rtc_time(&rtc_time);
+  uint32_t divb = RTC_Handler.Init.DivB;
+  uint32_t now_total_subsec =
+      ((uint32_t)rtc_time.Minutes * 60 + rtc_time.Seconds) * divb + rtc_time.SubSeconds;
+
+  int32_t elapsed_subsec = (int32_t)(now_total_subsec - s_alarm_set_total_subsec);
+  if (elapsed_subsec < 0) {
+    elapsed_subsec += 3600 * (int32_t)divb;
+  }
+
+  return (RtcTicks)((uint32_t)elapsed_subsec * RTC_TICKS_HZ / divb);
 }
 
 bool rtc_alarm_is_initialized(void) {

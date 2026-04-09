@@ -197,7 +197,7 @@ void display_init(void) {
   HAL_PIN_Set(DISPLAY->pinmux.b1.pad, DISPLAY->pinmux.b1.func, DISPLAY->pinmux.b1.flags, 1);
   HAL_PIN_Set(DISPLAY->pinmux.b2.pad, DISPLAY->pinmux.b2.func, DISPLAY->pinmux.b2.flags, 1);
   HAL_PIN_Set(DISPLAY->pinmux.vcom_frp.pad, DISPLAY->pinmux.vcom_frp.func, DISPLAY->pinmux.vcom_frp.flags, 1);
-  HAL_PIN_Set(DISPLAY->pinmux.xfrp.pad, DISPLAY->pinmux.xfrp.func, DISPLAY->pinmux.xfrp.flags, 1);
+  //HAL_PIN_Set(DISPLAY->pinmux.xfrp.pad, DISPLAY->pinmux.xfrp.func, DISPLAY->pinmux.xfrp.flags, 1);
 
   HAL_LCDC_Init(&state->hlcdc);
   HAL_LCDC_LayerReset(&state->hlcdc, HAL_LCDC_LAYER_DEFAULT);
