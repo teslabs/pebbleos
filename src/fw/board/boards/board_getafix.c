@@ -124,7 +124,7 @@ static DisplayJDIState s_display_state = {
                 .valid_rows = PBL_DISPLAY_HEIGHT,
                 .bank_row_tail = 4,
                 .enb_start_col = 6,
-                .enb_end_col = 128,
+                .enb_end_col = 98,
             },
           },
         },

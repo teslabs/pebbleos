@@ -21,7 +21,7 @@ uint8_t *framebuffer_get_line(FrameBuffer *f, uint16_t y) {
   PBL_ASSERTN(!gsize_equal(&f->size, &GSizeZero));
   PBL_ASSERTN(y < f->size.h);
 
-#if PLATFORM_GETAFIX || PLATFORM_QEMU_GABBRO
+#if 0
   const GBitmapDataRowInfoInternal *row_infos;
   if (f->size.w == LEGACY_3X_DISP_COLS && f->size.h == LEGACY_3X_DISP_ROWS) {
     row_infos = g_gbitmap_getafix_legacy_3x_data_row_infos;
