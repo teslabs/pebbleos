@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+PBL_LOG_MODULE_REGISTER(gfx_tests_tests, LOG_LEVEL_DEBUG);
+
 typedef struct {
   Window menu_window;
   Window test_window;

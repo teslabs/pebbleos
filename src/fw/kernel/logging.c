@@ -28,11 +28,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#ifndef PBL_LOG_LEVEL
-  #define PBL_LOG_LEVEL LOG_LEVEL_DEBUG
-#endif
-
-int g_pbl_log_level = PBL_LOG_LEVEL;
+int g_pbl_log_level = LOG_LEVEL_DEBUG;
 bool g_pbl_log_enabled = true;
 
 static bool prv_check_serial_log_enabled(int level) {
@@ -66,8 +62,7 @@ static void prv_log_timestamp(void) {
   serial_console_write_log_message(buffer);
 }
 
-static void prv_log_serial(
-    uint8_t log_level, const char* src_filename, int src_line_number, const char* message) {
+static void prv_log_serial(uint8_t log_level, const char *module, const char *message) {
   if (!serial_console_is_logging_enabled() && log_level != LOG_LEVEL_ALWAYS) {
     return;
   }
@@ -86,18 +81,10 @@ static void prv_log_serial(
   // Start out with the timestamp
   prv_log_timestamp();
 
-  // Write out the filename
-  src_filename = GET_FILE_NAME(src_filename);
-  serial_console_write_log_message(src_filename);
-
-  // Write out the line number
-  {
-    char line_number_buffer[12];
-    itoa_int(src_line_number, line_number_buffer, 10);
-    serial_console_write_log_message(":");
-    serial_console_write_log_message(line_number_buffer);
-    serial_console_write_log_message("> ");
-  }
+  // Write out the module tag.
+  serial_console_write_log_message("[");
+  serial_console_write_log_message(module && module[0] ? module : "?");
+  serial_console_write_log_message("] ");
 
   // Write the actual log message.
   serial_console_write_log_message(message);
@@ -114,16 +101,12 @@ void kernel_pbl_log_serial(LogBinaryMessage *log_message, bool async) {
 
 #if PULSE_EVERYWHERE
   if (async) {
-    pulse_logging_log(log_message->log_level, log_message->filename,
-                      htons(log_message->line_number), log_message->message);
+    pulse_logging_log(log_message->log_level, log_message->module, log_message->message);
   } else {
-    pulse_logging_log_sync(
-        log_message->log_level, log_message->filename,
-        htons(log_message->line_number), log_message->message);
+    pulse_logging_log_sync(log_message->log_level, log_message->module, log_message->message);
   }
 #else
-  prv_log_serial(log_message->log_level, log_message->filename,
-                 htons(log_message->line_number), log_message->message);
+  prv_log_serial(log_message->log_level, log_message->module, log_message->message);
 #endif
 }
 
@@ -146,11 +129,9 @@ void kernel_pbl_log(LogBinaryMessage* log_message, bool async) {
   }
 }
 
-void kernel_pbl_log_from_fault_handler(
-    const char *src_filename, uint16_t src_line_number, const char *message) {
+void kernel_pbl_log_from_fault_handler(const char *module, const char *message) {
 #if PULSE_EVERYWHERE
-  pulse_logging_log_sync(LOG_LEVEL_ALWAYS, src_filename,
-                         src_line_number, message);
+  pulse_logging_log_sync(LOG_LEVEL_ALWAYS, module, message);
 #else
   serial_console_write_log_message(message);
   serial_console_write_log_message("\r\n");
@@ -158,14 +139,13 @@ void kernel_pbl_log_from_fault_handler(
 }
 
 void kernel_pbl_log_from_fault_handler_fmt(
-    const char *src_filename, uint16_t src_line_number, char *buffer,
-    unsigned int buffer_size, const char *fmt, ...) {
+    const char *module, char *buffer, unsigned int buffer_size, const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   vsniprintf(buffer, buffer_size, fmt, ap);
   va_end(ap);
 
-  kernel_pbl_log_from_fault_handler(src_filename, src_line_number, buffer);
+  kernel_pbl_log_from_fault_handler(module, buffer);
 }
 
 // Serial Commands

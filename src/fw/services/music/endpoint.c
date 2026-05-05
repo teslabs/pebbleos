@@ -10,6 +10,8 @@
 #include "system/logging.h"
 #include "util/math.h"
 
+PBL_LOG_MODULE_REGISTER(music_endpoint, LOG_LEVEL_DEBUG);
+
 static const uint16_t MUSIC_CTRL_ENDPOINT = 0x20;
 
 static bool s_connected;

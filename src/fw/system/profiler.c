@@ -32,6 +32,8 @@
 #define PROF_LOG(buf, sz, fmt, ...) dbgserial_putstr_fmt(buf, sz, fmt, ## __VA_ARGS__)
 #endif
 
+PBL_LOG_MODULE_REGISTER(system_profiler, LOG_LEVEL_DEBUG);
+
 Profiler g_profiler;
 
 #undef PROFILER_NODE

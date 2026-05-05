@@ -22,7 +22,7 @@ from pebble.loghashing.constants import (
 hex_digits = set(string.hexdigits)
 
 LOG_DICT_KEY_VERSION = "new_logging_version"
-NEW_LOGGING_VERSION = "NL0101"
+NEW_LOGGING_VERSION = "NL0200"
 
 LOG_LEVEL_ALWAYS = 0
 LOG_LEVEL_ERROR = 1

@@ -20,9 +20,11 @@
 #include <inttypes.h>
 
 // External Speex mode declarations
+PBL_LOG_MODULE_REGISTER(voice_voice_speex, LOG_LEVEL_DEBUG);
+
 extern const SpeexMode speex_wb_mode;
 
-#define VOICE_SPEEX_LOG(fmt, args...) PBL_LOG_D_DBG(LOG_DOMAIN_VOICE, fmt, ## args)
+#define VOICE_SPEEX_LOG(fmt, args...) PBL_LOG_DBG(fmt, ## args)
 
 // Speex bitstream version
 #define SPEEX_BITSTREAM_VERSION 4

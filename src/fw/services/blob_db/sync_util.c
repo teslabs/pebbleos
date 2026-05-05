@@ -11,6 +11,8 @@
 // be very careful
 
 
+PBL_LOG_MODULE_REGISTER(blob_db_sync_util, LOG_LEVEL_DEBUG);
+
 bool sync_util_is_dirty_cb(SettingsFile *file, SettingsRecordInfo *info, void *context) {
   // If there is a single dirty record, update the out bool to dirty and stop iterating
   if (info->dirty) {

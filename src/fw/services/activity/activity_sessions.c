@@ -23,6 +23,8 @@
 
 // ------------------------------------------------------------------------------------
 // Figure out the cutoff times for sleep and step activities for today given the current time
+PBL_LOG_MODULE_REGISTER(activity_activity_sessions, LOG_LEVEL_DEBUG);
+
 static void prv_get_earliest_end_times_utc(time_t utc_sec, time_t *sleep_earliest_end_utc,
                                            time_t *step_earliest_end_utc) {
   time_t start_of_today_utc = time_util_get_midnight_of(utc_sec);

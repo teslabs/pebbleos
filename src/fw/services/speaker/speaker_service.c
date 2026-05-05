@@ -3,6 +3,10 @@
 
 #include "pbl/services/speaker/speaker_service.h"
 
+#include "system/logging.h"
+
+PBL_LOG_MODULE_REGISTER(speaker_speaker_service, LOG_LEVEL_DEBUG);
+
 #if CAPABILITY_HAS_SPEAKER
 
 #include "pbl/services/speaker/note_sequence.h"

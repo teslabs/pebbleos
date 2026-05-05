@@ -24,6 +24,8 @@
 // to a final 2-bit luminance
 //   result = s_blending_mask_lookup[0b00aaddss]
 //        or  s_blending_mask_lookup[(aa << 4) | (dd << 2) | ss]
+PBL_LOG_MODULE_REGISTER(_8_bit_bitblt_private, LOG_LEVEL_DEBUG);
+
 const GColor8Component g_bitblt_private_blending_mask_lookup[LOOKUP_TABLE_SIZE] = {
   0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3,
   0, 0, 1, 1, 1, 1, 1, 2, 1, 2, 2, 2, 2, 2, 3, 3,

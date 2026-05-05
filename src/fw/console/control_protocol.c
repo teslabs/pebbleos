@@ -25,6 +25,8 @@
 #define LCP_HEADER_LEN (sizeof(LCPPacket))
 
 
+PBL_LOG_MODULE_REGISTER(console_control_protocol, LOG_LEVEL_DEBUG);
+
 static void prv_on_timeout(void *context);
 
 static void prv_start_timer(PPPControlProtocol *this) {

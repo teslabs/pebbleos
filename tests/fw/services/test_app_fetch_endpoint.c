@@ -29,6 +29,8 @@
 #include "stubs_rand_ptr.h"
 #include "stubs_queue.h"
 
+PBL_LOG_MODULE_REGISTER(services_test_app_fetch_endpoint, LOG_LEVEL_DEBUG);
+
 typedef struct {} EventServiceInfo;
 
 void app_event_service_subscribe(EventServiceInfo * service_info) {

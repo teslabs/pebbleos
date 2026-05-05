@@ -21,6 +21,8 @@
 #define CONSTANT_SNOOZE_DELAY (10 * SECONDS_PER_MINUTE) // Seconds
 #define CONSTANT_SNOOZE_END_MARK (48 * MINUTES_PER_HOUR * SECONDS_PER_MINUTE) // Seconds
 
+PBL_LOG_MODULE_REGISTER(timeline_reminders, LOG_LEVEL_DEBUG);
+
 static TimerID s_reminder_timer;
 
 // this reminder should stay here so the timer callback has something to refer to

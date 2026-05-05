@@ -20,6 +20,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(kernel_events, LOG_LEVEL_DEBUG);
+
 static QueueHandle_t s_kernel_event_queue = NULL;
 static QueueHandle_t s_from_app_event_queue = NULL;
 static QueueHandle_t s_from_worker_event_queue = NULL;

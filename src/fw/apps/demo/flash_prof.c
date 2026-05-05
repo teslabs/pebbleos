@@ -15,6 +15,8 @@
 
 #include "FreeRTOS.h"
 
+PBL_LOG_MODULE_REGISTER(demo_flash_prof, LOG_LEVEL_DEBUG);
+
 static NumberWindow number_window;
 
 static uint32_t timed_read_bytes(uint32_t num_bytes) {

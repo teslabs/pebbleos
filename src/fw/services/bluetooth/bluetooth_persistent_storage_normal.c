@@ -40,6 +40,8 @@
 //! The BtPersistBonding*Data structs can never shrink, only grow
 
 //! Stores data about a remote BT classic device
+PBL_LOG_MODULE_REGISTER(bluetooth_bluetooth_persistent_storage_normal, LOG_LEVEL_DEBUG);
+
 typedef struct PACKED {
   BTDeviceAddress addr;
   SM128BitKey link_key;
@@ -222,9 +224,9 @@ static GapBondingFileSetStatus prv_file_set(
 
       if (do_perform_update) {
         s_bt_persistent_storage_updates++;
-        PBL_LOG_D_DBG(LOG_DOMAIN_BT_PAIRING_INFO, "Updating GAP Bonding DB Value <key, val>!");
-        PBL_HEXDUMP_D(LOG_DOMAIN_BT_PAIRING_INFO, LOG_LEVEL_DEBUG, (uint8_t *)key, key_len);
-        PBL_HEXDUMP_D(LOG_DOMAIN_BT_PAIRING_INFO, LOG_LEVEL_DEBUG, (uint8_t *)data_in, data_len);
+        PBL_LOG_DBG("Updating GAP Bonding DB Value <key, val>!");
+        PBL_HEXDUMP(LOG_LEVEL_DEBUG, (uint8_t *)key, key_len);
+        PBL_HEXDUMP(LOG_LEVEL_DEBUG, (uint8_t *)data_in, data_len);
         rv = settings_file_set(&fd, key, key_len, (uint8_t*) data_in, data_len);
       }
     } else {
@@ -1421,7 +1423,7 @@ static void prv_dump_bonding_db_data(char display_buf[DISPLAY_BUF_LEN],
                              bool_to_str(matches_prf));
   } else {
     prompt_send_response("Unhandled type of GapBondingDB Data!");
-    PBL_HEXDUMP_D_PROMPT(LOG_LEVEL_DEBUG, (uint8_t *)&data, sizeof(*data));
+    PBL_HEXDUMP_PROMPT(LOG_LEVEL_DEBUG, (uint8_t *)&data, sizeof(*data));
   }
 }
 
@@ -1451,13 +1453,13 @@ static bool prv_dump_bt_persistent_storage_contents(
   memset(key, 0x0, info->key_len);
   info->get_key(file, &key[0], info->key_len);
   // prompt_send_response("Raw dump Key");
-  // PBL_HEXDUMP_D_PROMPT(LOG_LEVEL_DEBUG, (uint8_t *)&key, info->key_len);
+  // PBL_HEXDUMP_PROMPT(LOG_LEVEL_DEBUG, (uint8_t *)&key, info->key_len);
 
   uint8_t val[info->val_len];
   memset(val, 0x0, info->val_len);
   info->get_val(file, &val[0], info->val_len);
   // prompt_send_response("Raw dump Value:");
-  // PBL_HEXDUMP_D_PROMPT(LOG_LEVEL_DEBUG, (uint8_t *)&val, info->val_len);
+  // PBL_HEXDUMP_PROMPT(LOG_LEVEL_DEBUG, (uint8_t *)&val, info->val_len);
 
   if (memcmp(key, ACTIVE_GATEWAY_KEY, info->key_len) == 0) {
     PBL_ASSERTN(info->val_len == sizeof(BTBondingID));
@@ -1517,8 +1519,8 @@ static bool prv_dump_bt_persistent_storage_contents(
     prv_dump_cccd_db_data(display_buf, cccd_id, (BtPersistCCCDData *)&val);
   } else {
     prompt_send_response("Something new be in the bonding DB!");
-    PBL_HEXDUMP_D_PROMPT(LOG_LEVEL_DEBUG, &key[0], info->key_len);
-    PBL_HEXDUMP_D_PROMPT(LOG_LEVEL_DEBUG, &val[0], info->val_len);
+    PBL_HEXDUMP_PROMPT(LOG_LEVEL_DEBUG, &key[0], info->key_len);
+    PBL_HEXDUMP_PROMPT(LOG_LEVEL_DEBUG, &val[0], info->val_len);
   }
 
   prompt_send_response("");

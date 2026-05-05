@@ -9,6 +9,8 @@
 
 #define PATTERN_FROM_DURATIONS(pat, array) (pat) = (VibePattern){ .durations = (array), .num_segments = ARRAY_LENGTH((array)) }
 
+PBL_LOG_MODULE_REGISTER(ui_vibes, LOG_LEVEL_DEBUG);
+
 static const uint32_t SHORT_PULSE_DURATIONS[] = { 250 };
 static const uint32_t LONG_PULSE_DURATIONS[] = { 500 };
 static const uint32_t DOUBLE_PULSE_DURATIONS[] = { 100, 100, 100 };

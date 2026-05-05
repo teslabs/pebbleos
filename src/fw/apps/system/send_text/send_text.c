@@ -32,6 +32,8 @@
 
 #define SEND_TEXT_APP_HIGHLIGHT_COLOR PBL_IF_COLOR_ELSE(SMS_REPLY_COLOR, GColorBlack)
 
+PBL_LOG_MODULE_REGISTER(send_text, LOG_LEVEL_DEBUG);
+
 typedef int ContactId;
 
 typedef struct {

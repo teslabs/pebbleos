@@ -33,6 +33,8 @@
 // TODO PBL-PBL-36253: We should probably save these in CrashInfo in the future. Saved here because
 // they are easier to pull out through GDB and because we can keep the Bluetooth FW and Normal FW
 // fault handling the way they are now.
+PBL_LOG_MODULE_REGISTER(kernel_fault_handling, LOG_LEVEL_DEBUG);
+
 static uint32_t s_fault_saved_sp;
 static uint32_t s_fault_saved_lr;
 static uint32_t s_fault_saved_pc;

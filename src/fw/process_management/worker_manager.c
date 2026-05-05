@@ -38,6 +38,8 @@
 #include <string.h>
 
 
+PBL_LOG_MODULE_REGISTER(process_management_worker_manager, LOG_LEVEL_DEBUG);
+
 static const int MAX_TO_WORKER_EVENTS = 8;
 static ProcessContext s_worker_task_context;
 static QueueHandle_t s_to_worker_event_queue;

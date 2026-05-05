@@ -15,7 +15,7 @@
 // Stubs
 ///////////////////////////////////////////////////////////
 int g_pbl_log_level = 0;
-void pbl_log(const char* src_filename, int src_line_number, const char* fmt, ...) { }
+void pbl_log(int level, const char *module, const char *fmt, ...) { }
 
 // Tests
 ///////////////////////////////////////////////////////////

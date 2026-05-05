@@ -12,6 +12,8 @@
 #include "system/passert.h"
 
 
+PBL_LOG_MODULE_REGISTER(normal_app_idle_timeout, LOG_LEVEL_DEBUG);
+
 static const int WATCHFACE_TIMEOUT_MS = 30000;
 
 TimerID s_timer;

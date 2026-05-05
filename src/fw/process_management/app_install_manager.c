@@ -33,6 +33,8 @@
 #include <os/mutex.h>
 #include <util/attributes.h>
 
+PBL_LOG_MODULE_REGISTER(process_management_app_install_manager, LOG_LEVEL_DEBUG);
+
 typedef struct PACKED RecentApp {
   AppInstallId id;
   time_t last_activity;

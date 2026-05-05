@@ -11,6 +11,8 @@
 
 // -------- Initialization ---------------------------------------------------------------------- //
 
+PBL_LOG_MODULE_REGISTER(app_message, LOG_LEVEL_DEBUG);
+
 void app_message_init(void) {
   AppMessageCtx *app_message_ctx = app_state_get_app_message_ctx();
   *app_message_ctx = (const AppMessageCtx) {};

@@ -13,6 +13,8 @@
 #include "util/buffer.h"
 #include "util/list.h"
 
+PBL_LOG_MODULE_REGISTER(app_inbox_service_service, LOG_LEVEL_DEBUG);
+
 typedef struct AppInboxNode {
   ListNode node;
   AppInboxServiceTag tag;

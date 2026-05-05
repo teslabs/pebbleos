@@ -18,6 +18,8 @@
 // under this mutex on KernelBackground.
 #define FIRM_1649_MUTEX_WARN_MS 100
 
+PBL_LOG_MODULE_REGISTER(blob_db_timeline_item_storage, LOG_LEVEL_DEBUG);
+
 static RtcTicks prv_storage_lock(TimelineItemStorage *storage, const char *op) {
   RtcTicks before = rtc_get_ticks();
   mutex_lock(storage->mutex);

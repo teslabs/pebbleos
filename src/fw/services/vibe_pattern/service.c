@@ -26,6 +26,8 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+PBL_LOG_MODULE_REGISTER(vibe_pattern_service, LOG_LEVEL_DEBUG);
+
 typedef struct {
   ListNode list_node;
   uint64_t time_start;

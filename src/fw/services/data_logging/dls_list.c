@@ -17,6 +17,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(data_logging_dls_list, LOG_LEVEL_DEBUG);
+
 static DataLoggingSession *s_logging_sessions;
 static PebbleRecursiveMutex * s_list_mutex;
 
@@ -62,7 +64,7 @@ bool dls_lock_session(DataLoggingSession *session) {
 // ---------------------------------------------------------------------------------------
 // Callback used to free a storage buffer from unprivileged mode.
 static void prv_free_storage_buffer_cb(void *p) {
-  PBL_LOG_D_DBG(LOG_DOMAIN_DATA_LOGGING, "Freeing buffer storage ptr: %p", p);
+  PBL_LOG_DBG("Freeing buffer storage ptr: %p", p);
   task_free(p);
 }
 
@@ -229,7 +231,7 @@ void dls_list_insert_session(DataLoggingSession *logging_session) {
   logging_session->next = *iter;
   *iter = logging_session;
 
-  PBL_LOG_D_DBG(LOG_DOMAIN_DATA_LOGGING, "Created session: %p id %"PRIu8
+  PBL_LOG_DBG("Created session: %p id %"PRIu8
       " tag %"PRIu32, logging_session, logging_session->comm.session_id, logging_session->tag);
 
   mutex_unlock_recursive(s_list_mutex);

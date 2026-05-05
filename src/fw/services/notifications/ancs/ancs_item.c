@@ -25,6 +25,8 @@
 #define MAX_SYSTEM_RESOURCE_ID (MAX_RESOURCES_PER_STORE * 2)
 
 // AttributeIdTitle + AttributeIdAncsAction. See prv_fill_native_ancs_action
+PBL_LOG_MODULE_REGISTER(ancs_ancs_item, LOG_LEVEL_DEBUG);
+
 static const int NUM_NATIVE_ANCS_ACTION_ATTRS = 2;
 
 static const char s_utf8_ellipsis[] = UTF8_ELLIPSIS_STRING;

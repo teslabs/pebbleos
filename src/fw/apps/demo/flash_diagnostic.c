@@ -30,6 +30,8 @@
 
 #define NUM_MENU_ITEMS (NUM_REGIONS + NUM_STRESS_TESTS)
 
+PBL_LOG_MODULE_REGISTER(demo_flash_diagnostic, LOG_LEVEL_DEBUG);
+
 struct Region {
   char *name;
   uint32_t begin;

@@ -33,6 +33,8 @@
 #include "stubs_system_reset.h"
 #include "stubs_task_watchdog.h"
 
+PBL_LOG_MODULE_REGISTER(test_persist, LOG_LEVEL_DEBUG);
+
 static PebbleProcessMd __pbl_app_info;
 
 const PebbleProcessMd* sys_process_manager_get_current_process_md(void) {

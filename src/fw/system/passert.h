@@ -12,9 +12,9 @@
 #ifdef PBL_LOGS_HASHED
   #include <logging/log_hashing.h>
 
-NORETURN passert_failed_hashed(uint32_t packed_loghash, ...);
+NORETURN passert_failed_hashed(const char *module, uint32_t packed_loghash, ...);
 
-NORETURN passert_failed_hashed_with_lr(uint32_t lr,
+NORETURN passert_failed_hashed_with_lr(const char *module, uint32_t lr,
                                        uint32_t packed_loghash, ...);
 
 NORETURN passert_failed_hashed_no_message(void);
@@ -24,7 +24,7 @@ NORETURN passert_failed_hashed_no_message_with_lr(uint32_t lr);
   #define PBL_ASSERT(expr, msg, ...) \
     do { \
       if (UNLIKELY(!(expr))) { \
-        NEW_LOG_HASH(passert_failed_hashed, LOG_LEVEL_ALWAYS, LOG_COLOR_RED, \
+        NEW_LOG_HASH_ASSERT(passert_failed_hashed, LOG_LEVEL_ALWAYS, LOG_COLOR_RED, \
             "*** ASSERTION FAILED: " msg, \
             ## __VA_ARGS__); \
       } \
@@ -114,8 +114,8 @@ void passert_check_not_task(enum PebbleTask unexpected_task);
 
   #define PBL_CROAK(msg, ...) \
     do { \
-      NEW_LOG_HASH(passert_failed_hashed, LOG_LEVEL_ALWAYS, LOG_COLOR_RED, "*** CROAK: " msg, \
-                   ## __VA_ARGS__); \
+      NEW_LOG_HASH_ASSERT(passert_failed_hashed, LOG_LEVEL_ALWAYS, LOG_COLOR_RED, \
+                          "*** CROAK: " msg, ## __VA_ARGS__); \
     } while (0)
 
 #else // PBL_LOGS_HASHED

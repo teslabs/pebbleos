@@ -15,6 +15,8 @@
 #include "nanopb/simple.pb.h"
 #include "nanopb/measurements.pb.h"
 
+PBL_LOG_MODULE_REGISTER(demo_idl_demo, LOG_LEVEL_DEBUG);
+
 static void prv_init(void) {
   SimpleMessage msg = {
     .lucky_number = 42,

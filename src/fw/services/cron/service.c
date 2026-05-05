@@ -11,6 +11,8 @@
 #include "util/math.h"
 
 //! Don't let users modify the list while callbacks are occurring.
+PBL_LOG_MODULE_REGISTER(cron_service, LOG_LEVEL_DEBUG);
+
 static PebbleMutex *s_list_mutex = NULL;
 
 static void prv_timer_callback(void* data);

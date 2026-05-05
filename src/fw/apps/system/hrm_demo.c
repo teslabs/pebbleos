@@ -18,6 +18,8 @@
 
 #define BPM_STRING_LEN 10
 
+PBL_LOG_MODULE_REGISTER(system_hrm_demo, LOG_LEVEL_DEBUG);
+
 typedef enum {
   AppMessageKey_Status = 1,
 

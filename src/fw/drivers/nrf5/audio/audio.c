@@ -52,6 +52,8 @@
 // nrfx_i2s buffer_size is counted in 32-bit words.
 #define I2S_BUF_SIZE_WORDS           (I2S_BUF_SIZE_BYTES / sizeof(uint32_t))
 
+PBL_LOG_MODULE_REGISTER(audio, LOG_LEVEL_DEBUG);
+
 static void prv_i2s_data_handler(nrfx_i2s_buffers_t const *p_released, uint32_t status);
 
 // ---------------------------------------------------------------------------

@@ -18,6 +18,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(settings_vibe_patterns, LOG_LEVEL_DEBUG);
+
 typedef enum VibeSettingsRow {
   VibeSettingsRow_Notifications = 0,
   VibeSettingsRow_PhoneCalls,

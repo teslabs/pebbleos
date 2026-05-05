@@ -26,6 +26,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(ui_window, LOG_LEVEL_DEBUG);
+
 typedef enum {
   WindowHandlerOffsetLoad = offsetof(WindowHandlers, load),
   WindowHandlerOffsetAppear = offsetof(WindowHandlers, appear),

@@ -10,6 +10,8 @@
 
 #include <stdint.h>
 
+PBL_LOG_MODULE_REGISTER(flash_flash_crc, LOG_LEVEL_DEBUG);
+
 static size_t prv_allocate_crc_buffer(void **buffer) {
   // Try to allocate a big buffer for reading flash data. If we can't,
   // use a smaller one.

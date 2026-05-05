@@ -25,6 +25,8 @@
 #include <services/activity/activity.h>
 
 // Test the activity API
+PBL_LOG_MODULE_REGISTER(demo_activity_test, LOG_LEVEL_DEBUG);
+
 typedef struct {
   Window *window;
   SimpleMenuLayer *menu_layer;

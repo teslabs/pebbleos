@@ -31,6 +31,8 @@
 #define VERSION_REQUEST 0x00
 #define VERSION_RESPONSE 0x01
 
+PBL_LOG_MODULE_REGISTER(kernel_system_versions, LOG_LEVEL_DEBUG);
+
 static const uint16_t s_endpoint_id = 0x0010;
 
 struct PACKED VersionsMessage {

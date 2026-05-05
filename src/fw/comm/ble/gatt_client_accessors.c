@@ -29,6 +29,8 @@
 
 #define MACHINE_WORD_MSB (((uintptr_t) 1) << ((sizeof(uintptr_t) * 8) - 1))
 
+PBL_LOG_MODULE_REGISTER(ble_gatt_client_accessors, LOG_LEVEL_DEBUG);
+
 static uintptr_t prv_get_generation(const GAPLEConnection *connection) {
   const uintptr_t mask = ~MACHINE_WORD_MSB;
   const uint32_t timestamp = (connection->ticks_since_connection / RTC_TICKS_HZ);

@@ -30,6 +30,8 @@
 // Storage converters. These convert metrics from their storage type (ActivityScalarStore,
 // which is only 16-bits) into the uint32_t value returned by activity_get_metric. For example,
 // we might convert minutes to seconds.
+PBL_LOG_MODULE_REGISTER(activity_activity_metrics, LOG_LEVEL_DEBUG);
+
 static uint32_t prv_convert_none(ActivityScalarStore in) {
   return in;
 }

@@ -33,6 +33,8 @@
 // route. 16 apps should be more than enough.
 #define NUM_APPS_ALERT_ON_BOOT 16
 
+PBL_LOG_MODULE_REGISTER(wakeup_service, LOG_LEVEL_DEBUG);
+
 static PebbleMutex *s_mutex;
 
 //! Settings entries == WakeupId are stored by timestamp,

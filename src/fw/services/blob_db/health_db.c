@@ -23,6 +23,8 @@
 #define HEALTH_DB_DEBUG 0
 #define HEALTH_DB_MAX_KEY_LEN 30
 
+PBL_LOG_MODULE_REGISTER(blob_db_health_db, LOG_LEVEL_DEBUG);
+
 static const char *HEALTH_DB_FILE_NAME = "healthdb";
 static const int HEALTH_DB_MAX_SIZE = KiBYTES(12);
 static PebbleMutex *s_mutex;

@@ -34,6 +34,8 @@
 //     2 bytes  - The region id this link maps to
 //     33 bytes - The name of the link that should be treated as an alias to the linked region
 
+PBL_LOG_MODULE_REGISTER(timezone_database_service, LOG_LEVEL_DEBUG);
+
 typedef struct PACKED {
   uint16_t region_count;
   uint16_t dst_rule_count;

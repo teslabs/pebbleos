@@ -14,6 +14,8 @@
 #include "util/attributes.h"
 #include "util/net.h"
 
+PBL_LOG_MODULE_REGISTER(compositor_screenshot_pp, LOG_LEVEL_DEBUG);
+
 static const uint16_t SCREENSHOT_ENDPOINT_ID = 8000;
 static bool s_screenshot_in_progress = false;
 

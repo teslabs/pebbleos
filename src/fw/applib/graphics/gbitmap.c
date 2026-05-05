@@ -16,6 +16,8 @@
 #include <string.h>
 #include <stddef.h>
 
+PBL_LOG_MODULE_REGISTER(graphics_gbitmap, LOG_LEVEL_DEBUG);
+
 uint8_t gbitmap_get_bits_per_pixel(GBitmapFormat format) {
   switch (format) {
     case GBitmapFormat1Bit:

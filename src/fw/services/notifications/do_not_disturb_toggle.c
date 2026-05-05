@@ -9,6 +9,8 @@
 #include "pbl/services/i18n/i18n.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(notifications_do_not_disturb_toggle, LOG_LEVEL_DEBUG);
+
 static bool prv_get_state(void *context) {
   // This toggle does not necessarily toggle Manual DND. It sets Manual DND to the opposite of DND
   // active status which in turn overrides Smart and Scheduled DND.

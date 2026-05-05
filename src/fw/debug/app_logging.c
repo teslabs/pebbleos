@@ -13,6 +13,8 @@
 #include "pbl/services/comm_session/session.h"
 #include "syscall/syscall_internal.h"
 
+PBL_LOG_MODULE_REGISTER(debug_app_logging, LOG_LEVEL_DEBUG);
+
 static const uint16_t APP_LOGGING_ENDPOINT = 2006;
 
 static AppLoggingMode s_app_logging_mode = AppLoggingDisabled;

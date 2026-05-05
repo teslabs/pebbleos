@@ -13,6 +13,8 @@
 
 #include <inttypes.h>
 
+PBL_LOG_MODULE_REGISTER(ambient_ambient_light_opt3001, LOG_LEVEL_DEBUG);
+
 static uint32_t s_sensor_light_dark_threshold;
 static bool s_initialized = false;
 

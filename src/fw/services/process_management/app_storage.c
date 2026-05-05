@@ -21,6 +21,8 @@
 
 // 64k. Note that both tintin and snowy apps have a maximum size of 64k enforced by the SDK, even
 // though there isn't enough memory for load more than 24k in practice on tintin.
+PBL_LOG_MODULE_REGISTER(process_management_app_storage, LOG_LEVEL_DEBUG);
+
 static const uint32_t APP_MAX_SIZE = 0x10000;
 
 uint32_t app_storage_get_process_load_size(PebbleProcessInfo *info) {

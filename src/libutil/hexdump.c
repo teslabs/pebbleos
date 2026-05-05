@@ -10,8 +10,8 @@
 // + mini gap + 8 ascii bytes + null:
 #define LINE_BUFFER_LENGTH (4 + 2 + (3 * 8) + 2 + (3 * 8) + 2 + 8 + 1 + 8 + 1)
 
-void hexdump(const char *src_filename, int src_line_number, int level,
-             const uint8_t *data, size_t length, HexdumpLineCallback write_line_cb) {
+void hexdump(const char *module, int level, const uint8_t *data, size_t length,
+             HexdumpLineCallback write_line_cb) {
   char line_buffer[LINE_BUFFER_LENGTH];
   unsigned int offset = 0;
 
@@ -70,7 +70,7 @@ void hexdump(const char *src_filename, int src_line_number, int level,
 
     // Null terminate and print.
     line_buffer[buffer_offset] = 0;
-    write_line_cb(level, src_filename, src_line_number, line_buffer);
+    write_line_cb(level, module, line_buffer);
 
     offset += 16;
   }

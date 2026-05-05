@@ -41,6 +41,8 @@
 #define PAST_TOP_MARGIN_EXTRA PBL_IF_RECT_ELSE(10, 38)
 #define FUTURE_TOP_MARGIN_EXTRA PBL_IF_RECT_ELSE(10, 18)
 
+PBL_LOG_MODULE_REGISTER(timeline_layer, LOG_LEVEL_DEBUG);
+
 typedef struct TimelineLayerStyle {
   GSize sidebar_arrow_size;
   GPoint day_sep_offset;

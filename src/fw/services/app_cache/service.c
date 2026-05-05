@@ -62,6 +62,8 @@
 // 4 quick launch apps, 1 default watchface, 1 default worker
 #define DO_NOT_EVICT_LIST_SIZE (NUM_BUTTONS + 2)
 
+PBL_LOG_MODULE_REGISTER(app_cache_service, LOG_LEVEL_DEBUG);
+
 static PebbleRecursiveMutex *s_app_cache_mutex = NULL;
 
 //! Actual data structure stored in flash about an app cache entry

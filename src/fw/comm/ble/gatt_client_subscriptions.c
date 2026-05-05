@@ -41,6 +41,8 @@
 // -------------------------------------------------------------------------------------------------
 // Static variables
 
+PBL_LOG_MODULE_REGISTER(ble_gatt_client_subscriptions, LOG_LEVEL_DEBUG);
+
 static PebbleRecursiveMutex *s_gatt_client_subscriptions_mutex;
 static SemaphoreHandle_t s_gatt_client_subscriptions_semphr;
 

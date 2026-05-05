@@ -30,6 +30,8 @@
 #define COMBO_BACK_UP_BUTTONS ((BIT_SET << BUTTON_ID_BACK) | (BIT_SET << BUTTON_ID_UP))
 #define COMBO_UP_DOWN_BUTTONS ((BIT_SET << BUTTON_ID_UP) | (BIT_SET << BUTTON_ID_DOWN))
 
+PBL_LOG_MODULE_REGISTER(normal_watchface, LOG_LEVEL_DEBUG);
+
 static ClickManager s_click_manager;
 static uint8_t s_buttons_pressed = BIT_CLEAR;
 static AppTimer *s_combo_back_hold_timer = NULL;

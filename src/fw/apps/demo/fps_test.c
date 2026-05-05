@@ -17,6 +17,8 @@
 #include "system/profiler.h"
 #include "util/size.h"
 
+PBL_LOG_MODULE_REGISTER(demo_fps_test, LOG_LEVEL_DEBUG);
+
 typedef struct AppData {
   Window window;
   BitmapLayer background_layer;

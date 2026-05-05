@@ -44,6 +44,8 @@
 #define CURRENT_VERSION_ID 1
 
 
+PBL_LOG_MODULE_REGISTER(legacy_debug_db, LOG_LEVEL_DEBUG);
+
 typedef struct PACKED {
   uint8_t magic:2; //<! Set to 0x2 if valid.
 

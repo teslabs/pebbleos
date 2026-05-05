@@ -42,6 +42,8 @@
 #include "stubs_task_watchdog.h"
 #include "stubs_tick.h"
 
+PBL_LOG_MODULE_REGISTER(services_test_put_bytes, LOG_LEVEL_DEBUG);
+
 extern SemaphoreHandle_t put_bytes_get_semaphore(void);
 extern TimerID put_bytes_get_timer_id(void);
 extern uint32_t put_bytes_get_index(void);

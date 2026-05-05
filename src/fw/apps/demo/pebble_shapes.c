@@ -17,6 +17,8 @@
 #include "process_state/app_state/app_state.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(demo_pebble_shapes, LOG_LEVEL_DEBUG);
+
 typedef enum {
   POINT,
   LINE,

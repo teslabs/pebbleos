@@ -20,6 +20,8 @@
 #define BACKLIGHT_COLOR_BLUE        0x0000FF
 #define BACKLIGHT_COLOR_BLACK       0x000000
 
+PBL_LOG_MODULE_REGISTER(prf_mfg_backlight, LOG_LEVEL_DEBUG);
+
 typedef enum {
   TestPattern_White,
 #if CAPABILITY_HAS_COLOR_BACKLIGHT

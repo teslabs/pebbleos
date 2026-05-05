@@ -146,6 +146,8 @@
 // Private
 ////////////////////////////////////////////////////////////////////////////////
 
+PBL_LOG_MODULE_REGISTER(lis2dw12, LOG_LEVEL_DEBUG);
+
 static bool prv_lis2dw12_write(uint8_t reg, const uint8_t *data, uint16_t len) {
   bool ret;
 

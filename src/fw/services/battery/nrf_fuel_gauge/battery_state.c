@@ -45,6 +45,8 @@
 // Minimum valid battery voltage for battery swap detection (mV)
 #define BATTERY_MIN_VALID_VOLTAGE_MV 3300
 
+PBL_LOG_MODULE_REGISTER(nrf_fuel_gauge_battery_state, LOG_LEVEL_DEBUG);
+
 static const struct battery_model prv_battery_model = {
 #if PLATFORM_ASTERIX
 #include "battery_asterix.inc"

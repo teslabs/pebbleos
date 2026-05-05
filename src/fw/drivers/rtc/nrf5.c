@@ -31,6 +31,8 @@
 #include <string.h>
 
 //! The type of a raw reading from the RTC (masked to 0xFFFFFF).
+PBL_LOG_MODULE_REGISTER(rtc_nrf5, LOG_LEVEL_DEBUG);
+
 typedef uint32_t RtcIntervalTicks;
 
 //! How frequently we save the time state to the backup registers in ticks.

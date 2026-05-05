@@ -19,6 +19,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(fonts, LOG_LEVEL_DEBUG);
+
 GFont fonts_get_fallback_font(void) {
   // No font key for the fallback font
   return sys_font_get_system_font(NULL);

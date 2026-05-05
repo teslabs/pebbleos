@@ -31,6 +31,8 @@
 // @param[in] steps How many steps were taken
 // @param[in] ms How many milliseconds elapsed while the steps were taken
 // @param[out] distance covered (in millimeters)
+PBL_LOG_MODULE_REGISTER(activity_activity_calculators, LOG_LEVEL_DEBUG);
+
 uint32_t activity_private_compute_distance_mm(uint32_t steps, uint32_t ms) {
   if ((steps == 0) || (ms == 0)) {
     return 0;

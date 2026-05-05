@@ -34,6 +34,8 @@ Pebble App roject.
 
 
 // TEST : PASSED
+PBL_LOG_MODULE_REGISTER(kraepelin_reference_raw_stats, LOG_LEVEL_DEBUG);
+
 int32_t mean_l1_stat(int16_t *d, int16_t dlen){
   int32_t mean = 0;
 

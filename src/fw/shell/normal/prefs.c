@@ -45,6 +45,8 @@
 
 #include <stdbool.h>
 
+PBL_LOG_MODULE_REGISTER(normal_prefs, LOG_LEVEL_DEBUG);
+
 static PebbleMutex *s_mutex;
 
 #define PREF_KEY_CLOCK_24H "clock24h"

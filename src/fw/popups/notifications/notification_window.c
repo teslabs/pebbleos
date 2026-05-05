@@ -68,6 +68,8 @@
 #define FIRST_PEEK_DELAY PBL_IF_RECT_ELSE(500, 200)
 
 // pop timer for window. Refreshed during any point of activity (button clicks)
+PBL_LOG_MODULE_REGISTER(notifications_notification_window, LOG_LEVEL_DEBUG);
+
 static const unsigned int QUICK_DND_HOLD_MS = 800;
 
 T_STATIC NotificationWindowData s_notification_window_data;

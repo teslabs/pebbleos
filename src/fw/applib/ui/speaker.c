@@ -9,6 +9,8 @@
 #include "syscall/syscall.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(ui_speaker, LOG_LEVEL_DEBUG);
+
 bool speaker_play_notes(const SpeakerNote *notes, uint32_t num_notes, uint8_t volume) {
   if (!notes || num_notes == 0) {
     PBL_LOG_ERR("tried to play null or empty note sequence");

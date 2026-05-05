@@ -31,6 +31,8 @@
 //! See https://pebbletechnology.atlassian.net/wiki/pages/viewpage.action?pageId=22511665
 //! for detailed information regarding the PPoGATT protocol state machine.
 
+PBL_LOG_MODULE_REGISTER(ppogatt, LOG_LEVEL_DEBUG);
+
 typedef enum {
   StateDisconnectedReadingMeta,
   StateDisconnectedAwaitingMetaRetry,

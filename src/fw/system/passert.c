@@ -19,15 +19,18 @@
 
 #define CORE_NUMBER 0
 
+PBL_LOG_MODULE_REGISTER(system_passert, LOG_LEVEL_DEBUG);
+
 static NORETURN handle_passert_failed_vargs(const char* filename, int line_number,
     uintptr_t lr, const char* expr, const char* fmt, va_list fmt_args) {
   char buffer[160];
 
-  pbl_log_sync(LOG_LEVEL_ALWAYS, filename, line_number, "*** ASSERTION FAILED: %s", expr);
+  (void)line_number;
+  pbl_log_sync(LOG_LEVEL_ALWAYS, filename, "*** ASSERTION FAILED: %s", expr);
 
   if (fmt) {
     vsniprintf(buffer, sizeof(buffer), fmt, fmt_args);
-    pbl_log_sync(LOG_LEVEL_ALWAYS, filename, line_number, "%s", buffer);
+    pbl_log_sync(LOG_LEVEL_ALWAYS, filename, "%s", buffer);
   }
 
   trigger_fault(RebootReasonCode_Assert, lr);
@@ -53,27 +56,28 @@ NORETURN passert_failed(const char* filename, int line_number, const char* messa
   va_end(fmt_args);
 }
 
-NORETURN passert_failed_hashed(uint32_t packed_loghash, ...) {
+NORETURN passert_failed_hashed(const char *module, uint32_t packed_loghash, ...) {
   uintptr_t saved_lr = (uintptr_t) __builtin_return_address(0);
   PBL_LOG_ALWAYS("ASSERTION at LR 0x%x", saved_lr);
 
   va_list fmt_args;
   va_start(fmt_args, packed_loghash);
 
-  pbl_log_hashed_vargs(false, CORE_NUMBER, packed_loghash, fmt_args);
+  pbl_log_hashed_vargs(false, CORE_NUMBER, module, packed_loghash, fmt_args);
 
   va_end(fmt_args);
 
   trigger_fault(RebootReasonCode_Assert, saved_lr);
 }
 
-NORETURN passert_failed_hashed_with_lr(uint32_t lr, uint32_t packed_loghash, ...) {
+NORETURN passert_failed_hashed_with_lr(const char *module, uint32_t lr,
+                                       uint32_t packed_loghash, ...) {
   PBL_LOG_ALWAYS("ASSERTION at LR 0x%"PRIx32, lr);
 
   va_list fmt_args;
   va_start(fmt_args, packed_loghash);
 
-  pbl_log_hashed_vargs(false, CORE_NUMBER, packed_loghash, fmt_args);
+  pbl_log_hashed_vargs(false, CORE_NUMBER, module, packed_loghash, fmt_args);
 
   va_end(fmt_args);
 

@@ -45,6 +45,8 @@
 // See mo.h for a description of the MO file format //
 //////////////////////////////////////////////////////
 
+PBL_LOG_MODULE_REGISTER(i18n, LOG_LEVEL_DEBUG);
+
 typedef struct {
   uint32_t hash;
   const char *string;

@@ -34,6 +34,8 @@
 
 #include <inttypes.h>
 
+PBL_LOG_MODULE_REGISTER(debug, LOG_LEVEL_DEBUG);
+
 static const uint16_t ENDPOINT_ID = 2002;
 
 typedef struct PACKED {

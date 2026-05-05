@@ -14,6 +14,8 @@
 #include <time.h>
 
 //! Don't let users modify the list while callbacks are occurring.
+PBL_LOG_MODULE_REGISTER(regular_timer_service, LOG_LEVEL_DEBUG);
+
 static PebbleMutex * s_callback_list_semaphore = 0;
 
 //! The timer we use

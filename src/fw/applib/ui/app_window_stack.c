@@ -18,6 +18,8 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 
+PBL_LOG_MODULE_REGISTER(ui_app_window_stack, LOG_LEVEL_DEBUG);
+
 void app_window_stack_push(Window *window, bool animated) {
   PBL_LOG_DBG("Pushing window %p onto app window stack %p",
       window, app_state_get_window_stack());

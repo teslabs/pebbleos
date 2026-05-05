@@ -13,6 +13,8 @@
 #include "system/logging.h"
 #include "util/size.h"
 
+PBL_LOG_MODULE_REGISTER(demo_option_menu_demo, LOG_LEVEL_DEBUG);
+
 const char *s_strings[] = {
   "One",
   "Two",

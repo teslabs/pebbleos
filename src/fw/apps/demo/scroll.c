@@ -10,6 +10,8 @@
 #include "process_state/app_state/app_state.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(demo_scroll, LOG_LEVEL_DEBUG);
+
 typedef struct {
   Window window;
   ScrollLayer scroll_layer;

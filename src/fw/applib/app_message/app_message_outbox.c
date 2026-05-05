@@ -12,6 +12,8 @@
 #include "system/passert.h"
 #include "util/math.h"
 
+PBL_LOG_MODULE_REGISTER(app_message_app_message_outbox, LOG_LEVEL_DEBUG);
+
 static void prv_outbox_prepare(AppMessageCtxOutbox *outbox);
 
 static uint16_t prv_get_next_transaction_id(AppMessageCtxOutbox *outbox) {

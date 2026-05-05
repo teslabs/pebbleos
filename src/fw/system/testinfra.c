@@ -10,9 +10,11 @@
 #include "system/logging.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(system_testinfra, LOG_LEVEL_DEBUG);
+
 void notify_system_ready_for_communication(void) {
 #if !UNITTEST
-  pbl_log(LOG_LEVEL_DEBUG, __FILE_NAME__, __LINE__, "Ready for communication.");
+  pbl_log(LOG_LEVEL_DEBUG, __pbl_log_module_name, "Ready for communication.");
 #if PULSE_EVERYWHERE
   static bool s_pulse_started = false;
   if (!s_pulse_started) {

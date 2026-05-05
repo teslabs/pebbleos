@@ -34,7 +34,9 @@
 // Buffer size
 #define MAX_ENCODED_FRAME_SIZE (200)
 
-#define VOICE_LOG(fmt, args...)   PBL_LOG_D_DBG(LOG_DOMAIN_VOICE, fmt, ## args)
+#define VOICE_LOG(fmt, args...)   PBL_LOG_DBG(fmt, ## args)
+
+PBL_LOG_MODULE_REGISTER(voice, LOG_LEVEL_DEBUG);
 
 typedef enum {
   SessionState_Idle = 0,

@@ -26,6 +26,8 @@
 //! \endcode
 
 //! AppOrder Endpoint ID
+PBL_LOG_MODULE_REGISTER(app_order_endpoint_service, LOG_LEVEL_DEBUG);
+
 static const uint16_t APP_ORDER_ENDPOINT_ID = 0xabcd;
 
 typedef enum {

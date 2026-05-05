@@ -54,6 +54,8 @@
 #define AW8623X_PWR_OFF_TIME_MS 2
 #define AW8623X_PWR_ON_TIME_MS 3
 
+PBL_LOG_MODULE_REGISTER(vibe_vibe_aw8623x, LOG_LEVEL_DEBUG);
+
 static bool s_initialized = false;
 
 static bool prv_read_register(uint8_t addr, uint8_t *data) {

@@ -54,8 +54,10 @@
 #include <string.h>
 
 
-#define ACCEL_LOG_DEBUG(fmt, args...) PBL_LOG_D_DBG(LOG_DOMAIN_ACCEL, fmt, ## args)
+#define ACCEL_LOG_DEBUG(fmt, args...) PBL_LOG_DBG(fmt, ## args)
 
+
+PBL_LOG_MODULE_REGISTER(qemu_qemu_accel, LOG_LEVEL_DEBUG);
 
 static bool s_initialized;
 static PebbleMutex * s_accel_mutex;

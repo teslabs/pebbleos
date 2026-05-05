@@ -15,6 +15,8 @@
  * Private
  */
 
+PBL_LOG_MODULE_REGISTER(poll_remote_service, LOG_LEVEL_DEBUG);
+
 static const uint8_t MIN_INTERVAL_MINUTES = 1;
 static const uint16_t ENDPOINT_ID = 0xcafe;
 static bool s_running = false;

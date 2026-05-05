@@ -17,6 +17,8 @@
     #define SINC_GAIN           0x14D
 #endif
 
+PBL_LOG_MODULE_REGISTER(audio_audec, LOG_LEVEL_DEBUG);
+
 static const AUDCODE_DAC_CLK_CONFIG_TYPE codec_dac_clk_config[9] =
 {
 #if ALL_CLK_USING_PLL

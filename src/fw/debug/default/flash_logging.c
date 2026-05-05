@@ -50,6 +50,8 @@
 
 #define MAX_POSSIBLE_LOG_GENS (LOG_REGION_SIZE / LOG_PAGE_SIZE)
 
+PBL_LOG_MODULE_REGISTER(default_flash_logging, LOG_LEVEL_DEBUG);
+
 static bool s_flash_logging_enabled = false;
 
 typedef struct PACKED {
@@ -450,7 +452,7 @@ static void prv_dump_log_system_cb(void *context) {
     flash_read_bytes((uint8_t *)build_id, build_id_addr, sizeof(build_id));
     byte_stream_to_hex_string((char *)&state->msg_buf[off], MAX_MSG_LEN - off, (uint8_t *)build_id,
                               sizeof(build_id), false);
-    int len = pbl_log_get_bin_format((char *)state->msg_buf, MAX_MSG_LEN, LOG_LEVEL_INFO, "", 0,
+    int len = pbl_log_get_bin_format((char *)state->msg_buf, MAX_MSG_LEN, LOG_LEVEL_INFO, "",
                                      "Build ID: %s", &state->msg_buf[off]);
 
     if (!state->line_cb(state->msg_buf, len)) {

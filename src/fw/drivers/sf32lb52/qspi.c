@@ -13,6 +13,8 @@
 
 #define SEC_ADDR_TO_IDX(addr) (((addr) >> 12U) - 1U)
 
+PBL_LOG_MODULE_REGISTER(sf32lb52_qspi, LOG_LEVEL_DEBUG);
+
 static bool prv_blank_check_poll(uint32_t addr, bool is_subsector) {
   const uint32_t size_bytes = is_subsector ? SUBSECTOR_SIZE_BYTES : SECTOR_SIZE_BYTES;
   const uint32_t BUF_SIZE_BYTES = 128;

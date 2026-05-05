@@ -8,6 +8,8 @@
 #include "system/logging.h"
 #include "system/bootbits.h"
 
+PBL_LOG_MODULE_REGISTER(system_reboot_reason, LOG_LEVEL_DEBUG);
+
 #ifdef MICRO_FAMILY_SF32LB52
 #include <bf0_hal.h>
 #endif

@@ -22,6 +22,8 @@
 #include <string.h>
 
 //! BlobDB Endpoint ID
+PBL_LOG_MODULE_REGISTER(blob_db_endpoint2, LOG_LEVEL_DEBUG);
+
 static const uint16_t BLOB_DB2_ENDPOINT_ID = 0xb2db;
 
 //! BlobDB Protocol Version - increment when adding new features

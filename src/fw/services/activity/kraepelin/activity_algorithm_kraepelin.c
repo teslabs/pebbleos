@@ -39,6 +39,8 @@
 
 // ---------------------------------------------------------------------------------------------
 // Globals
+PBL_LOG_MODULE_REGISTER(kraepelin_activity_algorithm_kraepelin, LOG_LEVEL_DEBUG);
+
 typedef struct {
   PebbleRecursiveMutex *mutex;
 
@@ -244,12 +246,12 @@ static bool prv_log_minute_file_minutes_cb(SettingsFile *file, SettingsRecordInf
   // NOTE: we use pbl_log_sync instead of PBL_LOG because we don't want these messages
   // hashed. Hashing them doesn't save any space and requires that you unhash before you can
   // parse the data out of the logs.
-  pbl_log_sync(LOG_LEVEL_INFO, __FILE_NAME__, __LINE__, "SLP: %s", base64_buf);
+  pbl_log_sync(LOG_LEVEL_INFO, __pbl_log_module_name, "SLP: %s", base64_buf);
 
   num_chars = base64_encode(base64_buf, sizeof(base64_buf), binary_data + chunk_size,
                             sizeof(AlgMinuteFileRecord) - chunk_size);
   PBL_ASSERTN(num_chars + 1 < (int)sizeof(base64_buf));
-  pbl_log_sync(LOG_LEVEL_INFO, __FILE_NAME__, __LINE__, "SLP: %s", base64_buf);
+  pbl_log_sync(LOG_LEVEL_INFO, __pbl_log_module_name, "SLP: %s", base64_buf);
   return true;
 }
 

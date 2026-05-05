@@ -10,6 +10,8 @@
 #include "system/logging.h"
 #include "util/pstring.h"
 
+PBL_LOG_MODULE_REGISTER(ancs_ancs_filtering, LOG_LEVEL_DEBUG);
+
 void ancs_filtering_record_app(iOSNotifPrefs **notif_prefs,
                                const ANCSAttribute *app_id,
                                const ANCSAttribute *display_name,

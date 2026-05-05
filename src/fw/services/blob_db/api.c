@@ -23,6 +23,8 @@
 #include "kernel/pbl_malloc.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(blob_db_api, LOG_LEVEL_DEBUG);
+
 typedef struct {
   BlobDBInitImpl init;
   BlobDBInsertImpl insert;

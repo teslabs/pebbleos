@@ -20,6 +20,8 @@
 #include "FreeRTOS.h"
 #include "queue.h"
 
+PBL_LOG_MODULE_REGISTER(accel_service, LOG_LEVEL_DEBUG);
+
 static bool prv_is_session_task(void) {
   PebbleTask task = pebble_task_get_current();
   return (task == PebbleTask_KernelMain || task == PebbleTask_KernelBackground ||

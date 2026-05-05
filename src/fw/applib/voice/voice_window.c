@@ -77,9 +77,11 @@
 
 #define ERROR_DIALOG_TIMEOUT (5000)
 
+PBL_LOG_MODULE_REGISTER(voice_voice_window, LOG_LEVEL_DEBUG);
+
 static const uint32_t UNFOLD_DURATION = 500;
 
-#define VOICE_LOG(fmt, args...)   PBL_LOG_D_DBG(LOG_DOMAIN_VOICE, fmt, ## args)
+#define VOICE_LOG(fmt, args...)   PBL_LOG_DBG(fmt, ## args)
 
 static void prv_start_dictation(VoiceUiData *data);
 static void prv_stop_dictation(VoiceUiData *data);

@@ -22,6 +22,8 @@
 
 #define FIRST_VALID_INSTALL_ID (INSTALL_ID_INVALID + 1)
 
+PBL_LOG_MODULE_REGISTER(blob_db_app_db, LOG_LEVEL_DEBUG);
+
 static AppInstallId s_next_unique_flash_app_id;
 
 static struct {

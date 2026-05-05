@@ -21,6 +21,8 @@
 
 // =================================================================================
 // Application Data
+PBL_LOG_MODULE_REGISTER(demo_test_sys_timer, LOG_LEVEL_DEBUG);
+
 typedef struct {
   Window *window;
   SimpleMenuLayer *menu_layer;

@@ -17,6 +17,8 @@
 #include "system/passert.h"
 #include "system/reset.h"
 
+PBL_LOG_MODULE_REGISTER(util_fw_reset, LOG_LEVEL_DEBUG);
+
 static void prv_reset_into_prf(void) {
   RebootReason reason = { RebootReasonCode_PrfReset, 0 };
   reboot_reason_set(&reason);

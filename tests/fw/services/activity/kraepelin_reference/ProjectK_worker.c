@@ -32,6 +32,8 @@ Pebble App roject.
 /* META DATA CODES */
 
 /* BEHAVIOR CONSTANTS */
+PBL_LOG_MODULE_REGISTER(kraepelin_reference_projectk_worker, LOG_LEVEL_DEBUG);
+
 static const int16_t SMP_HZ = 25; // number of samples taken per second
 static const int16_t N_SMP_EPOCH = (5*25); // 5*25 = 125 samples recorded, 5 seconds for step count
 static const int16_t FFT_PWR_TWO = 7; // 2^7 = 128 elements > 125 to allow fft

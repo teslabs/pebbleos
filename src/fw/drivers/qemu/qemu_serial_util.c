@@ -16,6 +16,8 @@
 
 
 // -----------------------------------------------------------------------------------------
+PBL_LOG_MODULE_REGISTER(qemu_qemu_serial_util, LOG_LEVEL_DEBUG);
+
 void qemu_serial_private_init_state(QemuSerialGlobals *state)
 {
 

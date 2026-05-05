@@ -20,6 +20,8 @@
 #include "fake_rtc.h"
 #include "fake_pbl_std.h"
 
+PBL_LOG_MODULE_REGISTER(health_test_health, LOG_LEVEL_DEBUG);
+
 bool sys_activity_is_initialized(void) {
   return true;
 }

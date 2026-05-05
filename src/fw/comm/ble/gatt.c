@@ -12,6 +12,8 @@
 #include <bluetooth/pebble_pairing_service.h>
 
 //! @see comment in gatt_client_subscriptions.c
+PBL_LOG_MODULE_REGISTER(ble_gatt, LOG_LEVEL_DEBUG);
+
 extern void gatt_client_subscriptions_handle_server_notification(GAPLEConnection *connection,
                                                                  uint16_t att_handle,
                                                                  const uint8_t *att_value,

@@ -10,6 +10,8 @@
 
 #include <stdint.h>
 
+PBL_LOG_MODULE_REGISTER(resource_resource_storage_file, LOG_LEVEL_DEBUG);
+
 extern const FileResourceData g_file_resource_stores[];
 extern const uint32_t g_num_file_resource_stores;
 

@@ -45,6 +45,8 @@
 #define ANIMATION_SLIDE 1
 #endif
 
+PBL_LOG_MODULE_REGISTER(apps_system_timeline, LOG_LEVEL_DEBUG);
+
 typedef struct TimelineAppStyle {
   int16_t peek_offset_y;
   int16_t peek_icon_offset_y;

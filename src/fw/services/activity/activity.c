@@ -45,6 +45,8 @@
 #include "pbl/services/activity/activity_private.h"
 
 // Our globals
+PBL_LOG_MODULE_REGISTER(activity, LOG_LEVEL_DEBUG);
+
 static ActivityState s_activity_state;
 static bool s_activity_initialized = false;
 
@@ -635,11 +637,11 @@ static void prv_collect_raw_samples(AccelRawData *accel_data, uint32_t num_sampl
       int32_t num_chars = base64_encode(data->base64_buf, sizeof(data->base64_buf),
                                         binary_data, chunk_size);
       PBL_ASSERTN(num_chars + 1 < (int)sizeof(data->base64_buf));
-      pbl_log(LOG_LEVEL_INFO, __FILE_NAME__, __LINE__, "RAW: %s", data->base64_buf);
+      pbl_log(LOG_LEVEL_INFO, __pbl_log_module_name, "RAW: %s", data->base64_buf);
       num_chars = base64_encode(data->base64_buf, sizeof(data->base64_buf),
                                 binary_data + chunk_size, sizeof(data->record) - chunk_size);
       PBL_ASSERTN(num_chars + 1 < (int)sizeof(data->base64_buf));
-      pbl_log(LOG_LEVEL_INFO, __FILE_NAME__, __LINE__, "RAW: %s", data->base64_buf);
+      pbl_log(LOG_LEVEL_INFO, __pbl_log_module_name, "RAW: %s", data->base64_buf);
 
       // Reset the stored record. 0 in num_samples causes it to be re-initialized
       // at the top of this loop.

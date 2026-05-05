@@ -19,6 +19,8 @@
 
 #define SYSTEM_TASK_PRIORITY (tskIDLE_PRIORITY + 1)
 
+PBL_LOG_MODULE_REGISTER(system_task_service, LOG_LEVEL_DEBUG);
+
 typedef struct {
   SystemTaskEventCallback cb;
   void *data;

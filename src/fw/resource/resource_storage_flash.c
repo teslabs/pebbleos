@@ -14,6 +14,8 @@
 
 #include <stdlib.h>
 
+PBL_LOG_MODULE_REGISTER(resource_resource_storage_flash, LOG_LEVEL_DEBUG);
+
 static const SystemResourceBank s_resource_banks[] = {
   {
     .begin = FLASH_REGION_SYSTEM_RESOURCES_BANK_0_BEGIN,

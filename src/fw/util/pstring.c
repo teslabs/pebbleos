@@ -8,6 +8,8 @@
 #include "kernel/pbl_malloc.h"
 #include "util/pstring.h"
 
+PBL_LOG_MODULE_REGISTER(util_pstring, LOG_LEVEL_DEBUG);
+
 PascalString16 *pstring_create_pstring16(uint16_t size) {
   PascalString16* pstring = task_malloc_check(sizeof(uint16_t) + sizeof(char) * size);
   pstring->str_length = 0;

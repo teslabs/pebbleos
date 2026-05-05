@@ -12,6 +12,8 @@
 #include "system/logging.h"
 #include <limits.h>
 
+PBL_LOG_MODULE_REGISTER(demo_text_layout, LOG_LEVEL_DEBUG);
+
 struct AppState {
   Window window;
   ScrollLayer scroll_layer;

@@ -14,6 +14,8 @@
 
 #include "applib/legacy2/ui/text_layer_legacy2.h"
 
+PBL_LOG_MODULE_REGISTER(demo_text_spacing, LOG_LEVEL_DEBUG);
+
 typedef struct AppState {
   Window window;
   TextLayer text_layer;

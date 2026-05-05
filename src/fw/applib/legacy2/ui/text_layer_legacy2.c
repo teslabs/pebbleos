@@ -14,6 +14,8 @@
 #include <string.h>
 #include <stddef.h>
 
+PBL_LOG_MODULE_REGISTER(ui_text_layer_legacy2, LOG_LEVEL_DEBUG);
+
 static GTextLayoutCacheRef prv_text_layer_legacy2_get_cache_handle(TextLayerLegacy2 *text_layer) {
   if (text_layer == NULL) {
     return NULL;

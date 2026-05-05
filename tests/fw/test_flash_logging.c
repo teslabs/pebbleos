@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(test_flash_logging, LOG_LEVEL_DEBUG);
+
 void test_flash_logging__initialize(void) {
   fake_spi_flash_init(0, BOARD_NOR_FLASH_SIZE);
 }
@@ -72,8 +74,8 @@ void version_copy_current_build_id_hex_string(char *buffer,
       build_id_bytes_left, false);
 }
 
-int pbl_log_get_bin_format(char* buffer, int buffer_len, const uint8_t log_level,
-    const char* src_filename_path, int src_line_number, const char* fmt, ...) {
+int pbl_log_get_bin_format(char *buffer, int buffer_len, const uint8_t log_level,
+                           const char *module, const char *fmt, ...) {
   va_list fmt_args;
   va_start(fmt_args, fmt);
   int len = vsnprintf(buffer, buffer_len, fmt, fmt_args);

@@ -34,6 +34,8 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! BLE Pairing Info
 
+PBL_LOG_MODULE_REGISTER(bluetooth_bluetooth_persistent_storage_prf, LOG_LEVEL_DEBUG);
+
 static void prv_call_ble_bonding_change_handlers(BTBondingID bonding, BtPersistBondingOp op) {
   gap_le_connect_handle_bonding_change(bonding, op);
   kernel_le_client_handle_bonding_change(bonding, op);

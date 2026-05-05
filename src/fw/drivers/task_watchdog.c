@@ -36,6 +36,8 @@
 #define APP_THROTTLE_TIME_MS 300
 
 // These bits get set by calls to task_watchdog_bit_set and checked and cleared periodically by our watchdog feed
+PBL_LOG_MODULE_REGISTER(task_watchdog, LOG_LEVEL_DEBUG);
+
 static PebbleTaskBitset s_watchdog_bits = 0;
 
 #define DEFAULT_TASK_WATCHDOG_MASK ( 1 << PebbleTask_NewTimers )

@@ -37,6 +37,8 @@
 #define MIN_STROKE 1
 #define MAX_STROKE 100
 
+PBL_LOG_MODULE_REGISTER(demo_stroke_width, LOG_LEVEL_DEBUG);
+
 static Window *s_window;
 
 extern void prv_draw_stroked_line_precise(GContext* ctx, GPointPrecise p0, GPointPrecise p1,

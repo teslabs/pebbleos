@@ -13,6 +13,8 @@
 #include "drivers/vibe.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(demo_vibe_and_logs, LOG_LEVEL_DEBUG);
+
 Window s_window;
 static AppTimer *s_app_timer;
 TimerID s_sys_timer = TIMER_INVALID_ID;

@@ -23,6 +23,8 @@
 #include "system/logging.h"
 #include "system/reboot_reason.h"
 
+PBL_LOG_MODULE_REGISTER(test_battery_monitor, LOG_LEVEL_DEBUG);
+
 static bool s_entered_standby;
 static bool s_in_low_power;
 static bool s_error_window_shown;

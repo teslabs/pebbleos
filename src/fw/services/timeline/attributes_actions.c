@@ -10,6 +10,8 @@
 
 #define GROUP_TYPE AttributeGroupType_Action
 
+PBL_LOG_MODULE_REGISTER(timeline_attributes_actions, LOG_LEVEL_DEBUG);
+
 bool attributes_actions_parse_serial_data(uint8_t num_attributes,
                                           uint8_t num_actions,
                                           const uint8_t *data,

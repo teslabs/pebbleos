@@ -16,6 +16,8 @@
 
 #define TEXT_BUFFER_SIZE 64
 
+PBL_LOG_MODULE_REGISTER(demo_click, LOG_LEVEL_DEBUG);
+
 typedef struct {
   Window window;
   TextLayer text;

@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////
 // Private functions
 ///////////////////////////////////////////////////////////
+PBL_LOG_MODULE_REGISTER(timeline_relbar, LOG_LEVEL_DEBUG);
+
 static void prv_rel_bar_reset_offsets(RelationshipBarLayer *relbar_layer,
                                       RelationshipBarOffsetType rel_bar_type) {
   switch (rel_bar_type) {

@@ -33,6 +33,8 @@
 #define HS_MAX_AGE_HR_SAMPLE (15 * SECONDS_PER_MINUTE)
 
 // ----------------------------------------------------------------------------------------------
+PBL_LOG_MODULE_REGISTER(health_service, LOG_LEVEL_DEBUG);
+
 static bool prv_is_heart_rate_metric(HealthMetric metric) {
   return (metric == HealthMetricHeartRateBPM) || (metric == HealthMetricHeartRateRawBPM);
 }

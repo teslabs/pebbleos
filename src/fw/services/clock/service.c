@@ -31,6 +31,8 @@
 
 #define UNKNOWN_TIMEZONE_ID (-1)
 
+PBL_LOG_MODULE_REGISTER(clock_service, LOG_LEVEL_DEBUG);
+
 static const uint16_t protocol_time_endpoint_id = 11;
 
 static RegularTimerInfo s_dst_checker;

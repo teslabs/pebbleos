@@ -61,6 +61,8 @@
 #include "timers.h"
 
 
+PBL_LOG_MODULE_REGISTER(test_data_logging, LOG_LEVEL_DEBUG);
+
 TickType_t xTaskGetTickCount(void) {
   return 1337;
 }

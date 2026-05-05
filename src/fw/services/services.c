@@ -15,6 +15,8 @@
 #include "util/size.h"
 #include "util/string.h"
 
+PBL_LOG_MODULE_REGISTER(services, LOG_LEVEL_DEBUG);
+
 void services_early_init(void) {
 #ifndef RECOVERY_FW
   services_normal_early_init();

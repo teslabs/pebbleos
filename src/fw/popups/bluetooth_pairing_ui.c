@@ -34,6 +34,8 @@
 #define CODE_BUF_SIZE 16
 #define MAX_PAIR_STR_LEN 16
 
+PBL_LOG_MODULE_REGISTER(popups_bluetooth_pairing_ui, LOG_LEVEL_DEBUG);
+
 typedef enum {
   BTPairingUIStateAwaitingUserConfirmation, // It's possible to go from here straight to Failed
   BTPairingUIStateAwaitingResult,

@@ -10,6 +10,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // All these functions execute on App Task
 
+PBL_LOG_MODULE_REGISTER(applib_app_message_receiver, LOG_LEVEL_DEBUG);
+
 void app_message_receiver_message_handler(const uint8_t *data, size_t length,
                                           AppInboxConsumerInfo *consumer_info) {
   AppMessageReceiverHeader *message = (AppMessageReceiverHeader *)data;

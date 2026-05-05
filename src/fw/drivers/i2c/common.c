@@ -42,6 +42,8 @@
 
 /*----------------SEMAPHORE/LOCKING FUNCTIONS--------------------------*/
 
+PBL_LOG_MODULE_REGISTER(i2c_common, LOG_LEVEL_DEBUG);
+
 static bool prv_semaphore_take(I2CBusState *bus) {
   return (xSemaphoreTake(bus->event_semaphore, 0) == pdPASS);
 }

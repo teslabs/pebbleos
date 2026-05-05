@@ -14,14 +14,17 @@
 #include "system/passert.h"
 
 void app_log_vargs(uint8_t log_level, const char* src_filename, int src_line_number, const char* fmt, va_list args) {
+  (void)src_line_number;  // Preserved in the public app SDK ABI; no longer transmitted on the wire.
   char log_buffer[LOG_BUFFER_LENGTH];
   _Static_assert(sizeof(log_buffer) > sizeof(AppLogBinaryMessage), "log_buffer too small for AppLogBinaryMessage");
 
   AppLogBinaryMessage* msg = (AppLogBinaryMessage*)log_buffer;
   sys_get_app_uuid(&msg->uuid);
   const size_t log_msg_offset = offsetof(AppLogBinaryMessage, log_msg);
-  int bin_msg_length = pbl_log_binary_format((char*)&msg->log_msg, sizeof(log_buffer) - log_msg_offset, log_level,
-                                             src_filename, src_line_number, fmt, args);
+  // Bridge: apps have no PBL_LOG_MODULE_REGISTER; pass src_filename through the module slot
+  // so app logs continue to be tagged with their source file.
+  int bin_msg_length = pbl_log_binary_format(
+      (char*)&msg->log_msg, sizeof(log_buffer) - log_msg_offset, log_level, src_filename, fmt, args);
   sys_app_log(log_msg_offset + bin_msg_length, log_buffer);
 }
 

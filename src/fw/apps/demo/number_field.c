@@ -10,6 +10,8 @@
 #include "system/logging.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(demo_number_field, LOG_LEVEL_DEBUG);
+
 typedef struct {
   NumberWindow num;
 } AppData;

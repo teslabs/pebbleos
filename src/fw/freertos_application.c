@@ -21,6 +21,8 @@
 
 #include <cmsis_core.h>
 
+PBL_LOG_MODULE_REGISTER(freertos_application, LOG_LEVEL_DEBUG);
+
 #if defined(MICRO_FAMILY_NRF52)
 #include <hal/nrf_nvmc.h>
 #endif

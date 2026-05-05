@@ -22,6 +22,8 @@
 #include <stdio.h>
 
 
+PBL_LOG_MODULE_REGISTER(data_logging_dls_storage, LOG_LEVEL_DEBUG);
+
 typedef enum {
   DLS_VERSION_0 = 0x20,
 } DLSFileHeaderVersion;
@@ -182,7 +184,7 @@ static bool prv_accumulate_size_cb(DataLoggingSession* session, void *data) {
 static uint32_t prv_get_total_file_system_bytes(void) {
   uint32_t size = 0;
   dls_list_for_each_session(prv_accumulate_size_cb, &size);
-  PBL_LOG_D_DBG(LOG_DOMAIN_DATA_LOGGING, "Total used space: %d", (int)size);
+  PBL_LOG_DBG("Total used space: %d", (int)size);
   return size;
 }
 
@@ -280,7 +282,7 @@ static bool prv_open_file(DataLoggingSessionStorage *storage, uint8_t op_flags,
     .read_offset = sizeof(hdr)
   };
 
-  PBL_LOG_D_DBG(LOG_DOMAIN_DATA_LOGGING, "Created session-storage: "
+  PBL_LOG_DBG("Created session-storage: "
       "id %"PRIu8", filename: %s, fd: %d, size: %d", session->comm.session_id, name, fd,
       (int)size);
   return true;
@@ -455,7 +457,7 @@ static bool prv_realloc_storage(DataLoggingSession *session, uint32_t new_size) 
   PBL_ASSERTN(session->storage.fd == DLS_INVALID_FILE);
 
   PBL_LOG_INFO("Compacting storage for session %d", session->comm.session_id);
-  PBL_LOG_D_DBG(LOG_DOMAIN_DATA_LOGGING, "Before compaction: num_bytes: %"PRIu32", write_offset:%"PRIu32,
+  PBL_LOG_DBG("Before compaction: num_bytes: %"PRIu32", write_offset:%"PRIu32,
             session->storage.num_bytes, session->storage.write_offset);
 
   // Init a storage struct and create a new file for the compacted data
@@ -523,7 +525,7 @@ static bool prv_realloc_storage(DataLoggingSession *session, uint32_t new_size) 
   // Plug in the new storage info into the session
   session->storage = new_storage;
 
-  PBL_LOG_D_DBG(LOG_DOMAIN_DATA_LOGGING, "After compaction: size: %d, num_bytes: %d, write_offset:%d",
+  PBL_LOG_DBG("After compaction: size: %d, num_bytes: %d, write_offset:%d",
             (int)new_size, (int)session->storage.num_bytes, (int)session->storage.write_offset);
   success = true;
 
@@ -836,7 +838,7 @@ int32_t dls_storage_consume(DataLoggingSession *logging_session, int32_t num_byt
 
 exit:
   if (consumed_bytes > 0) {
-    PBL_LOG_D_DBG(LOG_DOMAIN_DATA_LOGGING, "Consumed %d bytes from session %d", (int)consumed_bytes,
+    PBL_LOG_DBG("Consumed %d bytes from session %d", (int)consumed_bytes,
               logging_session->comm.session_id);
   }
 

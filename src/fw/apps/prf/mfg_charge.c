@@ -17,6 +17,8 @@
 
 #include <stdio.h>
 
+PBL_LOG_MODULE_REGISTER(prf_mfg_charge, LOG_LEVEL_DEBUG);
+
 typedef enum {
   ChargeStateWaitPlug = 0,
   ChargeStateWaitCharge,

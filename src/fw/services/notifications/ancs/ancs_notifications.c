@@ -26,6 +26,8 @@
 
 #include <stdio.h>
 
+PBL_LOG_MODULE_REGISTER(ancs_ancs_notifications, LOG_LEVEL_DEBUG);
+
 static const Uuid uuid_reminders_data_source = UUID_REMINDERS_DATA_SOURCE;
 static const Uuid uuid_calendar_data_source = UUID_CALENDAR_DATA_SOURCE;
 

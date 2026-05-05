@@ -31,6 +31,8 @@
 //! Note: This module currently only manages the LE connections. In the
 //! future, we will add support for handling classic connections as well
 
+PBL_LOG_MODULE_REGISTER(internals_bt_conn_mgr, LOG_LEVEL_DEBUG);
+
 typedef struct {
   ListNode          list_node;
   uint32_t          timeout; // time to stop this request (in rtc ticks)

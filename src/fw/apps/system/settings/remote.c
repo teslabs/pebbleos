@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(settings_remote, LOG_LEVEL_DEBUG);
+
 enum {
   RemoteMenuForget = 0,
 #ifdef CONFIG_HRM

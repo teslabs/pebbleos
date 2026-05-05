@@ -27,6 +27,8 @@
 
 #define MAX_ERASE_RETRIES (3)
 
+PBL_LOG_MODULE_REGISTER(flash_flash_api, LOG_LEVEL_DEBUG);
+
 static PebbleMutex *s_flash_lock;
 static SemaphoreHandle_t s_erase_semphr;
 

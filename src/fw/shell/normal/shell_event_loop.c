@@ -38,6 +38,8 @@
 #include "system/logging.h"
 
 
+PBL_LOG_MODULE_REGISTER(normal_shell_event_loop, LOG_LEVEL_DEBUG);
+
 extern void shell_prefs_init(void);
 
 void shell_event_loop_init(void) {

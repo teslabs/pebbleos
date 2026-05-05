@@ -43,6 +43,8 @@
 #define SPRF_CUR_VERSION 0x02
 
 // Keeps track of the current page within the region that the valid (or empty) page is
+PBL_LOG_MODULE_REGISTER(shared_prf_storage, LOG_LEVEL_DEBUG);
+
 static uint32_t s_valid_page_idx;
 static PebbleMutex *s_sprf_mutex;
 

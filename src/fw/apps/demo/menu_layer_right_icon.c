@@ -17,6 +17,8 @@
 #define NUM_MENU_SECTIONS 1
 #define NUM_MENU_ITEMS 4
 
+PBL_LOG_MODULE_REGISTER(demo_menu_layer_right_icon, LOG_LEVEL_DEBUG);
+
 typedef struct {
   Window window;
   MenuLayer menu_layer;

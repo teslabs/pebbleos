@@ -16,6 +16,8 @@
 #include "registers.h"
 
 // Forward declarations of private methods
+PBL_LOG_MODULE_REGISTER(mmc5603nj, LOG_LEVEL_DEBUG);
+
 static bool prv_mmc5603nj_read(uint8_t reg_addr, uint8_t data_len, uint8_t *data);
 static bool prv_mmc5603nj_write(uint8_t reg_addr, uint8_t data);
 static bool prv_mmc5603nj_init(void);

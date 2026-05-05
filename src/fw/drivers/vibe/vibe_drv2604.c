@@ -52,6 +52,8 @@
 #define DRV2604_CONTROL4      0x1E
 #define DRV2604_CONTROL4_AUTO_CAL_TIME(n) ((n) << 4)
 
+PBL_LOG_MODULE_REGISTER(vibe_vibe_drv2604, LOG_LEVEL_DEBUG);
+
 static bool s_initialized = false;
 
 static bool prv_read_register(uint8_t register_address, uint8_t *result) {

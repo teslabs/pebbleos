@@ -7,6 +7,8 @@
 #include "pbl/services/notifications/notification_storage.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(blob_db_notif_db, LOG_LEVEL_DEBUG);
+
 void notif_db_init(void) {
 }
 

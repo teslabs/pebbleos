@@ -24,6 +24,8 @@
 #include "stubs_rand_ptr.h"
 #include "stubs_syscall_internal.h"
 
+PBL_LOG_MODULE_REGISTER(comm_session_test_session_receive_router, LOG_LEVEL_DEBUG);
+
 void app_launch_trigger(void) {
 }
 

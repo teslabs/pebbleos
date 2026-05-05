@@ -16,6 +16,8 @@
 #include <inttypes.h>
 
 
+PBL_LOG_MODULE_REGISTER(flash_flash_erase, LOG_LEVEL_DEBUG);
+
 static SemaphoreHandle_t s_erase_mutex = NULL;
 static struct FlashRegionEraseState {
   uint32_t next_erase_addr;

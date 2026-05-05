@@ -7,6 +7,8 @@
 #include "system/logging.h"
 #include "syscall/syscall.h"
 
+PBL_LOG_MODULE_REGISTER(app_message_app_message_inbox, LOG_LEVEL_DEBUG);
+
 AppMessageResult app_message_inbox_open(AppMessageCtxInbox *inbox, size_t size_inbound) {
   const size_t size_maximum = app_message_inbox_size_maximum();
   if (size_inbound > size_maximum) {

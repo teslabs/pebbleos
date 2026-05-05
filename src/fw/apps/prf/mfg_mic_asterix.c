@@ -27,6 +27,8 @@
 
 #include "console/dbgserial.h"
 
+PBL_LOG_MODULE_REGISTER(prf_mfg_mic_asterix, LOG_LEVEL_DEBUG);
+
 #define DUMP_RECORDING_DBGSERIAL 0
 #define PLAY_SINEWAVE 0
 

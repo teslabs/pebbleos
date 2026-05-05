@@ -15,6 +15,8 @@
 
 #define PB_APP_STATE_ENDPOINT_ID       0x34
 
+PBL_LOG_MODULE_REGISTER(process_management_app_run_state, LOG_LEVEL_DEBUG);
+
 typedef struct PACKED {
   AppState state:8;
   Uuid uuid;

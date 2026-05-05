@@ -29,6 +29,8 @@
 #include "util/legacy_checksum.h"
 #include "util/math.h"
 
+PBL_LOG_MODULE_REGISTER(filesystem_pfs, LOG_LEVEL_DEBUG);
+
 static PebbleRecursiveMutex *s_pfs_mutex = NULL;
 
 #define IS_FILE_TYPE(file_type, type)   ((file_type) == (type))
@@ -2236,7 +2238,7 @@ void pfs_command_dump_hdr(const char *page) {
   uint8_t hdr[FILE_NAME_OFFSET + 10];
   prv_flash_read((uint8_t *)&hdr, sizeof(hdr), prv_page_to_flash_offset(pg));
 
-  PBL_HEXDUMP_D_SERIAL(LOG_LEVEL_DEBUG, hdr, sizeof(hdr));
+  PBL_HEXDUMP_SERIAL(LOG_LEVEL_DEBUG, hdr, sizeof(hdr));
 }
 
 void pfs_command_fs_ls(void) {
@@ -2296,7 +2298,7 @@ void pfs_debug_dump(int fd, int num_bytes) {
     goto cleanup;
   }
 
-  PBL_HEXDUMP_D_SERIAL(LOG_LEVEL_DEBUG, bytes, num_bytes);
+  PBL_HEXDUMP_SERIAL(LOG_LEVEL_DEBUG, bytes, num_bytes);
 
   prompt_send_response("DONE");
 cleanup:

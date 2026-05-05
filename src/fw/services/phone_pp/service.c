@@ -19,6 +19,8 @@
 
 #define CALLER_BUFFER_LENGTH 32
 
+PBL_LOG_MODULE_REGISTER(phone_pp_service, LOG_LEVEL_DEBUG);
+
 static const uint16_t PHONE_CTRL_ENDPOINT = 0x21;
 
 static bool s_get_phone_state_enabled;

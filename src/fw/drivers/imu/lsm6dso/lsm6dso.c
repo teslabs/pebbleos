@@ -16,6 +16,8 @@
 #include "lsm6dso.h"
 
 // Forward declaration of private functions defined below public functions
+PBL_LOG_MODULE_REGISTER(lsm6dso, LOG_LEVEL_DEBUG);
+
 static int32_t prv_lsm6dso_read(void *handle, uint8_t reg_addr, uint8_t *buffer,
                                 uint16_t read_size);
 static int32_t prv_lsm6dso_write(void *handle, uint8_t reg_addr, const uint8_t *buffer,

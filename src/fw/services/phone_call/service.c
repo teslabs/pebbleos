@@ -31,6 +31,8 @@
 //!   know when the phone stops ringing, we don't know what happens after the user accepts/rejects
 
 
+PBL_LOG_MODULE_REGISTER(phone_call_service, LOG_LEVEL_DEBUG);
+
 static bool s_call_in_progress = false;
 static PhoneCallSource s_call_source;
 

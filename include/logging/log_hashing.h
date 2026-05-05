@@ -33,11 +33,14 @@
  *      - <offset-mask> defines the number of bits used in the token for the section offset
  *      - <token-list>: <token>:<token-list>
  *                    : '\0'
- *      - <token>: <file>
- *               : <line>
- *               : <level>
+ *      - <token>: <level>
  *               : <color>
  *               : <fmt>
+ *
+ *    Module name is no longer encoded in the .log_strings section. It is
+ *    passed at runtime as a separate argument to pbl_log_hashed_*() and
+ *    sourced from the per-translation-unit __pbl_log_module_name pointer
+ *    set up by PBL_LOG_MODULE_REGISTER / PBL_LOG_MODULE_DECLARE.
  *  - .log_core_number: "CORE<C>"
  *    where:
  *      - <C> is the core number. This will be two bits.
@@ -74,7 +77,7 @@
 #include <string.h>
 #include "util/attributes.h"
 
-#define NEW_LOG_VERSION "0101"
+#define NEW_LOG_VERSION "0200"
 
 #define LOG_STRINGS_SECTION_ADDRESS 0xC0000000
 
@@ -118,9 +121,26 @@ void PBL_LOG_x_printf_arg_check(const char *fmt, ...) FORMAT_PRINTF(1, 2);
 #define NEW_LOG_HASH(logfunc, level, color, fmt, ...) \
 { \
   static const char str[] __attribute__((nocommon, section(".log_strings"))) = \
-    __FILE__ ":" STRINGIFY(__LINE__) ":" STRINGIFY(level) ":" color ":" fmt; \
+    STRINGIFY(level) ":" color ":" fmt; \
   _Pragma("GCC diagnostic push"); _Pragma("GCC diagnostic ignored \"-Warray-bounds\""); \
-  logfunc((uint32_t)&str[LOG_SECTION_OFFSET(level, fmt)], ##__VA_ARGS__); \
+  logfunc(__pbl_log_module_name, (uint32_t)&str[LOG_SECTION_OFFSET(level, fmt)], ##__VA_ARGS__); \
+  _Pragma("GCC diagnostic pop"); \
+  if (0) PBL_LOG_x_printf_arg_check(fmt, ##__VA_ARGS__); \
+}
+
+/* Hashed-log entry for assertions. Asserts pass "<file>:<line>" as the tag
+ * instead of the per-TU module name, so call sites do not need to call
+ * PBL_LOG_MODULE_REGISTER. This lets third-party glue (FreeRTOS configASSERT,
+ * moddable's PBL_ASSERT users, etc.) compile without modification. The
+ * runtime function (passert_failed_hashed) accepts any string pointer in its
+ * first argument. */
+#define NEW_LOG_HASH_ASSERT(logfunc, level, color, fmt, ...) \
+{ \
+  static const char str[] __attribute__((nocommon, section(".log_strings"))) = \
+    STRINGIFY(level) ":" color ":" fmt; \
+  _Pragma("GCC diagnostic push"); _Pragma("GCC diagnostic ignored \"-Warray-bounds\""); \
+  logfunc(__FILE_NAME__ ":" STRINGIFY(__LINE__), \
+          (uint32_t)&str[LOG_SECTION_OFFSET(level, fmt)], ##__VA_ARGS__); \
   _Pragma("GCC diagnostic pop"); \
   if (0) PBL_LOG_x_printf_arg_check(fmt, ##__VA_ARGS__); \
 }

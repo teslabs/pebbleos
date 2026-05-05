@@ -25,6 +25,8 @@
 //     - How to identify? iOS SDK does not expose addresses. Use DIS info? Fall
 //       back to device name?
 
+PBL_LOG_MODULE_REGISTER(bluetooth_ble_client, LOG_LEVEL_DEBUG);
+
 static void prv_handle_services_added(
     BLEClientServiceChangeHandler handler, BTDeviceInternal device, BTErrno status) {
   BLEService services[BLE_GATT_MAX_SERVICES_CHANGED];

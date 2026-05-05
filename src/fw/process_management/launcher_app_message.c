@@ -13,6 +13,8 @@
 
 #define LAUNCHER_MESSAGE_ENDPOINT_ID  (0x31)
 
+PBL_LOG_MODULE_REGISTER(process_management_launcher_app_message, LOG_LEVEL_DEBUG);
+
 typedef enum {
   //! Used as reply from the watch to the phone, to indicate the app is not running.
   //! Or, when pushed from phone to watch, this value will have the effect of killing the app.

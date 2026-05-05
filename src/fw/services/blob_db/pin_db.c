@@ -25,6 +25,8 @@
 #define PIN_DB_FILE_NAME "pindb"
 #define PIN_DB_MAX_SIZE KiBYTES(40) // TODO [FBO] variable size / reasonable value
 
+PBL_LOG_MODULE_REGISTER(blob_db_pin_db, LOG_LEVEL_DEBUG);
+
 static TimelineItemStorage s_pin_db_storage;
 
 /////////////////////////

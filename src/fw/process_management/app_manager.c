@@ -77,6 +77,8 @@
 //!
 //! Apps are only started and stopped on the launcher task (aka kernel main).
 
+PBL_LOG_MODULE_REGISTER(process_management_app_manager, LOG_LEVEL_DEBUG);
+
 extern char __APP_RAM__[];
 extern char __APP_RAM_end__[];
 extern char __stack_guard_size__[];

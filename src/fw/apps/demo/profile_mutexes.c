@@ -12,6 +12,8 @@
 #include "os/mutex.h"
 #include "system/profiler.h"
 
+PBL_LOG_MODULE_REGISTER(demo_profile_mutexes, LOG_LEVEL_DEBUG);
+
 static Window *window;
 static PebbleMutex *s_mutex;
 static PebbleRecursiveMutex *s_rmutex;

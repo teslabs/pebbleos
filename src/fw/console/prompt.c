@@ -24,6 +24,8 @@
 #define PROMPT_RESP_DONE (101)
 #define PROMPT_RESP_MESSAGE (102)
 
+PBL_LOG_MODULE_REGISTER(console_prompt, LOG_LEVEL_DEBUG);
+
 static void start_prompt(void);
 static void pulse_send_message(const int message_type, const char* response);
 static void prv_pulse_done_command(void);

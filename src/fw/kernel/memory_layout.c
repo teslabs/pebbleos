@@ -15,6 +15,8 @@
 #include <string.h>
 
 
+PBL_LOG_MODULE_REGISTER(kernel_memory_layout, LOG_LEVEL_DEBUG);
+
 static const char* const MEMORY_REGION_NAMES[] = {
   // FIXME(SF32LB52): system_bf0_ap.c uses now up to 4 regions as MPU is not fully implemented.
 #ifdef MICRO_FAMILY_SF32LB52

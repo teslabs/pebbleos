@@ -10,6 +10,8 @@
 #include "system/version.h"
 #include "util/crc32.h"
 
+PBL_LOG_MODULE_REGISTER(system_bootbits, LOG_LEVEL_DEBUG);
+
 #ifdef MICRO_FAMILY_SF32LB52
 #include <bf0_hal.h>
 #endif

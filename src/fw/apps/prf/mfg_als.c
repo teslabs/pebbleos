@@ -38,6 +38,8 @@
 #define RESULT_DISPLAY_MS 1000
 #define SAMPLE_INTERVAL_MS 100
 
+PBL_LOG_MODULE_REGISTER(prf_mfg_als, LOG_LEVEL_DEBUG);
+
 typedef enum {
   ALSStateWaitForStart = 0,
   ALSStateCountdown,

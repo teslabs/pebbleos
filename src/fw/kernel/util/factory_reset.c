@@ -28,6 +28,8 @@
 #include "pbl/services/timeline/event.h"
 #endif
 
+PBL_LOG_MODULE_REGISTER(util_factory_reset, LOG_LEVEL_DEBUG);
+
 static bool s_in_factory_reset = false;
 
 static void prv_factory_reset_non_pfs_data() {

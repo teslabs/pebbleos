@@ -14,6 +14,8 @@
 // -------------------------------------------------------------------------------------------------
 // Static variables
 
+PBL_LOG_MODULE_REGISTER(app_launch, LOG_LEVEL_DEBUG);
+
 static BLECharacteristic s_app_launch_characteristic = BLE_CHARACTERISTIC_INVALID;
 
 // -------------------------------------------------------------------------------------------------

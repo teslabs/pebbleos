@@ -48,6 +48,8 @@
 #define PWM_DUTY_CYCLE_OFF (PWM_TIMER_UPDATE_PERIOD / 2)
 #define PWM_DUTY_CYCLE_FULL (PWM_TIMER_UPDATE_PERIOD)
 
+PBL_LOG_MODULE_REGISTER(vibe, LOG_LEVEL_DEBUG);
+
 static uint8_t s_vibe_duty_cycle = PWM_DUTY_CYCLE_FULL;
 static bool s_initialized = false;
 

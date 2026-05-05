@@ -73,6 +73,8 @@
 // TODO: Check slave_latency_events values. We currently observe some connection
 // drops that *may* be related to the slave latency being "too high". Let's just
 // remove slave latency for now, and see if that helps.
+PBL_LOG_MODULE_REGISTER(ble_gap_le_connect_params, LOG_LEVEL_DEBUG);
+
 static const GAPLEConnectRequestParams s_default_connection_params_table[NumResponseTimeState] = {
   [ResponseTimeMax] = {
     .slave_latency_events = 0,

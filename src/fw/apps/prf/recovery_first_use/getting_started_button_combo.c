@@ -14,6 +14,8 @@
 #include "system/logging.h"
 #include "util/size.h"
 
+PBL_LOG_MODULE_REGISTER(recovery_first_use_getting_started_button_combo, LOG_LEVEL_DEBUG);
+
 void getting_started_button_combo_init(GettingStartedButtonComboState *state,
                                        GettingStartedButtonComboCallback select_callback) {
   *state = (GettingStartedButtonComboState) {

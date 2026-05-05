@@ -76,6 +76,8 @@
 #define ICON_POSITION_CENTERED_X (DISP_ROWS / 2 - ICON_WIDTH / 2)
 #endif
 
+PBL_LOG_MODULE_REGISTER(popups_phone_ui, LOG_LEVEL_DEBUG);
+
 static const int16_t DOT_SIZE = 8;
 static const uint32_t UNFOLD_DURATION = 300;
 static const int16_t UNFOLD_EXPAND = 8;

@@ -17,6 +17,8 @@
 //! @param erase_count[in, out] Counter variable to track how many times we've run this upkeep
 //                              function
 //! @param feed_watchdog Whether we should feed the task_watchdog for the current task or not
+PBL_LOG_MODULE_REGISTER(flash_region, LOG_LEVEL_DEBUG);
+
 static void prv_erase_upkeep(int *erase_count, bool feed_watchdog) {
   (*erase_count)++;
   if ((*erase_count %= 2) == 0) {

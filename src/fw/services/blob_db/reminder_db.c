@@ -19,6 +19,8 @@
 #define MAX_REMINDER_SIZE SETTINGS_VAL_MAX_LEN
 #define MAX_REMINDER_AGE (15 * SECONDS_PER_MINUTE)
 
+PBL_LOG_MODULE_REGISTER(blob_db_reminder_db, LOG_LEVEL_DEBUG);
+
 typedef struct {
   TimelineItemStorageFilterCallback filter_cb;
   time_t timestamp;

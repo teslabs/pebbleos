@@ -43,6 +43,8 @@
 
 #define SHARING_HEART_RATE_EXTRA_HEIGHT_PX (18)
 
+PBL_LOG_MODULE_REGISTER(settings_bluetooth, LOG_LEVEL_DEBUG);
+
 typedef enum SettingsBluetooth {
   SettingsBluetoothAirplaneMode,
   SettingsBluetoothTotal,

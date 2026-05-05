@@ -14,6 +14,8 @@
 #include "system/logging.h"
 #include "system/profiler.h"
 
+PBL_LOG_MODULE_REGISTER(app, LOG_LEVEL_DEBUG);
+
 static void prv_render_app(void) {
   WindowStack *stack = app_state_get_window_stack();
   GContext *ctx = app_state_get_graphics_context();

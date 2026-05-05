@@ -1,6 +1,10 @@
 /* SPDX-FileCopyrightText: 2025 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <system/logging.h>
+
+PBL_LOG_MODULE_REGISTER(transport_hci_sf32lb52, LOG_LEVEL_DEBUG);
+
 #ifdef NIMBLE_HCI_SF32LB52_TRACE_BINARY
   #include <board/board.h>
   #include <drivers/uart.h>
@@ -102,9 +106,9 @@ void prv_hci_trace(uint8_t type, const uint8_t *data, uint16_t len, uint8_t h4tl
     break;
   }
 
-  PBL_LOG_D_DBG(LOG_DOMAIN_BT_STACK, "%s, %s %" PRIu16, type_str,
+  PBL_LOG_DBG("%s, %s %" PRIu16, type_str,
             (h4tl_packet == H4TL_PACKET_HOST) ? "TX" : "RX", len);
-  PBL_HEXDUMP_D(LOG_DOMAIN_BT_STACK, LOG_LEVEL_DEBUG, data, len);
+  PBL_HEXDUMP(LOG_LEVEL_DEBUG, data, len);
 }
 #elif defined(NIMBLE_HCI_SF32LB52_TRACE_BINARY)
 void prv_hci_trace(uint8_t type, const uint8_t *data, uint16_t len, uint8_t h4tl_packet) {
@@ -187,13 +191,13 @@ static int prv_config_ipc(void) {
 
   s_ipc_port = ipc_queue_init(&q_cfg);
   if (s_ipc_port == IPC_QUEUE_INVALID_HANDLE) {
-    PBL_LOG_D_ERR(LOG_DOMAIN_BT_STACK, "ipc_queue_init failed");
+    PBL_LOG_ERR("ipc_queue_init failed");
     return -1;
   }
 
   ret = ipc_queue_open(s_ipc_port);
   if (ret != 0) {
-    PBL_LOG_D_ERR(LOG_DOMAIN_BT_STACK, "ipc_queue_open failed (%" PRId32 ")", ret);
+    PBL_LOG_ERR("ipc_queue_open failed (%" PRId32 ")", ret);
     return -1;
   }
 
@@ -213,7 +217,7 @@ static int prv_hci_frame_cb(uint8_t pkt_type, void *data) {
     cmd_complete = (void *)ev->data;
 
     if (ev->opcode == BLE_HCI_EVCODE_COMMAND_COMPLETE) {
-      PBL_LOG_D_DBG(LOG_DOMAIN_BT_STACK, "CMD complete %x", cmd_complete->opcode);
+      PBL_LOG_DBG("CMD complete %x", cmd_complete->opcode);
       // NOTE: do not confuse NimBLE with SF32LB52 vendor specific command
       if (cmd_complete->opcode == BLE_HCI_EXT_SF32LB52_BLE_READY) {
         break;
@@ -253,7 +257,7 @@ static void prv_hci_task_main(void *unused) {
 
           consumed_bytes = hci_h4_sm_rx(&s_hci_h4sm, pbuf, len);
           if (consumed_bytes <= 0) {
-            PBL_LOG_D_ERR(LOG_DOMAIN_BT_STACK, "hci_h4_sm_rx rc=%d", consumed_bytes);
+            PBL_LOG_ERR("hci_h4_sm_rx rc=%d", consumed_bytes);
             break;
           }
           len -= consumed_bytes;

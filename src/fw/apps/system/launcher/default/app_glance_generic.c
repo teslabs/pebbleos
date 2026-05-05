@@ -21,6 +21,8 @@
 #define APP_GLANCE_MIN_SUPPORTED_SDK_VERSION_MAJOR (PROCESS_INFO_FIRST_4X_SDK_VERSION_MAJOR)
 #define APP_GLANCE_MIN_SUPPORTED_SDK_VERSION_MINOR (PROCESS_INFO_FIRST_4X_SDK_VERSION_MINOR)
 
+PBL_LOG_MODULE_REGISTER(default_app_glance_generic, LOG_LEVEL_DEBUG);
+
 typedef struct LauncherAppGlanceGeneric {
   //! The title that will be displayed
   char title_buffer[APP_NAME_SIZE_BYTES];

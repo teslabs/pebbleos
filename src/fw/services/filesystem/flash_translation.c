@@ -14,6 +14,8 @@
 #include "util/size.h"
 
 //! Flash translation operation
+PBL_LOG_MODULE_REGISTER(filesystem_flash_translation, LOG_LEVEL_DEBUG);
+
 typedef enum {
   FTLRead,
   FTLWrite,

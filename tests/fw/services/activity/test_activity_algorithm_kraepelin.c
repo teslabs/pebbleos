@@ -50,6 +50,8 @@
         clar__assert_equal_i((i1),(i2),file,line,#i1 " != " #i2, 1)
 
 // Globals
+PBL_LOG_MODULE_REGISTER(activity_test_activity_algorithm_kraepelin, LOG_LEVEL_DEBUG);
+
 AccelSamplingRate s_sample_rate;
 
 static bool s_dls_created;

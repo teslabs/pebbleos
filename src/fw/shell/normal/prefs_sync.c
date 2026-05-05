@@ -20,6 +20,8 @@
 //!
 //! This module simply triggers BlobDB sync when the phone connects.
 
+PBL_LOG_MODULE_REGISTER(normal_prefs_sync, LOG_LEVEL_DEBUG);
+
 static bool s_sync_initialized = false;
 static bool s_is_connected = false;
 static EventServiceInfo s_connection_event_info;

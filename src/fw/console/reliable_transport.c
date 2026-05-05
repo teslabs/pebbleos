@@ -1,6 +1,10 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "system/logging.h"
+
+PBL_LOG_MODULE_REGISTER(console_reliable_transport, LOG_LEVEL_DEBUG);
+
 #if PULSE_EVERYWHERE
 
 #include "pulse_protocol_impl.h"

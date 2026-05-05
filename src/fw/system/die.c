@@ -16,6 +16,8 @@
 #include "FreeRTOS.h"
 #endif
 
+PBL_LOG_MODULE_REGISTER(system_die, LOG_LEVEL_DEBUG);
+
 void prepare_for_software_failure(void) {
 #if PULSE_EVERYWHERE
   pulse_logging_log_buffer_flush();

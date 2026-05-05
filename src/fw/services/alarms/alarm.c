@@ -50,6 +50,8 @@
 // Multiple pieces of data need to be stored for each alarm. These are split
 // across multiple keys to keep the alarm configuration separate from
 // bookkeeping data.
+PBL_LOG_MODULE_REGISTER(alarms_alarm, LOG_LEVEL_DEBUG);
+
 typedef enum AlarmDataType {
   ALARM_DATA_CONFIG = 0,
   ALARM_DATA_PINS = 1,

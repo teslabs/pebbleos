@@ -17,6 +17,8 @@
 #include "system/passert.h"
 
 
+PBL_LOG_MODULE_REGISTER(event_service_client, LOG_LEVEL_DEBUG);
+
 static EventServiceInfo *prv_get_state(void) {
   PebbleTask task = pebble_task_get_current();
   if (task == PebbleTask_App) {

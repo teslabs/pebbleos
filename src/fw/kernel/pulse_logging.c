@@ -25,11 +25,11 @@
 //! This is the format for a PULSEv2 log message when sent out over the wire.
 typedef struct PACKED MessageContents {
   uint8_t message_type;
-  char src_filename[16];
+  char module[16];
   char log_level_char;
   unsigned char task_char;
   uint64_t time_ms;
-  uint16_t line_number;
+  uint16_t reserved;
   //! Not null-terminated message contents
   char message[128];
 } MessageContents;
@@ -54,9 +54,21 @@ static uint64_t prv_get_timestamp_ms(void) {
   return ((uint64_t) time_s * 1000) + time_ms;
 }
 
+static void prv_set_module(MessageContents *contents, const char *module) {
+  if (module == NULL) {
+    contents->module[0] = '\0';
+    return;
+  }
+  size_t len = strlen(module);
+  if (len >= sizeof(contents->module)) {
+    module = module + (len - (sizeof(contents->module) - 1));
+  }
+  strncpy(contents->module, module, sizeof(contents->module));
+}
+
 static size_t prv_serialize_log_header(MessageContents *contents,
                                        uint8_t log_level, uint64_t timestamp_ms, PebbleTask task,
-                                       const char *src_filename, uint16_t src_line_number) {
+                                       const char *module) {
   contents->message_type = 1; // Text
 
   // Log the log level and the current task+privilege level
@@ -67,12 +79,9 @@ static size_t prv_serialize_log_header(MessageContents *contents,
   }
 
   contents->time_ms = timestamp_ms;
+  contents->reserved = 0;
 
-  // Obtain the filename
-  strncpy(contents->src_filename, GET_FILE_NAME(src_filename), sizeof(contents->src_filename));
-
-  // Obtain the line number
-  contents->line_number = src_line_number;
+  prv_set_module(contents, module);
 
   return offsetof(MessageContents, message);
 }
@@ -81,11 +90,9 @@ static size_t prv_serialize_log_header(MessageContents *contents,
 //! Serialize a message into contents, returning the number of bytes used.
 static size_t prv_serialize_log(MessageContents *contents,
                                 uint8_t log_level, uint64_t timestamp_ms, PebbleTask task,
-                                const char *src_filename, uint16_t src_line_number,
-                                const char *message) {
+                                const char *module, const char *message) {
 
-  prv_serialize_log_header(contents, log_level, timestamp_ms, task,
-                           src_filename, src_line_number);
+  prv_serialize_log_header(contents, log_level, timestamp_ms, task, module);
 
   // Write the actual log message.
   strncpy(contents->message, message, sizeof(contents->message));
@@ -96,13 +103,11 @@ static size_t prv_serialize_log(MessageContents *contents,
   return payload_length;
 }
 
-static void prv_send_pulse_packet(uint8_t log_level, const char *src_filename,
-                                  uint16_t src_line_number, const char *message) {
+static void prv_send_pulse_packet(uint8_t log_level, const char *module, const char *message) {
   MessageContents *contents = pulse_push_send_begin(PULSE_PROTOCOL_LOGGING);
 
   const size_t payload_length = prv_serialize_log(
-      contents, log_level, prv_get_timestamp_ms(), pebble_task_get_current(),
-      src_filename, src_line_number, message);
+      contents, log_level, prv_get_timestamp_ms(), pebble_task_get_current(), module, message);
 
   pulse_push_send(contents, payload_length);
 }
@@ -140,7 +145,7 @@ static void prv_event_cb(void *data) {
 
       const size_t payload_length = prv_serialize_log(
           contents, LOG_LEVEL_ERROR, prv_get_timestamp_ms(), PebbleTask_Unknown,
-          "", 0, "ISR Message Dropped!");
+          "isr", "ISR Message Dropped!");
 
       pulse_push_send(contents, payload_length);
     } else {
@@ -150,7 +155,7 @@ static void prv_event_cb(void *data) {
       MessageContents *contents = pulse_push_send_begin(PULSE_PROTOCOL_LOGGING);
 
       const size_t header_length = prv_serialize_log_header(
-          contents, log_info.log_level, log_info.timestamp_ms, PebbleTask_Unknown, "", 0);
+          contents, log_info.log_level, log_info.timestamp_ms, PebbleTask_Unknown, "isr");
 
       const size_t message_length = log_length - sizeof(uint32_t) - sizeof(BufferedLogInfo);
       prv_isr_buffer_read_and_consume(&contents->message, message_length);
@@ -211,8 +216,7 @@ void pulse_logging_init(void) {
                        s_isr_log_buffer_storage, sizeof(s_isr_log_buffer_storage));
 }
 
-void pulse_logging_log(uint8_t log_level, const char* src_filename,
-                       uint16_t src_line_number, const char* message) {
+void pulse_logging_log(uint8_t log_level, const char *module, const char *message) {
   if (portIN_CRITICAL() || mcu_state_is_isr() ||
       xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED) {
     // We're in a state where we can't immediately send the message, save it to an internal buffer
@@ -220,7 +224,7 @@ void pulse_logging_log(uint8_t log_level, const char* src_filename,
     prv_enqueue_log_message(log_level, message);
   } else {
     // Send the log line inline
-    prv_send_pulse_packet(log_level, src_filename, src_line_number, message);
+    prv_send_pulse_packet(log_level, module, message);
   }
 }
 
@@ -228,18 +232,15 @@ void pulse_logging_log_buffer_flush(void) {
   prv_event_cb(NULL);
 }
 
-void pulse_logging_log_sync(uint8_t log_level, const char *src_filename,
-                            uint16_t src_line_number, const char *message) {
+void pulse_logging_log_sync(uint8_t log_level, const char *module, const char *message) {
   // Send the log line inline, even if we're in a critical section or ISR
-  prv_send_pulse_packet(log_level, src_filename, src_line_number, message);
+  prv_send_pulse_packet(log_level, module, message);
 }
 
-void *pulse_logging_log_sync_begin(
-    uint8_t log_level, const char *src_filename, uint16_t src_line_number) {
+void *pulse_logging_log_sync_begin(uint8_t log_level, const char *module) {
   MessageContents *contents = pulse_push_send_begin(PULSE_PROTOCOL_LOGGING);
   prv_serialize_log_header(contents, log_level, prv_get_timestamp_ms(),
-                           pebble_task_get_current(), src_filename,
-                           src_line_number);
+                           pebble_task_get_current(), module);
   contents->message[0] = '\0';
   return contents;
 }

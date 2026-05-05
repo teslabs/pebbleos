@@ -17,6 +17,8 @@
 #define SYNC_TIMEOUT_SECONDS 30
 #define SYNC_ABANDON_TIMEOUT_SECONDS (5 * 60)  // 5 minutes to fully abandon
 
+PBL_LOG_MODULE_REGISTER(blob_db_sync, LOG_LEVEL_DEBUG);
+
 static BlobDBSyncSession *s_sync_sessions = NULL;
 
 static void prv_send_writeback(BlobDBSyncSession *session);

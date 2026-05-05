@@ -42,8 +42,10 @@ Pebble App roject.
 
 #include "pbl/services/activity/kraepelin/kraepelin_algorithm.h"
 
+PBL_LOG_MODULE_REGISTER(kraepelin_kraepelin_algorithm, LOG_LEVEL_DEBUG);
+
 #define KALG_LOG_DEBUG(fmt, args...) \
-        PBL_LOG_D_DBG(LOG_DOMAIN_ACTIVITY, fmt, ## args)
+        PBL_LOG_DBG(fmt, ## args)
 
 // Set this to 1 to get text graphs of the overall FFT magnitudes
 #define KALG_LOG_OVERALL_MAGNITUDES 0
@@ -970,10 +972,10 @@ static uint16_t prv_compute_scores(int16_t *d, uint32_t real_vmc_5s, int16_t d_l
     }
   }
 
-  // Log what we found
-  if (LOG_DOMAIN_ACTIVITY) {
-    prv_compute_signal_energy(d, d_len, walk_hz, true /*log*/);
-  }
+  // Log what we found (debug-only path; previously gated by LOG_DOMAIN_ACTIVITY).
+#if 0
+  prv_compute_signal_energy(d, d_len, walk_hz, true /*log*/);
+#endif
 
   uint16_t score_0 = 0;
   int32_t total_energy = prv_integral_abs(d, 0, d_len - 1);

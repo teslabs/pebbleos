@@ -8,6 +8,8 @@
 #include "system/logging.h"
 #include "util/math.h"
 
+PBL_LOG_MODULE_REGISTER(system_firmware_storage, LOG_LEVEL_DEBUG);
+
 #if !CAPABILITY_HAS_PBLBOOT
 FirmwareDescription firmware_storage_read_firmware_description(uint32_t firmware_start_address) {
   FirmwareDescription firmware_description;

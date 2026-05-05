@@ -19,6 +19,8 @@
 #include "system/hexdump.h"
 
 
+PBL_LOG_MODULE_REGISTER(comm_session_session_remote_version, LOG_LEVEL_DEBUG);
+
 extern bool comm_session_is_valid(const CommSession *session);
 
 #define MAX_REQUEST_RETRIES (3)
@@ -155,7 +157,7 @@ void session_remote_version_protocol_msg_callback(CommSession *session_ref,
     }
 
     default:
-      PBL_LOG_D_ERR(LOG_DOMAIN_COMM, "Invalid message received. First byte is %u", data[0]);
+      PBL_LOG_ERR("Invalid message received. First byte is %u", data[0]);
       break;
   }
 }

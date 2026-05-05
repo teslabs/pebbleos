@@ -47,6 +47,8 @@
 
 // Advertising interval parameters in ms, indexed by GAPLEAdvertisingInterval.
 // Values comply with Apple Accessory Design Guidelines.
+PBL_LOG_MODULE_REGISTER(ble_gap_le_advert, LOG_LEVEL_DEBUG);
+
 static const uint32_t s_interval_ms[] = {
   [GAPLEAdvertisingInterval_Short] = 20,     // 20ms
   [GAPLEAdvertisingInterval_Long]  = 1022,   // 1022.5ms (truncated to ms)

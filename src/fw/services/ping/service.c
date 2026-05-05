@@ -20,6 +20,8 @@
 #define PING_ENDPOINT 2001
 #define PING_MIN_PERIOD_SECS  (60 * 60)    // 1 hour
 
+PBL_LOG_MODULE_REGISTER(ping_service, LOG_LEVEL_DEBUG);
+
 static time_t s_last_send_time;
 static bool s_is_ping_kernel_bg_callback_scheduled;
 

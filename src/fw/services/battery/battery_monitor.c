@@ -16,6 +16,8 @@
 
 // State machine stuff
 
+PBL_LOG_MODULE_REGISTER(battery_battery_monitor, LOG_LEVEL_DEBUG);
+
 typedef void (*Action)(void);
 
 typedef struct PowerState {

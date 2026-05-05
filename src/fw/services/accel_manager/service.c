@@ -31,6 +31,8 @@
 
 #define US_PER_SECOND (1000 * 1000)
 
+PBL_LOG_MODULE_REGISTER(accel_manager_service, LOG_LEVEL_DEBUG);
+
 typedef void (*ProcessDataHandler)(CallbackEventCallback *cb, void *data);
 
 // We create one of these for each data service subscriber

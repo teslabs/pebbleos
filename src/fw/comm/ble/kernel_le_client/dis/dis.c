@@ -13,6 +13,8 @@
 // -------------------------------------------------------------------------------------------------
 // Interface towards kernel_le_client.c
 
+PBL_LOG_MODULE_REGISTER(dis, LOG_LEVEL_DEBUG);
+
 void dis_invalidate_all_references(void) {
 }
 

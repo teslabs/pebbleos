@@ -53,6 +53,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+PBL_LOG_MODULE_REGISTER(console_prompt_commands, LOG_LEVEL_DEBUG);
+
 static TimerID s_console_button_timer = TIMER_INVALID_ID;
 
 static void prv_pfs_stress_callback(void *data) {
@@ -934,11 +936,10 @@ static bool prv_serial_dump_chunk_callback(uint8_t* msg, uint32_t total_length) 
   char buffer[256];
   char time_buffer[TIME_STRING_BUFFER_SIZE];
   message->message[message->message_length] = 0;
-  prompt_send_response_fmt(buffer, sizeof(buffer), "%c %s %s:%d> %s",
+  prompt_send_response_fmt(buffer, sizeof(buffer), "%c %s [%s] %s",
                            pbl_log_get_level_char(message->log_level),
                            time_t_to_string(time_buffer, htonl(message->timestamp)),
-                           message->filename,
-                           (int)htons(message->line_number),
+                           message->module,
                            message->message);
   return true;
 }
@@ -973,8 +974,8 @@ static void spam_callback(void *data) {
     msg->timestamp = htonl(base + iteration * 16 + i);
     msg->log_level = LOG_LEVEL_ERROR;
     msg->message_length = sizeof(buffer) - sizeof(LogBinaryMessage);
-    msg->line_number = 0;
-    strncpy(msg->filename, "spam.exe", sizeof(msg->filename));
+    msg->reserved = 0;
+    strncpy(msg->module, "spam", sizeof(msg->module));
     char letter = 'A' + i;
     memset(msg->message, letter, msg->message_length - 1);
     msg->message[msg->message_length - 1] = 0;

@@ -20,6 +20,8 @@
 // Static Variables -- MUST be protected with bt_lock/unlock!
 
 //! The current scanning state of the controller.
+PBL_LOG_MODULE_REGISTER(ble_gap_le_scan, LOG_LEVEL_DEBUG);
+
 static bool s_is_scanning;
 
 //! The backing array for the circular buffer of reports to be processed.

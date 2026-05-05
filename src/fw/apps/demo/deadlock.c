@@ -14,6 +14,8 @@
 #include "kernel/util/sleep.h"
 #include "pbl/services/new_timer/new_timer.h"
 
+PBL_LOG_MODULE_REGISTER(demo_deadlock, LOG_LEVEL_DEBUG);
+
 static Window *window;
 static PebbleMutex *s_mutex;
 static PebbleMutex *s_mutex2;

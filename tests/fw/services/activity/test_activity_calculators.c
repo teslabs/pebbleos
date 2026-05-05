@@ -7,9 +7,12 @@
 #include "pbl/services/activity/activity_private.h"
 #include "pbl/services/activity/activity_calculators.h"
 
+#include "system/logging.h"
 #include "util/units.h"
 
 #include <stdint.h>
+
+#include "stubs_logging.h"
 
 // Fakes
 static uint8_t s_age_years;

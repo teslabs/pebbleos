@@ -16,6 +16,8 @@
 
 #define SETTINGS_FILE_SIZE (KiBYTES(30))
 
+PBL_LOG_MODULE_REGISTER(blob_db_weather_db, LOG_LEVEL_DEBUG);
+
 static struct {
   SettingsFile settings_file;
   PebbleMutex *mutex;

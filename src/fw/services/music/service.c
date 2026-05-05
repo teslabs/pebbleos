@@ -24,6 +24,8 @@
 
 //! Cache of the most recently received now playing data. Note that this is read and written from
 //! multiple threads, so access is protected by the mutex member.
+PBL_LOG_MODULE_REGISTER(music_service, LOG_LEVEL_DEBUG);
+
 struct MusicServiceContext {
   PebbleRecursiveMutex *mutex;
 

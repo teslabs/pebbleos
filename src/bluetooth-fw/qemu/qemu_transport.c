@@ -21,6 +21,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(qemu_qemu_transport, LOG_LEVEL_DEBUG);
+
 typedef struct {
   CommSession *session;
 } QemuTransport;

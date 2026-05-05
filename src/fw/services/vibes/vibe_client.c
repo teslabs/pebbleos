@@ -9,6 +9,8 @@
 #include "pbl/services/vibes/vibe_score_info.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(vibes_vibe_client, LOG_LEVEL_DEBUG);
+
 static VibeScoreId prv_get_resource_for_client(VibeClient client) {
   if (client == VibeClient_AlarmsLPM) {
     return VibeScoreId_AlarmsLPM;

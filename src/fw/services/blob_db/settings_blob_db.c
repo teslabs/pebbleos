@@ -25,6 +25,8 @@
 
 //! Flag to suppress change callback during phone-originated INSERTs.
 //! This prevents queuing unnecessary sync callbacks that would flood the system task queue.
+PBL_LOG_MODULE_REGISTER(blob_db_settings_blob_db, LOG_LEVEL_DEBUG);
+
 static bool s_suppress_change_callback = false;
 
 //! Flag to track if a sync callback is already pending.

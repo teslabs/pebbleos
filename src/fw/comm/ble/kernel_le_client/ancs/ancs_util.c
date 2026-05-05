@@ -16,6 +16,8 @@
 #include <stdint.h>
 
 
+PBL_LOG_MODULE_REGISTER(ancs_ancs_util, LOG_LEVEL_DEBUG);
+
 bool ancs_util_is_complete_notif_attr_response(const uint8_t* data, const size_t length, bool* out_error) {
   PBL_ASSERTN(out_error);
   const size_t header_len = sizeof(GetNotificationAttributesMsg);

@@ -10,6 +10,8 @@
 #include "system/logging.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(kernel_panic, LOG_LEVEL_DEBUG);
+
 static uint32_t s_current_error = 0;
 
 void launcher_panic(uint32_t error_code) {

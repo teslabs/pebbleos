@@ -37,6 +37,8 @@
 #define LOG(fmt, args...) \
         PBL_LOG_DBG(fmt, ## args)
 
+PBL_LOG_MODULE_REGISTER(protobuf_log_test_protobuf_log, LOG_LEVEL_DEBUG);
+
 extern uint32_t prv_hr_quality_int(HRMQuality quality);
 
 // ---------------------------------------------------------------------------------------------

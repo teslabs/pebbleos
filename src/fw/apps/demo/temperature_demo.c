@@ -34,6 +34,8 @@
 #define PLOT_RECT GRect(0, PLOT_TOP, PLOT_WIDTH, PLOT_HEIGHT)
 
 #define READ_HISTORY_ENTRIES (4 * MINUTES_PER_HOUR)
+PBL_LOG_MODULE_REGISTER(demo_temperature_demo, LOG_LEVEL_DEBUG);
+
 static int32_t s_temp_readings[READ_HISTORY_ENTRIES];
 
 // Demo temperature

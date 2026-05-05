@@ -5,6 +5,8 @@
 
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(util_generic_attribute, LOG_LEVEL_DEBUG);
+
 GenericAttribute *generic_attribute_find_attribute(GenericAttributeList *attr_list, uint8_t id,
                                                    size_t size) {
   uint8_t *cursor = (uint8_t *)(attr_list->attributes);

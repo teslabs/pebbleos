@@ -9,6 +9,8 @@
 #include "system/logging.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(app_inbox, LOG_LEVEL_DEBUG);
+
 AppInbox *app_inbox_create_and_register(size_t buffer_size, uint32_t min_num_messages,
                                         AppInboxMessageHandler message_handler,
                                         AppInboxDroppedHandler dropped_handler) {

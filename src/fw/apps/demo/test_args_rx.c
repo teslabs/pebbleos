@@ -10,6 +10,8 @@
 #include "process_management/process_manager.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(demo_test_args_rx, LOG_LEVEL_DEBUG);
+
 static void s_main(void) {
   const TestArgsData *args = process_manager_get_current_process_args();
   if (args == NULL) {

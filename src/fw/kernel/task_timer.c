@@ -18,6 +18,8 @@
 
 
 // Structure of a timer
+PBL_LOG_MODULE_REGISTER(kernel_task_timer, LOG_LEVEL_DEBUG);
+
 typedef struct TaskTimer {
   //! Entry into either the running timers (manager->running_timers) list or the idle timers
   //! (manager->idle_timers)

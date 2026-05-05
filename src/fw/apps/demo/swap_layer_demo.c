@@ -30,6 +30,8 @@
 #define MINUTES(m) ((m) * SECONDS_PER_MINUTE)
 #define HOURS(m) ((m) * SECONDS_PER_MINUTE * MINUTES_PER_HOUR)
 
+PBL_LOG_MODULE_REGISTER(demo_swap_layer_demo, LOG_LEVEL_DEBUG);
+
 typedef struct {
   TimelineItemType type;
   LayoutId layout_id;

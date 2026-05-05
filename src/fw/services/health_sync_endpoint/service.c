@@ -13,6 +13,8 @@
 #define ACK 0x1
 #define NACK 0x2
 
+PBL_LOG_MODULE_REGISTER(health_sync_endpoint_service, LOG_LEVEL_DEBUG);
+
 typedef enum HealthSyncEndpointCmd {
   HealthSyncEndpointCmd_Sync = 0x1,
   HealthSyncEndpointCmd_Ack = 0x11,

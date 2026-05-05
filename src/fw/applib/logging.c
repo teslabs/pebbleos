@@ -35,7 +35,7 @@ _Static_assert((CORE_ID_MAIN_MCU & PACKED_CORE_MASK) == CORE_ID_MAIN_MCU, "Core 
 #ifdef PBL_LOGS_HASHED
 // Define the .log_string section format.
 static const char prv_NewLogHeader[] __attribute__((nocommon, used, section(".log_string.header")))
-    = NEW_LOG_HEADER "=<file>:<line>:<level>:<color>:<msg>,"\
+    = NEW_LOG_HEADER "=<level>:<color>:<msg>,"\
                      "CORE_ID=" str(CORE_ID_MAIN_MCU) ",CORE_NAME=Tintin";
 
 // Confirm the size calculations. If these fail, update tools/loghashing/check_elf_log_strings.py
@@ -79,10 +79,22 @@ static void prv_sprintf_to_msg(LogBinaryMessage *msg, const uint32_t max_message
 
 
 // -------------------------------------------------------------------------------------------
-int pbl_log_binary_format(char* buffer, int buffer_len,
-                          const uint8_t log_level,
-                          const char* src_filename_path, int src_line_number,
-                          const char* fmt, va_list args) {
+static void prv_set_module(LogBinaryMessage *msg, const char *module) {
+  if (module == NULL) {
+    msg->module[0] = '\0';
+    return;
+  }
+  // Truncate to fit; keep the tail for readability if too long.
+  size_t len = strlen(module);
+  if (len >= sizeof(msg->module)) {
+    module = module + (len - (sizeof(msg->module) - 1));
+  }
+  strncpy(msg->module, module, sizeof(msg->module));
+  msg->module[sizeof(msg->module) - 1] = '\0';
+}
+
+int pbl_log_binary_format(char *buffer, int buffer_len, const uint8_t log_level,
+                          const char *module, const char *fmt, va_list args) {
 
   PBL_ASSERTN((unsigned int) buffer_len > sizeof(LogBinaryMessage));
 
@@ -92,17 +104,10 @@ int pbl_log_binary_format(char* buffer, int buffer_len,
   msg->timestamp = htonl(time_seconds);
 
   msg->log_level = log_level;
-  msg->line_number = htons(src_line_number & 0xffff);
+  msg->reserved = 0;
   msg->message_length = 0;
 
-  // Ensure we only send the last 15 characters of a filename
-  const char* filename = GET_FILE_NAME(src_filename_path);
-  int filename_length = strlen(filename);
-  if (filename_length > 15) {
-    // If we have to truncate, truncate at the beginning as opposed to the end.
-    filename = filename + (filename_length - 15);
-  }
-  strncpy(msg->filename, filename, sizeof(msg->filename));
+  prv_set_module(msg, module);
 
   // Copy the log message into the struct and set the message_length param.
   const int max_message_length = buffer_len - sizeof(LogBinaryMessage);
@@ -115,12 +120,11 @@ int pbl_log_binary_format(char* buffer, int buffer_len,
   return sizeof(*msg) + msg->message_length;
 }
 
-int pbl_log_get_bin_format(char* buffer, int buffer_len, const uint8_t log_level,
-    const char* src_filename_path, int src_line_number, const char* fmt, ...) {
+int pbl_log_get_bin_format(char *buffer, int buffer_len, const uint8_t log_level,
+                           const char *module, const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  int len =  pbl_log_binary_format(buffer, buffer_len, log_level, src_filename_path,
-      src_line_number, fmt, args);
+  int len = pbl_log_binary_format(buffer, buffer_len, log_level, module, fmt, args);
   va_end(args);
   return (len);
 }
@@ -162,8 +166,8 @@ static void prv_release_log_state(LogState *state) {
 }
 
 
-static void prv_log_internal(bool async, uint8_t log_level, const char* src_filename,
-                         int src_line_number, const char* fmt, va_list args) {
+static void prv_log_internal(bool async, uint8_t log_level, const char *module,
+                             const char *fmt, va_list args) {
   LogState *state = prv_get_log_state();
   if (!state) {
     return;
@@ -172,7 +176,7 @@ static void prv_log_internal(bool async, uint8_t log_level, const char* src_file
   va_list bin_args;
   va_copy(bin_args, args);
 
-  pbl_log_binary_format(state->buffer, sizeof(state->buffer), log_level, src_filename, src_line_number, fmt, bin_args);
+  pbl_log_binary_format(state->buffer, sizeof(state->buffer), log_level, module, fmt, bin_args);
   sys_pbl_log((LogBinaryMessage*) state->buffer, async);
 
   va_end(bin_args);
@@ -181,37 +185,38 @@ static void prv_log_internal(bool async, uint8_t log_level, const char* src_file
 
 #ifdef PBL_LOGS_HASHED
 
-void pbl_log_hashed_sync(const uint32_t packed_loghash, ...) {
+void pbl_log_hashed_sync(const char *module, const uint32_t packed_loghash, ...) {
   va_list fmt_args;
   va_start(fmt_args, packed_loghash);
 
-  pbl_log_hashed_vargs(false, CORE_ID_MAIN_MCU, packed_loghash, fmt_args);
+  pbl_log_hashed_vargs(false, CORE_ID_MAIN_MCU, module, packed_loghash, fmt_args);
 
   va_end(fmt_args);
 }
 
 
-void pbl_log_hashed_async(const uint32_t packed_loghash, ...) {
+void pbl_log_hashed_async(const char *module, const uint32_t packed_loghash, ...) {
   va_list fmt_args;
   va_start(fmt_args, packed_loghash);
 
-  pbl_log_hashed_vargs(true, CORE_ID_MAIN_MCU, packed_loghash, fmt_args);
-
-  va_end(fmt_args);
-}
-
-// Core Number must be shifted to the correct position.
-void pbl_log_hashed_core(const uint32_t core_number, const uint32_t packed_loghash, ...) {
-  va_list fmt_args;
-  va_start(fmt_args, packed_loghash);
-
-  pbl_log_hashed_vargs(true, core_number, packed_loghash, fmt_args);
+  pbl_log_hashed_vargs(true, CORE_ID_MAIN_MCU, module, packed_loghash, fmt_args);
 
   va_end(fmt_args);
 }
 
 // Core Number must be shifted to the correct position.
-void pbl_log_hashed_vargs(const bool async, const uint32_t core_number,
+void pbl_log_hashed_core(const uint32_t core_number, const char *module,
+                         const uint32_t packed_loghash, ...) {
+  va_list fmt_args;
+  va_start(fmt_args, packed_loghash);
+
+  pbl_log_hashed_vargs(true, core_number, module, packed_loghash, fmt_args);
+
+  va_end(fmt_args);
+}
+
+// Core Number must be shifted to the correct position.
+void pbl_log_hashed_vargs(const bool async, const uint32_t core_number, const char *module,
                           const uint32_t packed_loghash, va_list fmt_args) {
 
   LogState *state = prv_get_log_state();
@@ -236,13 +241,9 @@ void pbl_log_hashed_vargs(const bool async, const uint32_t core_number,
   time_t time_seconds = sys_get_time();
   msg->timestamp = htonl(time_seconds);
   msg->message_length = 0;
+  msg->reserved = 0;
 
-  /*
-   * The file name and line number are stored in the log_strings section
-   * so the waf console displays it.
-   */
-  msg->line_number = 0;
-  msg->filename[0] = '\0';
+  prv_set_module(msg, module);
 
   /*
    * Unpack the log level
@@ -292,28 +293,25 @@ void pbl_log_hashed_vargs(const bool async, const uint32_t core_number,
 
 #endif /* PBL_LOGS_HASHED */
 
-void pbl_log_vargs(uint8_t log_level, const char *src_filename,
-                   int src_line_number, const char *fmt, va_list args) {
+void pbl_log_vargs(uint8_t log_level, const char *module, const char *fmt, va_list args) {
   const bool async = true;
-  prv_log_internal(async, log_level, src_filename, src_line_number, fmt, args);
+  prv_log_internal(async, log_level, module, fmt, args);
 }
 
-void pbl_log(uint8_t log_level, const char* src_filename,
-             int src_line_number, const char* fmt, ...) {
+void pbl_log(uint8_t log_level, const char *module, const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
   const bool async = true;
-  prv_log_internal(async, log_level, src_filename, src_line_number, fmt, args);
+  prv_log_internal(async, log_level, module, fmt, args);
   va_end(args);
 }
 
-void pbl_log_sync(uint8_t log_level, const char* src_filename,
-                  int src_line_number, const char* fmt, ...) {
+void pbl_log_sync(uint8_t log_level, const char *module, const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
 
   const bool async = false;
-  prv_log_internal(async, log_level, src_filename, src_line_number, fmt, args);
+  prv_log_internal(async, log_level, module, fmt, args);
 
   va_end(args);
 }

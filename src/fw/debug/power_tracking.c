@@ -8,6 +8,8 @@
 #include "system/logging.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(debug_power_tracking, LOG_LEVEL_DEBUG);
+
 #if !defined(SW_POWER_TRACKING)
 
 // a few dummy empty functions that should end up being compiled out

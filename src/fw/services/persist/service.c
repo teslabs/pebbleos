@@ -22,6 +22,8 @@
 #define PERSIST_STORAGE_MAX_SPACE MiBYTES(1)
 #define PERSIST_STORAGE_INITIAL_ALLOC KiBYTES(4)
 
+PBL_LOG_MODULE_REGISTER(persist_service, LOG_LEVEL_DEBUG);
+
 typedef struct PersistStore {
   ListNode  list_node;
   Uuid uuid;

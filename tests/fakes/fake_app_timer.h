@@ -109,7 +109,8 @@ static void prv_unlink_and_free_timer(FakeAppTimer *timer) {
       prev_timer = prev_timer->next;
     }
     if (!prev_timer) {
-      PBL_LOG_ERR("Tried to unlink and free non-existing timer %p", timer);
+      pbl_log(LOG_LEVEL_ERROR, "fake_app_timer",
+              "Tried to unlink and free non-existing timer %p", timer);
       return;
     }
     prev_timer->next = timer->next;

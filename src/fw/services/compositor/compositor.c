@@ -31,6 +31,8 @@
 // are for the top-left corner, but can easily be translated to the other corners. This is used by
 
 //! This is our root framebuffer that everything gets composited into.
+PBL_LOG_MODULE_REGISTER(compositor, LOG_LEVEL_DEBUG);
+
 static FrameBuffer s_framebuffer;
 
 typedef enum {

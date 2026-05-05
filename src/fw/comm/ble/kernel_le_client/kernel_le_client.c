@@ -37,6 +37,8 @@
 #define MAX_SERVICE_INSTANCES (8)
 
 //! Array indices for the different client "classes"
+PBL_LOG_MODULE_REGISTER(kernel_le_client, LOG_LEVEL_DEBUG);
+
 enum {
 #if UNITTEST
   KernelLEClientUnitTest = 0,

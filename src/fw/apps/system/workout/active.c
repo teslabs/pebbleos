@@ -31,6 +31,8 @@
 #define TEXT_ALIGNMENT (PBL_IF_RECT_ELSE(GTextAlignmentLeft, GTextAlignmentRight))
 #define BACKGROUND_COLOR PBL_IF_COLOR_ELSE(GColorYellow, GColorWhite)
 
+PBL_LOG_MODULE_REGISTER(workout_active, LOG_LEVEL_DEBUG);
+
 typedef enum WorkoutLayout {
   WorkoutLayout_SingleMetric,
   WorkoutLayout_StaticAndScrollable,

@@ -82,10 +82,10 @@ typedef struct {
 #define QEMU_HEADER_LSB        ((uint8_t)(QEMU_HEADER_SIGNATURE & 0x00FF))
 
 
-#define QEMU_LOG_DEBUG(fmt, args...) PBL_LOG_D_DBG(LOG_DOMAIN_QEMU_COMM, fmt, ## args)
-#define QEMU_LOG_ERROR(fmt, args...) PBL_LOG_D_ERR(LOG_DOMAIN_QEMU_COMM, fmt, ## args)
+#define QEMU_LOG_DEBUG(fmt, args...) PBL_LOG_DBG(fmt, ## args)
+#define QEMU_LOG_ERROR(fmt, args...) PBL_LOG_ERR(fmt, ## args)
 #define QEMU_HEXDUMP(data, length) \
-                              PBL_HEXDUMP_D(LOG_DOMAIN_QEMU_COMM, LOG_LEVEL_DEBUG, data, length)
+                              PBL_HEXDUMP(LOG_LEVEL_DEBUG, data, length)
 
 
 

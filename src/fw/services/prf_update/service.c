@@ -9,6 +9,8 @@
 #include "util/math.h"
 
 // Don't allow PRF updating when we're in PRF
+PBL_LOG_MODULE_REGISTER(prf_update_service, LOG_LEVEL_DEBUG);
+
 #ifndef RECOVERY_FW
 static void prv_do_update(void) {
   PBL_LOG_INFO("Updating PRF!");

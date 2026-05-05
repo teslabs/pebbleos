@@ -12,6 +12,8 @@
 #include "system/reset.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(util_standby, LOG_LEVEL_DEBUG);
+
 #ifdef CONFIG_PMIC
 static NORETURN prv_enter_standby(void) {
   pmic_power_off();

@@ -42,6 +42,8 @@
 #define TEST_SIZE (FILESYSTEM_FILE_TEST_SPACE_END - \
   FILESYSTEM_FILE_TEST_SPACE_BEGIN)
 
+PBL_LOG_MODULE_REGISTER(comm_test_ancs_app_storage, LOG_LEVEL_DEBUG);
+
 void test_ancs_app_storage__initialize(void) {
   fake_spi_flash_init(TEST_START, TEST_SIZE);
   file_system_format();

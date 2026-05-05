@@ -17,6 +17,8 @@
 #include "system/passert.h"
 #include "util/size.h"
 
+PBL_LOG_MODULE_REGISTER(settings_themes, LOG_LEVEL_DEBUG);
+
 #if CAPABILITY_HAS_THEMING
 
 #define DEFAULT_THEME_HIGHLIGHT_COLOR GColorVividCerulean

@@ -19,6 +19,8 @@
 
 #define NUM_MENU_ITEMS 13
 
+PBL_LOG_MODULE_REGISTER(demo_test_core_dump, LOG_LEVEL_DEBUG);
+
 static bool s_call_core_dump_from_isr = false;
 
 // =================================================================================

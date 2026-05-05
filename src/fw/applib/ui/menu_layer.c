@@ -27,6 +27,8 @@
 #include <string.h>
 
 //! @return True if there was an animation to cancel, false otherwise
+PBL_LOG_MODULE_REGISTER(ui_menu_layer, LOG_LEVEL_DEBUG);
+
 static bool prv_cancel_selection_animation(MenuLayer *menu_layer);
 
 //////////////////////

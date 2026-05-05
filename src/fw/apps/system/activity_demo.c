@@ -28,6 +28,8 @@
 #define DAILY_STEP_AVG 1000
 
 // Persist keys
+PBL_LOG_MODULE_REGISTER(system_activity_demo, LOG_LEVEL_DEBUG);
+
 typedef enum {
   AppPersistKeyLapSteps = 0,
 } AppPersistKey;

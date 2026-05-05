@@ -16,6 +16,8 @@
 #define MAX_SUPPORTED_PALETTE_ENTRIES 4
 
 // stores transparent masks + color patterns for even+odd scanlines
+PBL_LOG_MODULE_REGISTER(_1_bit_bitblt_private, LOG_LEVEL_DEBUG);
+
 typedef struct {
   // true, if color entry will be visible on 1bit, false otherwise
   bool transparent_mask[MAX_SUPPORTED_PALETTE_ENTRIES];

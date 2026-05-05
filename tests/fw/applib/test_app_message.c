@@ -12,6 +12,8 @@
 #include <stddef.h>
 #include <limits.h>
 
+PBL_LOG_MODULE_REGISTER(test_app_message, LOG_LEVEL_DEBUG);
+
 extern AppTimer *app_message_outbox_get_ack_nack_timer(void);
 
 // Stubs

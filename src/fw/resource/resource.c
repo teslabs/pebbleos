@@ -17,6 +17,8 @@
 
 // TODO: this may be replaced once apps become more dynamic
 
+PBL_LOG_MODULE_REGISTER(resource, LOG_LEVEL_DEBUG);
+
 typedef struct {
   ListNode list_node;
   uint32_t id;

@@ -56,6 +56,8 @@
 //! \endcode
 
 //! BlobDB Endpoint ID
+PBL_LOG_MODULE_REGISTER(blob_db_endpoint, LOG_LEVEL_DEBUG);
+
 static const uint16_t BLOB_DB_ENDPOINT_ID = 0xb1db;
 
 static const uint8_t KEY_DATA_LENGTH __attribute__((unused)) = (sizeof(uint8_t) + sizeof(uint8_t));
@@ -331,7 +333,7 @@ static void prv_blob_db_msg_decode_and_handle(
 void blob_db_protocol_msg_callback(CommSession *session, const uint8_t* data, size_t length) {
   PBL_ASSERT_TASK(PebbleTask_KernelBackground);
 
-  PBL_HEXDUMP_D(LOG_DOMAIN_BLOBDB, LOG_LEVEL_DEBUG, data, length);
+  PBL_HEXDUMP(LOG_LEVEL_DEBUG, data, length);
 
   // Each BlobDB message is required to have at least a Command and a Token
   static const uint8_t MIN_RAW_DATA_LEN = sizeof(BlobDBCommand) + sizeof(BlobDBToken);

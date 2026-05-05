@@ -19,6 +19,8 @@
 #include <bluetooth/gatt.h>
 #include <btutil/bt_device.h>
 
+PBL_LOG_MODULE_REGISTER(ble_gatt_service_changed, LOG_LEVEL_DEBUG);
+
 extern BTErrno gatt_client_discovery_rediscover_all(const BTDeviceInternal *device);
 extern void gatt_client_discovery_handle_service_range_change(GAPLEConnection *connection,
                                                               ATTHandleRange *range);

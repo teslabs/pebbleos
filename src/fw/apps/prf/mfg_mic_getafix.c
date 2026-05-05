@@ -60,6 +60,8 @@
 
 #define STATUS_STR_LEN           128
 
+PBL_LOG_MODULE_REGISTER(prf_mfg_mic_getafix, LOG_LEVEL_DEBUG);
+
 typedef enum {
   TestState_Init,
   TestState_Recording,

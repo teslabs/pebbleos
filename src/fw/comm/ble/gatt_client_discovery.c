@@ -27,6 +27,8 @@
 
 //! Defined in gatt_client_subscriptions.c. Should only be called when receiving
 //! notification of a service change
+PBL_LOG_MODULE_REGISTER(ble_gatt_client_discovery, LOG_LEVEL_DEBUG);
+
 extern void gatt_client_subscription_cleanup_by_att_handle_range(
     struct GAPLEConnection *connection, ATTHandleRange *range);
 

@@ -14,6 +14,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(voice_dictation_session, LOG_LEVEL_DEBUG);
+
 #ifdef CONFIG_MIC
 
 static void prv_handle_transcription_result(PebbleEvent *e, void *context) {

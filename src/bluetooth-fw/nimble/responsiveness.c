@@ -6,6 +6,8 @@
 
 #include "nimble_type_conversions.h"
 
+PBL_LOG_MODULE_REGISTER(nimble_responsiveness, LOG_LEVEL_DEBUG);
+
 bool bt_driver_le_connection_parameter_update(const BTDeviceInternal *addr,
                                               const BleConnectionParamsUpdateReq *req) {
   ble_addr_t nimble_addr;

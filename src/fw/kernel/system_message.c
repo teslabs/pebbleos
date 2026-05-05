@@ -29,6 +29,8 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+PBL_LOG_MODULE_REGISTER(kernel_system_message, LOG_LEVEL_DEBUG);
+
 static const uint16_t ENDPOINT_ID = 0x12;
 
 void system_message_send(SystemMessageType type) {

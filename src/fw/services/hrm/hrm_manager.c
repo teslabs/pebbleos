@@ -42,6 +42,8 @@
 #define HRM_HEXDUMP(data, length)
 #endif
 
+PBL_LOG_MODULE_REGISTER(hrm_hrm_manager, LOG_LEVEL_DEBUG);
+
 static struct HRMManagerState s_manager_state;
 
 // Forward declarations

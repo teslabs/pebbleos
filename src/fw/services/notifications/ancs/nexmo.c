@@ -9,6 +9,8 @@
 
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(ancs_nexmo, LOG_LEVEL_DEBUG);
+
 T_STATIC char* NEXMO_REAUTH_STRING = "Pebble check-in code:";
 
 bool nexmo_is_reauth_sms(const ANCSAttribute *app_id, const ANCSAttribute *message) {

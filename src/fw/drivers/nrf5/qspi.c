@@ -38,6 +38,8 @@
 // Minimum address to enable 4-byte addressing
 #define ADDR_4BYTE_THRESHOLD 0x1000000UL
 
+PBL_LOG_MODULE_REGISTER(nrf5_qspi, LOG_LEVEL_DEBUG);
+
 static uint8_t __attribute__((aligned(4))) s_bounce_buf[32];
 
 void QSPI_IRQHandler(void) {

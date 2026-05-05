@@ -21,6 +21,8 @@
 
 #define ACTIVITY_INSIGHTS_SETTINGS_CURRENT_STRUCT_VERSION 4
 
+PBL_LOG_MODULE_REGISTER(activity_insights_settings, LOG_LEVEL_DEBUG);
+
 static PebbleMutex *s_insight_settings_mutex;
 
 #define ACTIVITY_INSIGHTS_SETTINGS_SLEEP_REWARD_DEFAULT { \

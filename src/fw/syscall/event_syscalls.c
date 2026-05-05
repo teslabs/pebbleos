@@ -11,6 +11,8 @@
 #include "system/logging.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(syscall_event_syscalls, LOG_LEVEL_DEBUG);
+
 static void prv_put_event_from_process(PebbleTask task, PebbleEvent *event) {
   if (!event_try_put_from_process(task, event)) {
     PBL_LOG_WRN("%s: From app queue is full! Dropped %p! Killing App",

@@ -16,6 +16,8 @@
 #include "system/logging.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(console_serial_console, LOG_LEVEL_DEBUG);
+
 SerialConsoleState s_serial_console_state = SERIAL_CONSOLE_STATE_LOGGING;
 static bool s_serial_console_initialized;
 

@@ -89,4 +89,4 @@ void i2c_init(I2CBus *bus);
 portBASE_TYPE i2c_handle_transfer_event(I2CBus *device, I2CTransferEvent event);
 
 #define I2C_DEBUG(fmt, args...) \
-  PBL_LOG_D_DBG(LOG_DOMAIN_I2C, fmt, ## args)
+  PBL_LOG_DBG(fmt, ## args)

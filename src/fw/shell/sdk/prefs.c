@@ -14,6 +14,8 @@
 #include "shell/prefs.h"
 #include "shell/prefs_private.h"
 
+PBL_LOG_MODULE_REGISTER(sdk_prefs, LOG_LEVEL_DEBUG);
+
 static PebbleMutex *s_mutex;
 
 #define PREF_KEY_CLOCK_24H "clock24h"

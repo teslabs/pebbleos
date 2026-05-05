@@ -14,6 +14,8 @@
 
 // ---------------------------------------------------------------------------------------------------------------
 // Get our state variables
+PBL_LOG_MODULE_REGISTER(plugin_service, LOG_LEVEL_DEBUG);
+
 static PluginServiceState* prv_get_state(PebbleTask task) {
   if (task == PebbleTask_Unknown) {
     task = pebble_task_get_current();

@@ -16,6 +16,8 @@
 #include <time.h>
 
 // Callback for settings changes (used by settings_sync)
+PBL_LOG_MODULE_REGISTER(settings_settings_file, LOG_LEVEL_DEBUG);
+
 static SettingsFileChangeCallback s_change_callback = NULL;
 
 static status_t bootup_check(SettingsFile *file);

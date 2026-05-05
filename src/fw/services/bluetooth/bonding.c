@@ -15,6 +15,8 @@
 #include <bluetooth/bluetooth_types.h>
 #include <bluetooth/sm_types.h>
 
+PBL_LOG_MODULE_REGISTER(bluetooth_bonding, LOG_LEVEL_DEBUG);
+
 typedef struct {
   BTBondingID bonding_id;
   BTDeviceAddress addr;

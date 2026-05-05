@@ -20,7 +20,7 @@
 #include <time.h>
 
 #define DLS_HEXDUMP(data, length) \
-          PBL_HEXDUMP_D(LOG_DOMAIN_DATA_LOGGING, LOG_LEVEL_DEBUG, data, length)
+          PBL_HEXDUMP(LOG_LEVEL_DEBUG, data, length)
 
 
 // File name is formatted as: ("%s%d", DLS_FILE_NAME_PREFIX, session_id)

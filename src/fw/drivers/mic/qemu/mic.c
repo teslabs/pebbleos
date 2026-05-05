@@ -13,6 +13,8 @@
 #include <inttypes.h>
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(qemu_mic, LOG_LEVEL_DEBUG);
+
 static void prv_timer_cb(void *data) {
   MicDevice *this = data;
   MicDeviceState *state = this->state;

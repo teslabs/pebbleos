@@ -23,6 +23,8 @@
 #define TLS_SYSCALL_SP_IDX 1
 
 // Helper functions to access FreeRTOS TLS
+PBL_LOG_MODULE_REGISTER(syscall_syscall_internal, LOG_LEVEL_DEBUG);
+
 static uintptr_t prv_get_syscall_sp(void) {
   return (uintptr_t)pvTaskGetThreadLocalStoragePointer(NULL, TLS_SYSCALL_SP_IDX);
 }

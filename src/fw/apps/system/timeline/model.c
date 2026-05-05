@@ -10,6 +10,8 @@
 // Timeline model circular array of iters logic
 ////////////////////////////////////////////////
 
+PBL_LOG_MODULE_REGISTER(timeline_model, LOG_LEVEL_DEBUG);
+
 static TimelineModel *s_model_data;
 
 static int prv_get_idx_for_timeline_idx(int timeline_idx) {

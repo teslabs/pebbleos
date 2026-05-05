@@ -26,6 +26,8 @@
 // Private API
 ////////////////////////////////////
 
+PBL_LOG_MODULE_REGISTER(ui_window_stack, LOG_LEVEL_DEBUG);
+
 static bool prv_filter_window_item_for_window(ListNode *node, void *data) {
   WindowStackItem *item = (WindowStackItem *)node;
   return item->window == data;

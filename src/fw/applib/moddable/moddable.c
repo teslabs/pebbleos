@@ -9,6 +9,8 @@
 
 #include <stddef.h>
 
+PBL_LOG_MODULE_REGISTER(moddable, LOG_LEVEL_DEBUG);
+
 #if CAPABILITY_HAS_MODDABLE_XS && !defined(RECOVERY_FW)
 #include "xsmc.h"
 #include "xsHost.h"

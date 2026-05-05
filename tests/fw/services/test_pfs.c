@@ -32,6 +32,8 @@
 #define PFS_SECTOR_SIZE 4096
 
 // a - 4K file full of 1's
+PBL_LOG_MODULE_REGISTER(services_test_pfs, LOG_LEVEL_DEBUG);
+
 static const char *const TEST_FILE_A_NAME = "a";
 static const size_t TEST_FILE_A_SIZE = 4096;
 static char s_test_file_a[TEST_FILE_A_SIZE];

@@ -11,6 +11,8 @@
 #include "kernel/pbl_malloc.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(bluetooth_pebble_pairing_service, LOG_LEVEL_DEBUG);
+
 extern void gap_le_connect_params_re_evaluate(GAPLEConnection *connection);
 
 static void prv_convert_pps_request_params(const PebblePairingServiceConnParamSet *pps_params_in,

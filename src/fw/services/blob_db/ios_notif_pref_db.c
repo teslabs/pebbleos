@@ -19,6 +19,8 @@
 
 #include <stdio.h>
 
+PBL_LOG_MODULE_REGISTER(blob_db_ios_notif_pref_db, LOG_LEVEL_DEBUG);
+
 T_STATIC const char *iOS_NOTIF_PREF_DB_FILE_NAME = "iosnotifprefdb";
 T_STATIC const int iOS_NOTIF_PREF_MAX_SIZE = KiBYTES(10);
 

@@ -29,6 +29,8 @@
 #define WORKOUT_ABANDON_WORKOUT_TIMEOUT_MS (5 * MS_PER_MINUTE)
 
 //! Allocated when a Workout is started
+PBL_LOG_MODULE_REGISTER(activity_workout_service, LOG_LEVEL_DEBUG);
+
 typedef struct CurrentWorkoutData {
   ActivitySessionType type;
 

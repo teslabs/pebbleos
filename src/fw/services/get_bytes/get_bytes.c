@@ -29,6 +29,8 @@
 #include <stdint.h>
 
 // Internal state used by the protocol handler.
+PBL_LOG_MODULE_REGISTER(get_bytes, LOG_LEVEL_DEBUG);
+
 typedef struct {
   CommSession *session;
   GetBytesObjectType object_type;

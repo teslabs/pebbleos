@@ -15,7 +15,9 @@
 #include "os/mutex.h"
 #include "system/passert.h"
 
-#define TOUCH_DEBUG(fmt, args...) PBL_LOG_D_DBG(LOG_DOMAIN_TOUCH, fmt, ##args)
+#define TOUCH_DEBUG(fmt, args...) PBL_LOG_DBG(fmt, ##args)
+
+PBL_LOG_MODULE_REGISTER(touch, LOG_LEVEL_DEBUG);
 
 static TouchState s_touch_state = TouchState_FingerUp;
 static int16_t s_last_x;

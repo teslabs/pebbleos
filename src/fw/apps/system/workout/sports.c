@@ -21,6 +21,8 @@
 #include <stdio.h>
 
 
+PBL_LOG_MODULE_REGISTER(workout_sports, LOG_LEVEL_DEBUG);
+
 enum {
   SPORTS_TIME_KEY           = 0x0, // TUPLE_CSTRING
   SPORTS_DISTANCE_KEY       = 0x1, // TUPLE_CSTRING

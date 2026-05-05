@@ -24,6 +24,8 @@
 
 // UART: 8n1, duplex
 
+PBL_LOG_MODULE_REGISTER(uart_nrf5, LOG_LEVEL_DEBUG);
+
 static void _uart_event_handler(const nrfx_uarte_event_t *event, void *ctx);
 
 static void _timer_event_handler(nrf_timer_event_t event_type, void *ctx) { }

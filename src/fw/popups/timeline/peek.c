@@ -27,6 +27,8 @@
 #define TIMELINE_PEEK_MULTI_CONTENT_HEIGHT PBL_IF_RECT_ELSE(2, 1)
 #define TIMELINE_PEEK_MAX_CONCURRENT (2)
 
+PBL_LOG_MODULE_REGISTER(timeline_peek, LOG_LEVEL_DEBUG);
+
 static TimelinePeek s_peek;
 
 static unsigned int prv_get_concurrent_height(unsigned int num_concurrent) {

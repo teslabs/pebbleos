@@ -32,6 +32,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
+PBL_LOG_MODULE_REGISTER(graphics_utf8, LOG_LEVEL_DEBUG);
+
 static const unsigned int VALID_UTF8 = 0;
 
 static const uint8_t utf8d[] = {

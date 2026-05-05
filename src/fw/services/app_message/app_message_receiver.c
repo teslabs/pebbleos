@@ -14,6 +14,8 @@
 
 #include <stdint.h>
 
+PBL_LOG_MODULE_REGISTER(services_app_message_receiver, LOG_LEVEL_DEBUG);
+
 extern const ReceiverImplementation g_default_kernel_receiver_implementation;
 extern const ReceiverImplementation g_app_message_receiver_implementation;
 

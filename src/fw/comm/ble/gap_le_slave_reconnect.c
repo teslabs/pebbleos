@@ -21,6 +21,8 @@
 
 //! Reference to the reconnection advertising job.
 //! bt_lock() needs to be taken before accessing this variable.
+PBL_LOG_MODULE_REGISTER(ble_gap_le_slave_reconnect, LOG_LEVEL_DEBUG);
+
 static GAPLEAdvertisingJobRef s_reconnect_advert_job;
 static bool s_is_basic_reconnection_enabled;
 static bool s_is_hrm_reconnection_enabled;

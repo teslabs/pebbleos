@@ -56,6 +56,8 @@
 #define CST816_FW_CHECKSUM_REG        0xA008
 #define CST816_FW_VER_INFO_INDEX      (-11)
 
+PBL_LOG_MODULE_REGISTER(cst816, LOG_LEVEL_DEBUG);
+
 static bool s_callback_scheduled = false;
 static PebbleMutex *s_i2c_lock;
 

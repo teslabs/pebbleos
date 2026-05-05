@@ -14,6 +14,8 @@
 // -------------------------------------------------------------------------------------------------
 // Misc helpers:
 
+PBL_LOG_MODULE_REGISTER(app_message_app_message_sender, LOG_LEVEL_DEBUG);
+
 static void prv_request_fast_connection(CommSession *session) {
   // TODO: apply some heuristic to decide whether to put connection in fast mode or not:
   // https://pebbletechnology.atlassian.net/browse/PBL-21538

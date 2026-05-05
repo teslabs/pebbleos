@@ -14,6 +14,8 @@
 #include <inttypes.h>
 
 //! Default option for the kernel receiver, execute the endpoint handler on KernelBG.
+PBL_LOG_MODULE_REGISTER(comm_session_default_kernel_receiver, LOG_LEVEL_DEBUG);
+
 const PebbleTask g_default_kernel_receiver_opt_bg = PebbleTask_KernelBackground;
 
 //! If the endpoint handler puts events onto the KernelMain queue *and* it is important that

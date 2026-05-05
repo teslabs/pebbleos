@@ -14,6 +14,10 @@
 
 #include <string.h>
 
+#include "system/logging.h"
+
+PBL_LOG_MODULE_REGISTER(kernel_core_dump, LOG_LEVEL_DEBUG);
+
 #include "kernel/core_dump.h"
 #include "kernel/core_dump_private.h"
 
@@ -147,7 +151,7 @@ static void prv_flash_read_bytes(void* buffer_ptr, uint32_t start_addr, uint32_t
 // NOTE: We are explicitly avoiding use of vsniprintf and cohorts to reduce our stack
 // requirements
 static void prv_debug_str(const char* msg) {
-  kernel_pbl_log_from_fault_handler(__FILE_NAME__, 0, msg);
+  kernel_pbl_log_from_fault_handler(__pbl_log_module_name, msg);
 }
 
 
@@ -156,7 +160,7 @@ static void prv_debug_str(const char* msg) {
 // requirements
 static void prv_debug_str_str(const char* msg, const char* s) {
 #if PULSE_EVERYWHERE
-  void *ctx = pulse_logging_log_sync_begin(LOG_LEVEL_ALWAYS, __FILE_NAME__, 0);
+  void *ctx = pulse_logging_log_sync_begin(LOG_LEVEL_ALWAYS, __pbl_log_module_name);
   pulse_logging_log_sync_append(ctx, msg);
   pulse_logging_log_sync_append(ctx, s);
   pulse_logging_log_sync_send(ctx);
@@ -186,7 +190,7 @@ static void prv_debug_str_int(const char* msg, uint32_t i, int base) {
   }
 
 #if PULSE_EVERYWHERE
-  void *ctx = pulse_logging_log_sync_begin(LOG_LEVEL_ALWAYS, __FILE_NAME__, 0);
+  void *ctx = pulse_logging_log_sync_begin(LOG_LEVEL_ALWAYS, __pbl_log_module_name);
   pulse_logging_log_sync_append(ctx, msg);
   pulse_logging_log_sync_append(ctx, buffer);
   pulse_logging_log_sync_send(ctx);

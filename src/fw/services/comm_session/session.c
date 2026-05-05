@@ -36,6 +36,8 @@
 
 //! The list of open Pebble Protocol sessions.
 //! @note bt_lock() must be held when accessing this list.
+PBL_LOG_MODULE_REGISTER(comm_session_session, LOG_LEVEL_DEBUG);
+
 static CommSession *s_session_head;
 
 // -------------------------------------------------------------------------------------------------

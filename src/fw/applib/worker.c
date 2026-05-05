@@ -12,6 +12,8 @@
 
 
 // -------------------------------------------------------------------------------------------------
+PBL_LOG_MODULE_REGISTER(worker, LOG_LEVEL_DEBUG);
+
 static bool prv_handle_event(PebbleEvent* event) {
   PebbleEventType type = event->type;
 

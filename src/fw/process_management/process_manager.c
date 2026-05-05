@@ -49,6 +49,8 @@
 #include "queue.h"
 
 
+PBL_LOG_MODULE_REGISTER(process_management_process_manager, LOG_LEVEL_DEBUG);
+
 static TimerID s_deinit_timer_id = TIMER_INVALID_ID;
 
 

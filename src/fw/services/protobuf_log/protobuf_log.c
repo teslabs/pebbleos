@@ -32,11 +32,13 @@
 #include "nanopb/payload.pb.h"
 
 #define PROTOBUF_LOG_DEBUG(fmt, args...) \
-            PBL_LOG_D_DBG(LOG_DOMAIN_PROTOBUF, fmt, ## args)
+            PBL_LOG_DBG(fmt, ## args)
 
 #define MLOG_MAX_VARINT_ENCODED_SIZE 5
 
 // Our globals
+PBL_LOG_MODULE_REGISTER(protobuf_log, LOG_LEVEL_DEBUG);
+
 typedef struct PLogState {
   PebbleMutex *mutex;
   DataLoggingSession *dls_session;

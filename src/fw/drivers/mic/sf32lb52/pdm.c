@@ -46,6 +46,8 @@
 #define PDM_CIRCULAR_BUF_STEP_SAMPLES      ((MIC_SAMPLE_RATE * PDM_CIRCULAR_BUF_STEP_MS) / 1000)
 #define PDM_CIRCULAR_BUF_STEP_BYTES        (PDM_CIRCULAR_BUF_STEP_SAMPLES * sizeof(int16_t) * PDM_CH_COUNT)
 
+PBL_LOG_MODULE_REGISTER(sf32lb52_pdm, LOG_LEVEL_DEBUG);
+
 static PDM_HandleTypeDef s_hpdm;
 static MicDeviceState* s_state;
 

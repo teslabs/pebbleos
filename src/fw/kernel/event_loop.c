@@ -88,6 +88,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+PBL_LOG_MODULE_REGISTER(kernel_event_loop, LOG_LEVEL_DEBUG);
+
 static const uint32_t FORCE_QUIT_HOLD_MS = 1500;
 static int s_back_hold_timer = TIMER_INVALID_ID;
 

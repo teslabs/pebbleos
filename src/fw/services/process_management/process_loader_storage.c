@@ -15,6 +15,8 @@
 #include <string.h>
 
 //! This comes from the generated pebble.auto.c with all the exported functions in it.
+PBL_LOG_MODULE_REGISTER(process_management_process_loader_storage, LOG_LEVEL_DEBUG);
+
 extern const void* const g_pbl_system_tbl[];
 
 // ----------------------------------------------------------------------------------------------

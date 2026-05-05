@@ -31,6 +31,8 @@
 // -------------------------------------------------------------------------------------------------
 // Function prototypes
 
+PBL_LOG_MODULE_REGISTER(ams, LOG_LEVEL_DEBUG);
+
 static void prv_perform_on_kernel_main_task(void (*callback)(void *), void *data);
 
 // -------------------------------------------------------------------------------------------------

@@ -28,6 +28,8 @@
 
 #define PULSE_PP_OPCODE_UNKNOWN (255)
 
+PBL_LOG_MODULE_REGISTER(console_pulse_pp, LOG_LEVEL_DEBUG);
+
 typedef struct PACKED PulsePPPacket {
   uint8_t opcode;
   uint8_t data[0];

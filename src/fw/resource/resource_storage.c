@@ -15,6 +15,8 @@
 #include "util/math.h"
 #include "util/size.h"
 
+PBL_LOG_MODULE_REGISTER(resource_resource_storage, LOG_LEVEL_DEBUG);
+
 static const ResourceStoreImplementation *s_resource_store_impls[] = {
 #define RESOURCE_IMPL(impl) &impl,
 #include "resource_impl.def"

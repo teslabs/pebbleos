@@ -22,6 +22,8 @@
 #define RLE4_UNITS_BIT_WIDTH (4)
 #define RLE4_UNITS_PER_BYTE  (8 / RLE4_UNITS_BIT_WIDTH)
 
+PBL_LOG_MODULE_REGISTER(graphics_text_resources, LOG_LEVEL_DEBUG);
+
 static const size_t s_font_md_size[] = {
   0, // There currently is no font version 0. This makes decoding much easier & consistent
   sizeof(FontMetaDataV1),
@@ -94,7 +96,7 @@ static int prv_load_offset_table(Codepoint codepoint, FontCache *font_cache,
     FontHashTableEntry table_entry;
     Codepoint hash_entry_offset = s_font_md_size[version] + table_id * sizeof(FontHashTableEntry);
     // find which bucket the codepoint was put into TODO: cache hash table?
-    PBL_LOG_D_DBG(LOG_DOMAIN_TEXT, "HTE read: table_id:%d, cp:%"PRIx32", offset:%"PRIx32,
+    PBL_LOG_DBG("HTE read: table_id:%d, cp:%"PRIx32", offset:%"PRIx32,
               table_id, codepoint, hash_entry_offset);
 
     SYS_PROFILER_NODE_START(text_render_flash);
@@ -110,7 +112,7 @@ static int prv_load_offset_table(Codepoint codepoint, FontCache *font_cache,
     PBL_ASSERTN(num_bytes <= sizeof(font_cache->offsets_buffer_4_4));
   }
 
-  PBL_LOG_D_DBG(LOG_DOMAIN_TEXT, "HT read: offset: %zx, bytes: %zu", offset,
+  PBL_LOG_DBG("HT read: offset: %zx, bytes: %zu", offset,
             num_bytes);
   SYS_PROFILER_NODE_START(text_render_flash);
   sys_resource_load_range(font_res->app_num, font_res->resource_id, offset,
@@ -319,7 +321,7 @@ static bool prv_load_glyph_bitmap(Codepoint codepoint, const FontResource *font_
 
   if (glyph_size_bytes) {
     uint8_t *target;
-    PBL_LOG_D_DBG(LOG_DOMAIN_TEXT, "GD read: cp: %"PRIx32", res_bank: %"PRIu32", res_id: %"PRIu32", "
+    PBL_LOG_DBG("GD read: cp: %"PRIx32", res_bank: %"PRIu32", res_id: %"PRIu32", "
               "offset: %"PRIx32", bytes: %zu",
               codepoint, font_res->app_num, font_res->resource_id, bitmap_addr, glyph_size_bytes);
     if (HAS_FEATURE(font_res->md.version, VERSION_FIELD_FEATURE_RLE4)) {
@@ -362,7 +364,7 @@ static const GlyphData *prv_get_glyph_metadata_from_spi(Codepoint codepoint,
   if (font_cache->glyph_buffer_key == cache_key) {
     cached = (LineCacheData *)(font_cache->glyph_buffer);
   }
-  PBL_LOG_D_DBG(LOG_DOMAIN_TEXT, "looking up cp: %"PRIx32", key:%"PRIx32,
+  PBL_LOG_DBG("looking up cp: %"PRIx32", key:%"PRIx32,
             codepoint, cache_key);
 
   // If the glyph_buffer doesn't match this glyph, or we have bitmap caching, check the
@@ -401,7 +403,7 @@ static const GlyphData *prv_get_glyph_metadata_from_spi(Codepoint codepoint,
   GlyphData *g = &data->glyph_data;
 
   if (data->resource_offset == 0) {
-    PBL_LOG_D_DBG(LOG_DOMAIN_TEXT, "offset for cp: %"PRIx32" is NULL", codepoint);
+    PBL_LOG_DBG("offset for cp: %"PRIx32" is NULL", codepoint);
     // Put the missing character into our cache so we don't waste time looking for it again
     keyed_circular_cache_push(&font_cache->line_cache, cache_key, data);
     return NULL;
@@ -410,7 +412,7 @@ static const GlyphData *prv_get_glyph_metadata_from_spi(Codepoint codepoint,
   size_t num_bytes_loaded;
   if (FONT_VERSION(font_res->md.version) == FONT_VERSION_1) {
     GlyphHeaderDataV1 header;
-    PBL_LOG_D_DBG(LOG_DOMAIN_TEXT, "LGMD READ: offset: %"PRIx32", bytes: %zu",
+    PBL_LOG_DBG("LGMD READ: offset: %"PRIx32", bytes: %zu",
               data->resource_offset, sizeof(header));
     SYS_PROFILER_NODE_START(text_render_flash);
     num_bytes_loaded = sys_resource_load_range(font_res->app_num, font_res->resource_id,
@@ -422,7 +424,7 @@ static const GlyphData *prv_get_glyph_metadata_from_spi(Codepoint codepoint,
     memcpy(&g->header, &header, sizeof(GlyphHeaderData));
     g->header.horiz_advance = header.horiz_advance;
   } else {
-    PBL_LOG_D_DBG(LOG_DOMAIN_TEXT, "GMD read: cp: %"PRIx32", offset: %"PRId32", bytes: %zu", codepoint,
+    PBL_LOG_DBG("GMD read: cp: %"PRIx32", offset: %"PRId32", bytes: %zu", codepoint,
               data->resource_offset, sizeof(GlyphHeaderData));
     SYS_PROFILER_NODE_START(text_render_flash);
     num_bytes_loaded = sys_resource_load_range(font_res->app_num, font_res->resource_id,
@@ -488,7 +490,7 @@ static bool prv_load_font_res(ResAppNum app_num, uint32_t resource_id, FontResou
     return false;
   }
 
-  PBL_LOG_D_DBG(LOG_DOMAIN_TEXT, "FMD read: bytes:%d", (int)sizeof(FontMetaDataV3));
+  PBL_LOG_DBG("FMD read: bytes:%d", (int)sizeof(FontMetaDataV3));
 
   FontMetaDataV3 header;
   SYS_PROFILER_NODE_START(text_render_flash);

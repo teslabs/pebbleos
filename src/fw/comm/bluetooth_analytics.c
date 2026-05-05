@@ -16,6 +16,8 @@
 #include <bluetooth/analytics.h>
 #include <bluetooth/gap_le_connect.h>
 
+PBL_LOG_MODULE_REGISTER(comm_bluetooth_analytics, LOG_LEVEL_DEBUG);
+
 typedef struct {
   uint32_t slave_latency_events;
   uint32_t supervision_to_ms;

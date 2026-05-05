@@ -12,6 +12,8 @@
 
 // -------------------------------------------------------------------------------------------------
 // Returns the amount of data available for the given clien
+PBL_LOG_MODULE_REGISTER(util_shared_circular_buffer, LOG_LEVEL_DEBUG);
+
 static uint32_t prv_get_data_length(const SharedCircularBuffer* buffer, SharedCircularBufferClient *client) {
 
   uint32_t  len;

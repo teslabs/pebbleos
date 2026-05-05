@@ -12,6 +12,8 @@
 
 #define ORDER_FILE "lnc_ord"
 
+PBL_LOG_MODULE_REGISTER(process_management_app_order_storage, LOG_LEVEL_DEBUG);
+
 typedef struct {
   PebbleMutex *order_mutex;
   bool file_known_missing;

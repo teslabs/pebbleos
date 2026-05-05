@@ -11,6 +11,8 @@
 #include "system/logging.h"
 #include "system/status_codes.h"
 
+PBL_LOG_MODULE_REGISTER(get_bytes_get_bytes_storage_coredump, LOG_LEVEL_DEBUG);
+
 typedef struct {
   uint32_t core_dump_base;
   bool only_get_new_coredump;

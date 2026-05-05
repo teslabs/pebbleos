@@ -73,6 +73,8 @@
 #define W1160_ALS_POLL_DELAY_MS     (5)    /* ms between data-ready polls */
 #define W1160_ALS_POLL_TIMEOUT_MS   (200)  /* max wait for ALS data-ready */
 
+PBL_LOG_MODULE_REGISTER(ambient_ambient_light_w1160, LOG_LEVEL_DEBUG);
+
 static bool s_initialized;
 static uint32_t s_sensor_light_dark_threshold;
 

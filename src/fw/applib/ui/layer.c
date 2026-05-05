@@ -21,6 +21,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(ui_layer, LOG_LEVEL_DEBUG);
+
 void layer_init(Layer *layer, const GRect *frame) {
   *layer = (Layer){};
   layer->frame = *frame;

@@ -36,6 +36,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(notifications_do_not_disturb, LOG_LEVEL_DEBUG);
+
 typedef struct DoNotDisturbData {
   TimerID update_timer_id;
   bool is_in_schedule_period;

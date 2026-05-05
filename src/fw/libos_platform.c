@@ -10,7 +10,8 @@
 #include <stdlib.h>
 
 void os_log(const char *filename, int line, const char *string) {
-  pbl_log(LOG_LEVEL_INFO, filename, line, string);
+  (void)line;
+  pbl_log(LOG_LEVEL_INFO, filename, "%s", string);
 }
 
 NORETURN os_assertion_failed(const char *filename, int line) {

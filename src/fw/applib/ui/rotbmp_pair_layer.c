@@ -5,6 +5,8 @@
 #include "system/logging.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(ui_rotbmp_pair_layer, LOG_LEVEL_DEBUG);
+
 static void set_compositing(RotBmpPairLayer *pair) {
   rot_bitmap_set_compositing_mode(&pair->white_layer, GCompOpOr);
   rot_bitmap_set_compositing_mode(&pair->black_layer, GCompOpClear);

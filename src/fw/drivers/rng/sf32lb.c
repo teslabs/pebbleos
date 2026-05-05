@@ -8,6 +8,8 @@
 #include "bf0_hal_rcc.h"
 #include "bf0_hal_rng.h"
 
+PBL_LOG_MODULE_REGISTER(rng_sf32lb, LOG_LEVEL_DEBUG);
+
 static bool s_inited;
 static RNG_HandleTypeDef s_rng_hdl = {
     .Instance = hwp_trng,

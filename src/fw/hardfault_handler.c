@@ -18,6 +18,8 @@
 
 #include "kernel/pebble_tasks.h"
 
+PBL_LOG_MODULE_REGISTER(hardfault_handler, LOG_LEVEL_DEBUG);
+
 void fault_handler_dump_stacked_args(char buffer[80], unsigned int* stacked_args) {
   unsigned int stacked_r0 = ((unsigned long) stacked_args[0]);
   unsigned int stacked_r1 = ((unsigned long) stacked_args[1]);

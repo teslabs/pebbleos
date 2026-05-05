@@ -11,6 +11,8 @@
 #include "process_management/process_manager.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(demo_test_args_tx, LOG_LEVEL_DEBUG);
+
 static TestArgsData s_data;
 
 static void prv_launch_receiver_callback(void *data) {

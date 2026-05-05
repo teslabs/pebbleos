@@ -44,6 +44,8 @@
 #include "util/size.h"
 #include "util/struct.h"
 
+PBL_LOG_MODULE_REGISTER(timeline_timeline_actions, LOG_LEVEL_DEBUG);
+
 typedef struct {
   void *action_data;
   void *context;

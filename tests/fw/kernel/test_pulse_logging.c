@@ -101,7 +101,7 @@ void test_pulse_logging__initialize(void) {
 }
 
 void test_pulse_logging__simple(void) {
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "Test");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "Test");
 
   cl_assert_equal_i(s_num_event_puts, 0);
   cl_assert_equal_i(s_num_packets_sent, 1);
@@ -110,7 +110,7 @@ void test_pulse_logging__simple(void) {
 
   s_num_bytes_sent = 0;
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTest");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTest");
 
   cl_assert_equal_i(s_num_event_puts, 0);
   cl_assert_equal_i(s_num_packets_sent, 2);
@@ -119,7 +119,7 @@ void test_pulse_logging__simple(void) {
 }
 
 void test_pulse_logging__simple_trucate(void) {
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTestTestTestTestTestTest"
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTestTestTestTestTestTest"
                                             "TestTestTestTestTestTestTestTestTestTest"
                                             "TestTestTestTestTestTestTestTestTestTest"
                                             "TestTestTestTestTestTestTestTestTestTest");
@@ -136,7 +136,7 @@ void test_pulse_logging__simple_trucate(void) {
 void test_pulse_logging__isr_simple(void) {
   s_in_critical_section = true;
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "Test");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "Test");
 
   cl_assert_equal_i(s_num_event_puts, 1);
 
@@ -146,7 +146,7 @@ void test_pulse_logging__isr_simple(void) {
   cl_assert_equal_s(s_log_message_buffer, "Test");
   s_num_bytes_sent = 0;
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTest");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTest");
 
   cl_assert_equal_i(s_num_event_puts, 2);
 
@@ -159,7 +159,7 @@ void test_pulse_logging__isr_simple(void) {
 void test_pulse_logging__isr_trucate(void) {
   s_in_critical_section = true;
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTestTestTestTestTestTest"
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTestTestTestTestTestTest"
                                             "TestTestTestTestTestTestTestTestTestTest"
                                             "TestTestTestTestTestTestTestTestTestTest"
                                             "TestTestTestTestTestTestTestTestTestTest");
@@ -178,31 +178,31 @@ void test_pulse_logging__isr_trucate(void) {
 void test_pulse_logging__isr_buffer_full(void) {
   s_in_critical_section = true;
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTestTestTestTestTestTestA");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTestTestTestTestTestTestA");
   cl_assert_equal_i(s_num_event_puts, 1);
   cl_assert_equal_i(s_num_packets_sent, 0);
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTestTestTestTestTestTestB");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTestTestTestTestTestTestB");
   cl_assert_equal_i(s_num_event_puts, 1);
   cl_assert_equal_i(s_num_packets_sent, 0);
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTestTestTestTestTestTestC");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTestTestTestTestTestTestC");
   cl_assert_equal_i(s_num_event_puts, 1);
   cl_assert_equal_i(s_num_packets_sent, 0);
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTestTestTestTestTestTestD");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTestTestTestTestTestTestD");
   cl_assert_equal_i(s_num_event_puts, 1);
   cl_assert_equal_i(s_num_packets_sent, 0);
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTestTestTestTestTestTestE");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTestTestTestTestTestTestE");
   cl_assert_equal_i(s_num_event_puts, 1);
   cl_assert_equal_i(s_num_packets_sent, 0);
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTestTestTestTestTestTestF");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTestTestTestTestTestTestF");
   cl_assert_equal_i(s_num_event_puts, 1);
   cl_assert_equal_i(s_num_packets_sent, 0);
 
-  pulse_logging_log(LOG_LEVEL_DEBUG, "", 0, "TestTestTestTestTestTestTestTestTestTestG");
+  pulse_logging_log(LOG_LEVEL_DEBUG, "test", "TestTestTestTestTestTestTestTestTestTestG");
 
   s_last_event.callback.callback(NULL);
   cl_assert_equal_i(s_num_packets_sent, 7);

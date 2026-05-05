@@ -63,6 +63,8 @@
 #define AW862XX_PWR_OFF_TIME                            (2) /* ms */
 #define AW862XX_PWR_ON_TIME                             (8) /* ms */
 
+PBL_LOG_MODULE_REGISTER(vibe_vibe_aw86225, LOG_LEVEL_DEBUG);
+
 static bool s_initialized = false;
 static int8_t s_target_strength = VIBE_STRENGTH_MAX;
 

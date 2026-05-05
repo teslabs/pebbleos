@@ -12,6 +12,8 @@
 #include "system/passert.h"
 #include "util/size.h"
 
+PBL_LOG_MODULE_REGISTER(demo_simple_menu, LOG_LEVEL_DEBUG);
+
 typedef struct {
   Window window;
   SimpleMenuLayer menu;

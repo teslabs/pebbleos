@@ -16,6 +16,8 @@
 
 #include "pbl/services/voice_endpoint_private.h"
 
+PBL_LOG_MODULE_REGISTER(voice_endpoint_service, LOG_LEVEL_DEBUG);
+
 #define VOICE_CONTROL_ENDPOINT (11000)
 
 #ifdef CONFIG_MIC

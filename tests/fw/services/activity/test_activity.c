@@ -26,6 +26,8 @@
 
 #include "clar.h"
 
+PBL_LOG_MODULE_REGISTER(activity_test_activity, LOG_LEVEL_DEBUG);
+
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif

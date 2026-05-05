@@ -9,6 +9,8 @@
 #include "system/logging.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(timeline_item, LOG_LEVEL_DEBUG);
+
 static bool prv_is_valid_item(const TimelineItem *item) {
   return item && !uuid_is_invalid(&item->header.id);
 }

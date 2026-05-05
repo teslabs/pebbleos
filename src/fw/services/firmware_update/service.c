@@ -37,6 +37,8 @@
 // transmitted and also cleanly drive a re-start of the UI to a non-0 percentage if the FW update
 // is being resumed. Newer implementations should this! (See PBL-42130)
 
+PBL_LOG_MODULE_REGISTER(firmware_update_service, LOG_LEVEL_DEBUG);
+
 static SemaphoreHandle_t s_firmware_update_semaphore;
 static bool s_is_recovery_fw = false;
 static FirmwareUpdateStatus s_update_status = FirmwareUpdateStopped;

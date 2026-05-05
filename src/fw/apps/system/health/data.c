@@ -15,6 +15,8 @@
 #include "util/time/time.h"
 
 
+PBL_LOG_MODULE_REGISTER(health_data, LOG_LEVEL_DEBUG);
+
 T_STATIC void prv_merge_adjacent_sessions(ActivitySession *current,
                                           ActivitySession *previous) {
   if (previous == NULL || current == NULL) {

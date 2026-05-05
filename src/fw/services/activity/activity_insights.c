@@ -38,13 +38,15 @@
 #include <stdio.h>
 
 #define INSIGHTS_LOG_DEBUG(fmt, args...) \
-        PBL_LOG_D_DBG(LOG_DOMAIN_ACTIVITY_INSIGHTS, fmt, ## args)
+        PBL_LOG_DBG(fmt, ## args)
 
 #define SUBTITLE_BUFFER_LENGTH 18
 #define TIME_BUFFER_LENGTH 9
 
 #define NUM_COPY_VARIANTS 5
 #define VARIANT_RANDOM (-1)
+
+PBL_LOG_MODULE_REGISTER(activity_activity_insights, LOG_LEVEL_DEBUG);
 
 typedef struct NotificationConfig {
   time_t notif_time;

@@ -49,6 +49,8 @@
 #define PPG_RED_LEAK_THS0       (7.0f)
 #define PPG_RED_LEAK_THS1       (9.6f)
 
+PBL_LOG_MODULE_REGISTER(prf_mfg_hrm_ctr_leakage_obelix, LOG_LEVEL_DEBUG);
+
 typedef enum {
   TestMode_NULL,
   TestMode_CTR,

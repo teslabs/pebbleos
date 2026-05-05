@@ -98,6 +98,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(main, LOG_LEVEL_DEBUG);
+
 void soc_early_init(void);
 
 /* here is as good as anywhere else ... */

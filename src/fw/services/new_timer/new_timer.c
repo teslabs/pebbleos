@@ -19,6 +19,8 @@
 #include "task.h"
 
 
+PBL_LOG_MODULE_REGISTER(new_timer, LOG_LEVEL_DEBUG);
+
 typedef struct {
   NewTimerWorkCallback cb;
   void *data;

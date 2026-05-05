@@ -17,6 +17,8 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 
+PBL_LOG_MODULE_REGISTER(comm_session_default_kernel_sender, LOG_LEVEL_DEBUG);
+
 typedef struct SendBuffer {
   //! Save some memory by making this a union.
   //! @note This is the first field, so that we can just cast between

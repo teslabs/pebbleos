@@ -9,6 +9,8 @@
 #include "util/size.h"
 
 
+PBL_LOG_MODULE_REGISTER(put_bytes_put_bytes_storage, LOG_LEVEL_DEBUG);
+
 #ifdef UNITTEST
 extern const PutBytesStorageImplementation s_raw_implementation;
 extern const PutBytesStorageImplementation s_file_implementation;

@@ -13,6 +13,8 @@
 
 #define EXTI_MAX_GPIO1_PIN_NUM 16
 
+PBL_LOG_MODULE_REGISTER(exti_sf32lb, LOG_LEVEL_DEBUG);
+
 typedef struct {
   uint32_t gpio_pin;
   ExtiHandlerCallback callback;

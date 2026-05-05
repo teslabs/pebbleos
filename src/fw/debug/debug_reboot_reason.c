@@ -17,6 +17,8 @@
 #include "system/logging.h"
 #include "system/reboot_reason.h"
 
+PBL_LOG_MODULE_REGISTER(debug_debug_reboot_reason, LOG_LEVEL_DEBUG);
+
 static RebootReasonCode s_last_reboot_reason_code = RebootReasonCode_Unknown;
 RebootReasonCode reboot_reason_get_last_reboot_reason(void) {
   return s_last_reboot_reason_code;
@@ -132,7 +134,7 @@ void debug_reboot_reason_print(McuRebootReason mcu_reboot_reason) {
   }
   // Generic reason string
   if (reason_string) {
-    pbl_log(LOG_LEVEL_WARNING, __FILE__, __LINE__, reason_string,
+    pbl_log(LOG_LEVEL_WARNING, __pbl_log_module_name, reason_string,
             restarted_safely_string, rebooted_due_to, reason.extra.value);
   }
 

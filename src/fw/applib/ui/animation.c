@@ -24,6 +24,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(ui_animation, LOG_LEVEL_DEBUG);
+
 KERNEL_READONLY_DATA static bool s_paused = false;
 
 static void prv_run(AnimationState *state, uint32_t now, AnimationPrivate *top_level_animation,

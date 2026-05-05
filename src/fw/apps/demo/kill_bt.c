@@ -11,6 +11,8 @@
 #include "process_state/app_state/app_state.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(demo_kill_bt, LOG_LEVEL_DEBUG);
+
 static unsigned int s_progress_count = 0;
 
 struct AppState {

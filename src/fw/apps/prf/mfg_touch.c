@@ -34,6 +34,8 @@
 #define TEST_TIMEOUT_S (10)
 #define WINDOW_POP_TIME_S (3)
 
+PBL_LOG_MODULE_REGISTER(prf_mfg_touch, LOG_LEVEL_DEBUG);
+
 typedef struct {
   Window window;
   uint32_t touch_mark;

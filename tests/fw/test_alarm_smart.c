@@ -10,6 +10,8 @@
 #include "stubs_blob_db_sync.h"
 #include "stubs_blob_db_sync_util.h"
 
+PBL_LOG_MODULE_REGISTER(test_alarm_smart, LOG_LEVEL_DEBUG);
+
 static int s_rand = 0;
 
 int rand(void) {

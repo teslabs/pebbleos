@@ -37,6 +37,8 @@
 #include "stubs_passert.h"
 #include "stubs_task_watchdog.h"
 
+PBL_LOG_MODULE_REGISTER(services_test_app_cache, LOG_LEVEL_DEBUG);
+
 void app_storage_delete_app(AppInstallId id) {
   char buffer[30];
   itoa_int(id, buffer, 10);

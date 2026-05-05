@@ -14,6 +14,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(shell_system_theme, LOG_LEVEL_DEBUG);
+
 typedef struct SystemThemeTextStyle {
   const char *fonts[TextStyleFontCount];
 } SystemThemeTextStyle;

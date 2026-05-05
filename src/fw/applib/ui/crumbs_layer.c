@@ -10,6 +10,8 @@
 #include "system/logging.h"
 #include "util/trig.h"
 
+PBL_LOG_MODULE_REGISTER(ui_crumbs_layer, LOG_LEVEL_DEBUG);
+
 typedef struct CrumbsLayerSizeConfig {
   int layer_width;
   int crumb_radius;

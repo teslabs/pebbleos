@@ -15,6 +15,8 @@
 #include "system/passert.h"
 #include "util/attributes.h"
 
+PBL_LOG_MODULE_REGISTER(timeline_actions_endpoint, LOG_LEVEL_DEBUG);
+
 typedef enum {
   CommandInvokeAction = 0x02,
   CommandInvokeActionANCSNotif = 0x03,

@@ -41,6 +41,8 @@
 #include <string.h>
 #include <limits.h>
 
+PBL_LOG_MODULE_REGISTER(graphics_text_layout, LOG_LEVEL_DEBUG);
+
 static bool prv_char_iter_next_start_of_word(Iterator* char_iter);
 
 //! Check if a codepoint is invisible: formatting indicator or should-skip (no direction, no width).

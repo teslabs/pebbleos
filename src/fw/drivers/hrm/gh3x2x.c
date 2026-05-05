@@ -20,6 +20,8 @@
 #include "gh3x2x_demo_mp.h"
 #endif // HRM_USE_GH3X2X
 
+PBL_LOG_MODULE_REGISTER(hrm_gh3x2x, LOG_LEVEL_DEBUG);
+
 void gh3026_reset_pin_ctrl(uint8_t pin_level) {
 #if GH3X2X_RESET_PIN_CTRLBY_NPM1300
   NPM1300_OPS.gpio_set(Npm1300_Gpio3, pin_level);

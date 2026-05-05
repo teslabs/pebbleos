@@ -24,6 +24,8 @@
 #include <btutil/bt_device.h>
 #include <btutil/sm_util.h>
 
+PBL_LOG_MODULE_REGISTER(ble_gap_le_connect, LOG_LEVEL_DEBUG);
+
 #if BLE_MASTER_CONNECT_SUPPORT // FIXME: Shouldn't be needed after PBL-32761
 extern unsigned int bt_stack_id(void);
 #endif

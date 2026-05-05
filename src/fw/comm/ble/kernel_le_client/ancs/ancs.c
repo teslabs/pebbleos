@@ -34,6 +34,8 @@
 // -----------------------------------------------------------------------------
 // Static function prototypes
 
+PBL_LOG_MODULE_REGISTER(ancs, LOG_LEVEL_DEBUG);
+
 static void prv_handle_notification_attributes_response(const uint8_t *data, size_t length);
 
 static void prv_handle_app_attributes_response(const uint8_t *data, size_t length);

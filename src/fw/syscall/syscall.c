@@ -22,6 +22,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+PBL_LOG_MODULE_REGISTER(syscall, LOG_LEVEL_DEBUG);
+
 DEFINE_SYSCALL(int, sys_test, int arg) {
   uint32_t ipsr;
   __asm volatile("mrs %0, ipsr" : "=r" (ipsr));

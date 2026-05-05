@@ -11,6 +11,8 @@
 #include "flash_region/flash_region.h"
 #include "system/logging.h"
 
+PBL_LOG_MODULE_REGISTER(demo_flash_demo, LOG_LEVEL_DEBUG);
+
 static Window *window;
 
 #define BASE_ADDRESS 0x380000

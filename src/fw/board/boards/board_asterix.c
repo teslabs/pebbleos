@@ -32,6 +32,8 @@
 #include <nrfx_twim.h>
 #include <nrfx_pdm.h>
 
+PBL_LOG_MODULE_REGISTER(boards_board_asterix, LOG_LEVEL_DEBUG);
+
 static QSPIPortState s_qspi_port_state;
 static QSPIPort QSPI_PORT = {
     .state = &s_qspi_port_state,

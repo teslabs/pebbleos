@@ -4,6 +4,8 @@
 #include "system/logging.h"
 #include "system/passert.h"
 
+PBL_LOG_MODULE_REGISTER(assert, LOG_LEVEL_DEBUG);
+
 void __assert_func(const char *file, int line, const char *func, const char *e) {
   PBL_LOG_ERR("assert in %s:%d", file, line);
   PBL_LOG_ERR("%s, expr: %s", func, e);

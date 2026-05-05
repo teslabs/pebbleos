@@ -30,6 +30,8 @@
 #include <stdio.h>
 
 
+PBL_LOG_MODULE_REGISTER(qemu_qemu_serial, LOG_LEVEL_DEBUG);
+
 static bool prv_uart_irq_handler(UARTDevice *dev, uint8_t byte, const UARTRXErrorFlags *err_flags);
 
 // Our globals

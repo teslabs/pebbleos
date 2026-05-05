@@ -13,6 +13,8 @@
 
 #define N_SAMPS    4 // four points define a unique sphere
 #define N_AXIS     3
+PBL_LOG_MODULE_REGISTER(ecompass_correction, LOG_LEVEL_DEBUG);
+
 static int16_t s_samples[N_SAMPS][N_AXIS];
 
 //

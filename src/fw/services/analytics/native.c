@@ -19,6 +19,8 @@
 #define NATIVE_HEARTBEAT_RECORD_VERSION 1
 
 /* Heartbeat record logged to DLS */
+PBL_LOG_MODULE_REGISTER(analytics_native, LOG_LEVEL_DEBUG);
+
 __attribute__((packed)) struct native_heartbeat_record {
   uint8_t version;
   uint64_t timestamp;

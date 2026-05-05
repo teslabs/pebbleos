@@ -34,6 +34,8 @@
 #define CORRECTION_VAL_MASK          ((1 << BITS_PER_CORRECTION_VAL) - 1)
 
 
+PBL_LOG_MODULE_REGISTER(ecompass_service, LOG_LEVEL_DEBUG);
+
 static CompassStatus s_current_cal_status = CompassStatusDataInvalid;
 static int16_t s_active_corr[3] = { 0 };
 

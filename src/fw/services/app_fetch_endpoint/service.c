@@ -21,6 +21,8 @@
 #include "util/uuid.h"
 
 //! Used for keeping track of binaries that are loaded through put_bytes
+PBL_LOG_MODULE_REGISTER(app_fetch_endpoint_service, LOG_LEVEL_DEBUG);
+
 typedef struct {
   AppInstallId app_id;
   uint32_t total_size;

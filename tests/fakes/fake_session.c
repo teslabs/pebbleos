@@ -19,6 +19,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(fakes_fake_session, LOG_LEVEL_DEBUG);
+
 extern void fake_system_task_callbacks_invoke_pending(void);
 
 typedef struct CommSession {

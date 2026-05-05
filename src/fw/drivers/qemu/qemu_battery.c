@@ -13,6 +13,8 @@
 #include "util/math.h"
 #include "util/net.h"
 
+PBL_LOG_MODULE_REGISTER(qemu_qemu_battery, LOG_LEVEL_DEBUG);
+
 static uint16_t s_battery_mv = 4000;
 static bool s_usb_connected;
 static uint8_t s_percent = 100;

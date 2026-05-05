@@ -42,6 +42,8 @@
 ////////////////////////////////////////////////////////////
 // Data structures
 
+PBL_LOG_MODULE_REGISTER(core_progress_ui, LOG_LEVEL_DEBUG);
+
 typedef struct {
   Window window;
   TextLayer percent_done_text_layer;

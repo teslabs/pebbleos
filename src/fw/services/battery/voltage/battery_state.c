@@ -25,6 +25,8 @@
 #define BATTERY_SAMPLE_RATE_MS (60 * 1000)
 #endif
 
+PBL_LOG_MODULE_REGISTER(voltage_battery_state, LOG_LEVEL_DEBUG);
+
 typedef void (*EntryFunc)(void);
 
 typedef enum {

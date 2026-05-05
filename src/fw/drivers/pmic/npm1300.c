@@ -27,6 +27,8 @@
 #define CHARGER_DEBOUNCE_MS 400
 #define ADC_POLL_DELAY_MS   5     // Delay between ADC poll iterations to reduce I2C traffic
 #define ADC_POLL_TIMEOUT_MS 100   // Max time to wait for ADC measurement
+PBL_LOG_MODULE_REGISTER(pmic_npm1300, LOG_LEVEL_DEBUG);
+
 static TimerID s_debounce_charger_timer = TIMER_INVALID_ID;
 static uint32_t s_dischg_limit_ma;
 

@@ -13,6 +13,8 @@
  // Helper functions for handling internal errors //
 ///////////////////////////////////////////////////
 
+PBL_LOG_MODULE_REGISTER(settings_settings_raw_iter, LOG_LEVEL_DEBUG);
+
 #if UNITTEST
 static uint32_t s_num_record_changes;
 #endif

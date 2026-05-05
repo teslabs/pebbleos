@@ -31,6 +31,8 @@
 
 #include <string.h>
 
+PBL_LOG_MODULE_REGISTER(put_bytes, LOG_LEVEL_DEBUG);
+
 typedef enum {
   PutBytesIdle = 0x00,
   PutBytesInit = 0x01,

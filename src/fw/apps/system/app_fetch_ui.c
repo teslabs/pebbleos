@@ -45,6 +45,8 @@
 #define INITIAL_PERCENT 0
 
 //! App data
+PBL_LOG_MODULE_REGISTER(system_app_fetch_ui, LOG_LEVEL_DEBUG);
+
 typedef struct {
   //! UI
   ProgressWindow window;

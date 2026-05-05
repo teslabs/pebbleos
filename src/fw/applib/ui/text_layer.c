@@ -19,6 +19,8 @@
 #include <string.h>
 #include <stddef.h>
 
+PBL_LOG_MODULE_REGISTER(ui_text_layer, LOG_LEVEL_DEBUG);
+
 static GTextLayoutCacheRef prv_text_layer_get_cache_handle(TextLayer *text_layer) {
   PBL_ASSERTN(text_layer);
   return text_layer->should_cache_layout ? text_layer->layout_cache : NULL;
