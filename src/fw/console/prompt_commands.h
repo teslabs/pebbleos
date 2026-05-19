@@ -236,6 +236,8 @@ extern void command_ble_rediscover(void);
 extern void command_ble_logging_set_level(const char *level);
 extern void command_ble_logging_get_level(void);
 extern void command_ble_host_reset(void);
+extern void command_pebble_index_scan_start(void);
+extern void command_pebble_index_scan_stop(void);
 
 extern void command_audit_delay_us(void);
 extern void command_enter_stop(void);
@@ -455,6 +457,8 @@ static const Command s_prompt_commands[] = {
   { "ble set log level", command_ble_logging_set_level, 1},
   { "ble get log level", command_ble_logging_get_level, 0},
   { "ble host reset", command_ble_host_reset, 0},
+  { "pebble index scan start", command_pebble_index_scan_start, 0 },
+  { "pebble index scan stop", command_pebble_index_scan_stop, 0 },
 
   /*
   { "stats dump now", command_stats_dump_now, 0 },
