@@ -447,9 +447,27 @@ static void prv_write_memory_regions(const MemoryRegion *regions, unsigned int c
 }
 
 #if defined(CONFIG_SOC_SF32LB52)
+// Bounded poll for the LCPU wake to settle. A live-but-sleeping LCPU answers
+// within a couple of LP clock cycles; the cap keeps the coredump from hanging
+// if the LCPU is fully powered down (e.g. BLE stopped during stationary mode).
+#define LCPU_WAKE_POLL_US     100
+#define LCPU_WAKE_POLL_COUNT  100  // ~10 ms
+
 // LCPU RAM lives in the LPSYS domain; reading it while that domain is powered
-// down hangs/faults. LP_ACTIVE reports whether it is reachable.
+// down hangs/faults. LP_ACTIVE reports whether it is reachable. When it is
+// down, request a wake and poll briefly so BLE crashes (e.g. NimBLE host
+// asserts) still capture the controller RAM; we reset right after, so the
+// pending request never needs to be balanced.
 static void prv_dump_lcpu_ram(uint32_t flash_base) {
+  if (!(hwp_hpsys_aon->ISSR & HPSYS_AON_ISSR_LP_ACTIVE)) {
+    hwp_hpsys_aon->ISSR |= HPSYS_AON_ISSR_HP2LP_REQ;
+    for (int i = 0; i < LCPU_WAKE_POLL_COUNT &&
+                    !(hwp_hpsys_aon->ISSR & HPSYS_AON_ISSR_LP_ACTIVE); i++) {
+      HAL_Delay_us(LCPU_WAKE_POLL_US);
+      watchdog_feed();
+    }
+  }
+
   if (hwp_hpsys_aon->ISSR & HPSYS_AON_ISSR_LP_ACTIVE) {
     prv_write_memory_regions(&LCPU_MEMORY_REGION, 1, flash_base);
   } else {
