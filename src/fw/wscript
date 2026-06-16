@@ -462,6 +462,7 @@ def _build_recovery(bld):
     if not bld.env.CONFIG_TOUCH:
         excludes.extend([
             'apps/prf/mfg_touch.c',
+            'apps/prf/mfg_touch_tool.c',
         ])
 
     sources = sum([bld.path.ant_glob('%s/*.c' % d, excl=excludes) for d in source_dirs], [])

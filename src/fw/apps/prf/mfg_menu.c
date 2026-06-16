@@ -13,6 +13,9 @@
 #include "apps/prf/mfg_info_qr.h"
 #include "apps/prf/mfg_test_menu.h"
 #include "apps/prf/mfg_test_result.h"
+#ifdef CONFIG_TOUCH
+#include "apps/prf/mfg_touch_tool.h"
+#endif
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/util/standby.h"
@@ -66,6 +69,12 @@ static void prv_select_aging(int index, void *context) {
 static void prv_select_ble_adv(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_adv_app_get_info());
 }
+
+#ifdef CONFIG_TOUCH
+static void prv_select_touch_tool(int index, void *context) {
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_touch_tool_app_get_info());
+}
+#endif
 
 static void prv_select_reset(int index, void *context) {
   system_reset();
@@ -166,6 +175,9 @@ static size_t prv_create_menu_items(SimpleMenuItem** out_menu_items) {
     { .title = "Finished Tests",   .callback = prv_select_tests_fi },
     { .title = "Aging Test",        .callback = prv_select_aging },
     { .title = "BLE Advertising",   .callback = prv_select_ble_adv },
+#ifdef CONFIG_TOUCH
+    { .title = "Touch Tool",        .callback = prv_select_touch_tool },
+#endif
     { .title = "Shutdown",          .callback = prv_select_shutdown },
     { .title = "Reset",             .callback = prv_select_reset },
 #ifdef CONFIG_MFG
