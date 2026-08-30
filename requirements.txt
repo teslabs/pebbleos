@@ -6,7 +6,8 @@ svg.path
 bitarray
 polib
 
-# Build system (waf) tooling
+# Build system tooling (waf for the unit tests; Meson and Ninja for the
+# firmware)
 sh<2
 packaging
 PyYAML

@@ -1,7 +1,6 @@
 freetype
 gettext
 llvm
-cmake
 lcov
 ninja
 node

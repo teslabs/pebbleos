@@ -1,6 +1,9 @@
-bld.recurse('c')
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+# Only the libraries the unit tests link against; the firmware build is
+# Meson's (see lib/meson.build).
 bld.recurse('util')
 bld.recurse('btutil')
-bld.recurse('os')
 
 # vim:filetype=python

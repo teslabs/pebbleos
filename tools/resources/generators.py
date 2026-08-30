@@ -5,7 +5,7 @@
 
 Each function takes plain paths and data and writes one build artifact.
 The waf task classes in ``waftools/`` and the CMake driver in
-``tools/cmake/resources.py`` are thin wrappers around these.
+``tools/meson/resources.py`` are thin wrappers around these.
 """
 
 import generate_c_byte_array

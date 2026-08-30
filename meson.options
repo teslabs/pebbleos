@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+option('board', type: 'string', value: '',
+       description: 'Board to build for, e.g. asterix or obelix@pvt')
+option('variant', type: 'combo', choices: ['normal', 'prf'], value: 'normal',
+       description: 'Firmware variant')
+option('config', type: 'array', value: [],
+       description: 'Kconfig overrides, e.g. -Dconfig=CONFIG_RELEASE=y')

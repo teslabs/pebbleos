@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+sources = ['app_file.c', 'flash_translation.c', 'pfs.c']
+pbl_libs += [{'dir': meson.current_source_dir(), 'srcs': files(sources)}]
