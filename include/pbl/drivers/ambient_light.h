@@ -24,9 +24,6 @@ typedef enum AmbientLightLevel {
 
 static const uint32_t AMBIENT_LIGHT_LEVEL_MAX = (1U << CONFIG_AMBIENT_LIGHT_BITS);
 
-/** Initialize the ambient light sensor */
-void ambient_light_init(void);
-
 /** get the ambient light level scaled between 0 and AMBIENT_LIGHT_LEVEL_MAX
  */
 uint32_t ambient_light_get_light_level(void);
@@ -42,7 +39,7 @@ void ambient_light_release(void);
 void ambient_light_suspend(void);
 void ambient_light_resume(void);
 
-//! Init the refcount framework. Called from the per-chip ambient_light_init().
+//! Init the refcount framework. Called from the per-chip device init.
 void ambient_light_common_init(void);
 
 //! Driver hook. `active` = prime > 0; `sampling` = active && suspend == 0.

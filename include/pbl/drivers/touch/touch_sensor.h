@@ -3,7 +3,6 @@
 
 #pragma once
 
-void touch_sensor_init(void);
 
 //! Enable or disable touch sensor interrupts.
 //! When disabled, no touch events will be processed.

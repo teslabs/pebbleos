@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "board/board.h"
+#include <errno.h>
 #include <pbl/drivers/accel.h>
 #include <pbl/drivers/exti.h>
 #include <pbl/drivers/i2c.h>
@@ -626,7 +627,7 @@ static void prv_int1_wdt_cb(void *data) {
 // Accelerometer interface
 ////////////////////////////////////////////////////////////////////////////////
 
-void accel_init(void) {
+int lis2dw12_init(const struct pbl_device *dev) {
   bool ret;
   uint8_t val;
 
@@ -634,12 +635,12 @@ void accel_init(void) {
   ret = prv_lis2dw12_read(LIS2DW12_WHO_AM_I, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not read WHO_AM_I register");
-    return;
+    return -EIO;
   }
 
   if (val != LIS2DW12_WHO_AM_I_VAL) {
     PBL_LOG_ERR("Unexpected id: 0x%02X!=0x%02X", val, LIS2DW12_WHO_AM_I_VAL);
-    return;
+    return -EIO;
   }
 
   // Perform a software reset (so we can rely on defaults)
@@ -647,7 +648,7 @@ void accel_init(void) {
   ret = prv_lis2dw12_write(LIS2DW12_CTRL2, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write CTRL2 register");
-    return;
+    return -EIO;
   }
 
   delay_us(LIS2DW12_RESET_TIME_US);
@@ -656,7 +657,7 @@ void accel_init(void) {
     ret = prv_lis2dw12_read(LIS2DW12_CTRL2, &val, 1);
     if (!ret) {
       PBL_LOG_ERR("Could not read CTRL2 register");
-      return;
+      return -EIO;
     }
   } while ((val & LIS2DW12_CTRL2_BOOT) != 0U);
 
@@ -666,14 +667,14 @@ void accel_init(void) {
   ret = prv_lis2dw12_read(LIS2DW12_UNDOC, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Failed to read LIS2DW12 register 0x17");
-    return;
+    return -EIO;
   }
 
   val |= LIS2DW12_UNDOC_ADDR_PULLUP_DIS;
   ret = prv_lis2dw12_write(LIS2DW12_UNDOC, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Failed to write LIS2DW12 register 0x17");
-    return;
+    return -EIO;
   }
 #endif
 
@@ -682,7 +683,7 @@ void accel_init(void) {
   ret = prv_lis2dw12_write(LIS2DW12_CTRL3, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write CTRL3 register");
-    return;
+    return -EIO;
   }
 
   // Configure scale
@@ -701,13 +702,13 @@ void accel_init(void) {
       break;
     default:
       PBL_LOG_ERR("Invalid scale: %d", CONFIG_ACCEL_LIS2DW12_SCALE_MG);
-      return;
+      return -EIO;
   }
 
   ret = prv_lis2dw12_write(LIS2DW12_CTRL6, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write CTRL6 register");
-    return;
+    return -EIO;
   }
 
   // Configure wake-up threshold defaults
@@ -715,14 +716,14 @@ void accel_init(void) {
   ret = prv_lis2dw12_write(LIS2DW12_WAKE_UP_DUR, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write WAKE_UP_DUR register");
-    return;
+    return -EIO;
   }
 
   val = LIS2DW12_WAKE_UP_THS_WK_THS(CONFIG_ACCEL_LIS2DW12_WK_THS_DEFAULT);
   ret = prv_lis2dw12_write(LIS2DW12_WAKE_UP_THS, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write WAKE_UP_THS register");
-    return;
+    return -EIO;
   }
 
   LIS2DW12->state->wk_ths_curr = CONFIG_ACCEL_LIS2DW12_WK_THS_DEFAULT;
@@ -733,6 +734,7 @@ void accel_init(void) {
 
   LIS2DW12->state->int1_wdt_timer.cb = prv_int1_wdt_cb;
   LIS2DW12->state->initialized = true;
+  return 0;
 }
 
 uint32_t accel_set_sampling_interval(uint32_t interval_us) {

@@ -41,6 +41,7 @@
 //! replay from a phone will work in realtime with minimal latency
 //! without speeding up or slowing down the signal during replay.
 
+#include <pbl/device.h>
 #include <pbl/drivers/accel.h>
 
 #include <pbl/drivers/qemu/qemu_serial.h>
@@ -187,12 +188,17 @@ void qemu_accel_msg_callack(const uint8_t *data, uint32_t len) {
 }
 
 
-void accel_init(void) {
+static int prv_init(const struct pbl_device *dev) {
   PBL_ASSERTN(!s_initialized);
   s_initialized = true;
   s_latest_reading = s_default_sample;
   s_timer_id = new_timer_create();
+  return 0;
 }
+
+PBL_DEVICE_STATE_DEFINE(s_accel);
+static const struct pbl_device s_accel = PBL_DEVICE_INIT(s_accel, "accel", prv_init, NULL, NULL);
+PBL_DEVICE_REGISTER(s_accel, &s_accel);
 
 uint32_t accel_set_sampling_interval(uint32_t interval_us) {
   pbl_mutex_lock(&s_accel_mutex, PBL_FOREVER);

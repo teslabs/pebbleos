@@ -3,7 +3,9 @@
 
 #include "board/board.h"
 #include "console/prompt.h"
+#include <errno.h>
 #include <pbl/drivers/ambient_light.h>
+#include <pbl/drivers/ambient/opt3001.h>
 #include <pbl/drivers/i2c.h>
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
@@ -30,18 +32,18 @@ static bool s_initialized = false;
 
 static bool prv_read_register(uint8_t register_address, uint16_t *result) {
   uint8_t buf[2];
-  pbl_i2c_use(I2C_OPT3001);
-  bool rv = pbl_i2c_read_register_block(I2C_OPT3001, register_address, 2, buf);
+  pbl_i2c_use(&OPT3001->i2c);
+  bool rv = pbl_i2c_read_register_block(&OPT3001->i2c, register_address, 2, buf);
   *result = buf[0] << 8 | buf[1];
-  pbl_i2c_release(I2C_OPT3001);
+  pbl_i2c_release(&OPT3001->i2c);
   return rv;
 }
 
 static bool prv_write_register(uint8_t register_address, uint16_t datum) {
-  pbl_i2c_use(I2C_OPT3001);
+  pbl_i2c_use(&OPT3001->i2c);
   uint8_t block[3] = { register_address, datum >> 8, datum & 0xFF };
-  bool rv = pbl_i2c_write_block(I2C_OPT3001, 3, block);
-  pbl_i2c_release(I2C_OPT3001);
+  bool rv = pbl_i2c_write_block(&OPT3001->i2c, 3, block);
+  pbl_i2c_release(&OPT3001->i2c);
   return rv;
 }
 
@@ -50,19 +52,19 @@ static uint32_t prv_get_default_ambient_light_dark_threshold(void) {
   return BOARD_CONFIG.ambient_light_dark_threshold;
 }
 
-void ambient_light_init(void) {
+int opt3001_init(const struct pbl_device *dev) {
   s_sensor_light_dark_threshold = prv_get_default_ambient_light_dark_threshold();
 
   uint16_t mf, id;
   bool ok = prv_read_register(OPT3001_MFGID, &mf) && prv_read_register(OPT3001_DEVID, &id);
   if (!ok) {
     PBL_LOG_ERR("failed to read OPT3001 ID registers");
-    return;
+    return -EIO;
   }
 
   if (mf != OPT3001_MFGID_VAL || id != OPT3001_DEVID_VAL) {
     PBL_LOG_ERR("OPT3001 read successfully, but had incorrect manuf %04x, id %04x", mf, id);
-    return;
+    return -EIO;
   }
 
   if (BOARD_CONFIG.als_always_on) {
@@ -71,6 +73,7 @@ void ambient_light_init(void) {
 
   ambient_light_common_init();
   s_initialized = true;
+  return 0;
 }
 
 void ambient_light_driver_set_state(bool active, bool sampling) {

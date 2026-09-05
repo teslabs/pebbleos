@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "board/board.h"
+#include <errno.h>
 #include <pbl/drivers/exti.h>
 #include <pbl/drivers/gpio.h>
 #include <pbl/drivers/i2c.h>
@@ -221,7 +222,7 @@ static void cst816_hw_reset(void) {
   psleep(CST816_POR_DELAY_TIME);
 }
 
-void touch_sensor_init(void) {
+int cst816_init(const struct pbl_device *dev) {
   uint8_t chip_id;
   uint8_t fw_version;
   bool rv;
@@ -251,11 +252,11 @@ void touch_sensor_init(void) {
   if (!rv || target_ver != fw_version) {
     if (!cst816_enter_bootmode()) {
       PBL_LOG_ERR("Could not enter CST816 boot mode");
-      return;
+      return -EIO;
     }
     rv = cst816_fw_update();
     if (!rv) {
-      return;
+      return -EIO;
     }
   }
 
@@ -263,6 +264,7 @@ void touch_sensor_init(void) {
   exti_configure_pin(CST816->int_exti, ExtiTrigger_Falling, prv_exti_cb);
 
   touch_sensor_set_enabled(false);
+  return 0;
 }
 
 static void prv_process_pending_messages(void* context) {

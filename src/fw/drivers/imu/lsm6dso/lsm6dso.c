@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "board/board.h"
+#include <errno.h>
 #include <pbl/drivers/accel.h>
 #include <pbl/drivers/exti.h>
 #include <pbl/drivers/i2c.h>
@@ -733,7 +734,7 @@ static void prv_int1_wdt_cb(void *data) {
 // Accelerometer interface
 ////////////////////////////////////////////////////////////////////////////////
 
-void accel_init(void) {
+int lsm6dso_init(const struct pbl_device *dev) {
   bool ret;
   uint8_t val;
 
@@ -741,12 +742,12 @@ void accel_init(void) {
   ret = prv_lsm6dso_read(LSM6DSO_WHO_AM_I, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not read WHO_AM_I register");
-    return;
+    return -EIO;
   }
 
   if (val != LSM6DSO_WHO_AM_I_VAL) {
     PBL_LOG_ERR("Unexpected id: 0x%02X!=0x%02X", val, LSM6DSO_WHO_AM_I_VAL);
-    return;
+    return -EIO;
   }
 
   // Perform a software reset (so we can rely on defaults)
@@ -754,7 +755,7 @@ void accel_init(void) {
   ret = prv_lsm6dso_write(LSM6DSO_CTRL3_C, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write CTRL3_C register");
-    return;
+    return -EIO;
   }
 
   delay_us(LSM6DSO_RESET_TIME_US);
@@ -763,7 +764,7 @@ void accel_init(void) {
     ret = prv_lsm6dso_read(LSM6DSO_CTRL3_C, &val, 1);
     if (!ret) {
       PBL_LOG_ERR("Could not read CTRL3_C register");
-      return;
+      return -EIO;
     }
   } while ((val & LSM6DSO_CTRL3_C_SW_RESET) != 0U);
 
@@ -772,7 +773,7 @@ void accel_init(void) {
   ret = prv_lsm6dso_write(LSM6DSO_CTRL3_C, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write CTRL3_C register");
-    return;
+    return -EIO;
   }
 
   // Disable I3C interface
@@ -780,7 +781,7 @@ void accel_init(void) {
   ret = prv_lsm6dso_write(LSM6DSO_CTRL9_XL, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write CTRL9_XL register");
-    return;
+    return -EIO;
   }
 
   // Ultra-low-power mode (accelerometer still powered down here, as required to
@@ -789,7 +790,7 @@ void accel_init(void) {
   ret = prv_lsm6dso_write(LSM6DSO_CTRL5_C, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write CTRL5_C register");
-    return;
+    return -EIO;
   }
 
   // Configure scale (ODR off until sampling is requested)
@@ -797,7 +798,7 @@ void accel_init(void) {
   ret = prv_lsm6dso_write(LSM6DSO_CTRL1_XL, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write CTRL1_XL register");
-    return;
+    return -EIO;
   }
 
   // Slope filter for wake-up, latch interrupts and clear them on read
@@ -805,7 +806,7 @@ void accel_init(void) {
   ret = prv_lsm6dso_write(LSM6DSO_TAP_CFG0, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write TAP_CFG0 register");
-    return;
+    return -EIO;
   }
 
   // Configure wake-up threshold defaults
@@ -813,14 +814,14 @@ void accel_init(void) {
   ret = prv_lsm6dso_write(LSM6DSO_WAKE_UP_DUR, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write WAKE_UP_DUR register");
-    return;
+    return -EIO;
   }
 
   val = LSM6DSO_WAKE_UP_THS_WK_THS(CONFIG_ACCEL_LSM6DSO_WK_THS_DEFAULT);
   ret = prv_lsm6dso_write(LSM6DSO_WAKE_UP_THS, &val, 1);
   if (!ret) {
     PBL_LOG_ERR("Could not write WAKE_UP_THS register");
-    return;
+    return -EIO;
   }
 
   LSM6DSO->state->wk_ths_curr = CONFIG_ACCEL_LSM6DSO_WK_THS_DEFAULT;
@@ -831,6 +832,7 @@ void accel_init(void) {
 
   LSM6DSO->state->int1_wdt_timer.cb = prv_int1_wdt_cb;
   LSM6DSO->state->initialized = true;
+  return 0;
 }
 
 uint32_t accel_set_sampling_interval(uint32_t interval_us) {

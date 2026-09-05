@@ -1,8 +1,11 @@
 /* SPDX-FileCopyrightText: 2025 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <errno.h>
+
 #include "board/board.h"
 #include <pbl/drivers/pressure.h>
+#include <pbl/drivers/pressure/bmp390.h>
 #include <pbl/drivers/i2c.h>
 #include <pbl/logging/logging.h>
 
@@ -30,15 +33,18 @@ static bool prv_write_register(const struct pbl_i2c_dev *i2c, uint8_t register_a
   return rv;
 }
 
-void pressure_init(void) {
+int bmp390_init(const struct pbl_device *dev) {
+  const struct pbl_bmp390 *bmp = PBL_CONTAINER_OF(dev, const struct pbl_bmp390, dev);
   bool rv;
   uint8_t result;
 
-  rv = prv_read_register(I2C_BMP390, BMP390_CHIP_ID, &result);
+  rv = prv_read_register(&bmp->i2c, BMP390_CHIP_ID, &result);
   if (!rv || result != BMP390_CHIP_ID_VALUE) {
     PBL_LOG_DBG("BMP390 probe failed; rv %d, result 0x%02x", rv, result);
-  } else {
-    PBL_LOG_DBG("found the BMP390, setting to low power");
-    (void) prv_write_register(I2C_BMP390, BMP390_PWR_CTRL, 0);
+    return -ENODEV;
   }
+
+  PBL_LOG_DBG("found the BMP390, setting to low power");
+  (void) prv_write_register(&bmp->i2c, BMP390_PWR_CTRL, 0);
+  return 0;
 }

@@ -20,8 +20,6 @@ extern UARTDevice * const HCI_TRACE_UART;
 extern QSPIPort * const QSPI;
 extern QSPIFlash * const QSPI_FLASH;
 extern const LIS2DW12Config *const LIS2DW12;
-extern const struct pbl_i2c_dev *const I2C_MMC5603NJ;
-extern const struct pbl_i2c_dev *const I2C_W1160;
 #ifdef CONFIG_BOARD_GETAFIX_DVT2
 extern const struct pbl_i2c_dev *const I2C_AW86225;
 extern const AW86225Config *const AW86225;
@@ -42,14 +40,3 @@ static const BoardConfigAccel BOARD_CONFIG_ACCEL = {
   .default_motion_sensitivity = 55U, // Medium
 };
 
-static const BoardConfigMag BOARD_CONFIG_MAG = {
-  // TODO(GETAFIX): Review if correct
-  .mag_config = {
-    .axes_offsets[AXIS_X] = 1,
-    .axes_offsets[AXIS_Y] = 0,
-    .axes_offsets[AXIS_Z] = 2,
-    .axes_inverts[AXIS_X] = false,
-    .axes_inverts[AXIS_Y] = true,
-    .axes_inverts[AXIS_Z] = false,
-  },
-};

@@ -13,6 +13,9 @@
 #include <pbl/drivers/i2c/nrf5.h>
 #include <pbl/drivers/uart/nrf5.h>
 #include <pbl/drivers/pmic/npm1300.h>
+#include <pbl/drivers/ambient/opt3001.h>
+#include <pbl/drivers/imu/mmc5603nj/mmc5603nj.h>
+#include <pbl/drivers/pressure/bmp390.h>
 #include <pbl/drivers/qspi_definitions.h>
 #include <pbl/drivers/rtc.h>
 #include "flash_region/flash_region.h"
@@ -106,21 +109,51 @@ IRQ_MAP_NRFX(SPI0_SPIM0_SPIS0_TWI0_TWIM0_TWIS0, nrfx_twim_0_irq_handler);
 static const struct pbl_i2c_dev s_i2c_drv2604 = PBL_I2C_DEV(&s_i2c_iic2.bus, 0x5A);
 const struct pbl_i2c_dev *const I2C_DRV2604 = &s_i2c_drv2604;
 
-static const struct pbl_i2c_dev s_i2c_opt3001 = PBL_I2C_DEV(&s_i2c_iic2.bus, 0x44);
-const struct pbl_i2c_dev *const I2C_OPT3001 = &s_i2c_opt3001;
+static const struct pbl_npm1300 s_pmic;
+
+PBL_DEVICE_STATE_DEFINE(s_opt3001);
+static const struct pbl_opt3001 s_opt3001 = {
+    .dev = PBL_DEVICE_INIT(s_opt3001, "opt3001", opt3001_init, &s_i2c_iic2.bus.dev,
+                           PBL_DEVICE_DEPS(&s_pmic.dev)),
+    .i2c = PBL_I2C_DEV(&s_i2c_iic2.bus, 0x44),
+};
+PBL_DEVICE_REGISTER(s_opt3001, &s_opt3001.dev);
+const struct pbl_opt3001 *const OPT3001 = &s_opt3001;
 
 static const struct pbl_i2c_dev s_i2c_da7212 = PBL_I2C_DEV(&s_i2c_iic2.bus, 0x1A);
 const struct pbl_i2c_dev *const I2C_DA7212 = &s_i2c_da7212;
 
-static const struct pbl_i2c_dev s_i2c_mmc5603nj = PBL_I2C_DEV(&s_i2c_iic2.bus, 0x30);
-const struct pbl_i2c_dev *const I2C_MMC5603NJ = &s_i2c_mmc5603nj;
+PBL_DEVICE_STATE_DEFINE(s_mmc5603nj);
+static const struct pbl_mmc5603nj s_mmc5603nj = {
+    .dev = PBL_DEVICE_INIT(s_mmc5603nj, "mmc5603nj", mmc5603nj_init, &s_i2c_iic2.bus.dev,
+                           PBL_DEVICE_DEPS(&s_pmic.dev)),
+    .i2c = PBL_I2C_DEV(&s_i2c_iic2.bus, 0x30),
+    .mag_config = {
+        .axes_offsets[AXIS_X] = 1,
+        .axes_offsets[AXIS_Y] = 0,
+        .axes_offsets[AXIS_Z] = 2,
+        .axes_inverts[AXIS_X] = false,
+        .axes_inverts[AXIS_Y] = true,
+        .axes_inverts[AXIS_Z] = false,
+    },
+};
+PBL_DEVICE_REGISTER(s_mmc5603nj, &s_mmc5603nj.dev);
+const struct pbl_mmc5603nj *const MMC5603NJ = &s_mmc5603nj;
 
-static const struct pbl_i2c_dev s_i2c_bmp390 = PBL_I2C_DEV(&s_i2c_iic2.bus, 0x76);
-const struct pbl_i2c_dev *const I2C_BMP390 = &s_i2c_bmp390;
+PBL_DEVICE_STATE_DEFINE(s_bmp390);
+static const struct pbl_bmp390 s_bmp390 = {
+    .dev = PBL_DEVICE_INIT(s_bmp390, "bmp390", bmp390_init, &s_i2c_iic2.bus.dev,
+                           PBL_DEVICE_DEPS(&s_pmic.dev)),
+    .i2c = PBL_I2C_DEV(&s_i2c_iic2.bus, 0x76),
+};
+PBL_DEVICE_REGISTER(s_bmp390, &s_bmp390.dev);
 
 static LSM6DSOState s_lsm6dso_state;
 
+PBL_DEVICE_STATE_DEFINE(s_lsm6dso_config);
 static const LSM6DSOConfig s_lsm6dso_config = {
+    .dev = PBL_DEVICE_INIT(s_lsm6dso_config, "lsm6dso", lsm6dso_init, &s_i2c_iic2.bus.dev,
+                           PBL_DEVICE_DEPS(&s_pmic.dev)),
     .state = &s_lsm6dso_state,
     .i2c = PBL_I2C_DEV(&s_i2c_iic2.bus, 0x6A),
     .int1 = {
@@ -141,6 +174,7 @@ static const LSM6DSOConfig s_lsm6dso_config = {
     },
 };
 
+PBL_DEVICE_REGISTER(s_lsm6dso_config, &s_lsm6dso_config.dev);
 const LSM6DSOConfig *const LSM6DSO = &s_lsm6dso_config;
 
 IRQ_MAP_NRFX(I2S, nrfx_i2s_0_irq_handler);

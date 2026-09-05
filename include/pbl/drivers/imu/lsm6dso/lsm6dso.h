@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <pbl/drivers/i2c.h>
 
+#include <pbl/device.h>
 #include <pbl/drivers/accel.h>
 #include <pbl/drivers/rtc.h>
 #include "pbl/services/regular_timer.h"
@@ -40,6 +41,7 @@ typedef struct LSM6DSOState {
 } LSM6DSOState;
 
 typedef struct LSM6DSOConfig {
+  struct pbl_device dev;
   //! Driver state
   LSM6DSOState *state;
   //! I2C slave port configuration
@@ -53,3 +55,5 @@ typedef struct LSM6DSOConfig {
   //! Axis direction (1 upside, -1 downside)
   int8_t axis_dir[3];
 } LSM6DSOConfig;
+
+int lsm6dso_init(const struct pbl_device *dev);

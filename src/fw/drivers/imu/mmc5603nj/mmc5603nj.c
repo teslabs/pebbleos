@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: 2025 Bob Wei */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <errno.h>
+
 #include <pbl/drivers/i2c.h>
 #include "board/board.h"
 #include <pbl/drivers/mag.h>
@@ -54,12 +56,12 @@ static bool s_rotated_180 = false;
 
 // MMC5603NJ entrypoints
 
-void mag_init(void) {
-  if (prv_mmc5603nj_init()) {
-    PBL_LOG_DBG("MMC5603NJ: Initialization complete");
-  } else {
+int mmc5603nj_init(const struct pbl_device *dev) {
+  if (!prv_mmc5603nj_init()) {
     PBL_LOG_ERR("MMC5603NJ: Initialization failed");
+    return -EIO;
   }
+  return 0;
 }
 
 // mag.h implementation
@@ -126,27 +128,27 @@ bool mag_change_sample_rate(MagSampleRate rate) {
 // I2C read/write helpers
 
 static bool prv_mmc5603nj_read(uint8_t reg_addr, uint8_t data_len, uint8_t *data) {
-  pbl_i2c_use(I2C_MMC5603NJ);
-  bool rv = pbl_i2c_write_block(I2C_MMC5603NJ, 1, &reg_addr);
+  pbl_i2c_use(&MMC5603NJ->i2c);
+  bool rv = pbl_i2c_write_block(&MMC5603NJ->i2c, 1, &reg_addr);
   if (!rv) {
     PBL_LOG_ERR("MMC5603NJ: I2C write failed for register 0x%02x", reg_addr);
   }
-  rv = pbl_i2c_read_block(I2C_MMC5603NJ, data_len, data);
+  rv = pbl_i2c_read_block(&MMC5603NJ->i2c, data_len, data);
   if (!rv) {
     PBL_LOG_ERR("MMC5603NJ: I2C data read failed for register 0x%02x", reg_addr);
   }
-  pbl_i2c_release(I2C_MMC5603NJ);
+  pbl_i2c_release(&MMC5603NJ->i2c);
   return rv;
 }
 
 static bool prv_mmc5603nj_write(uint8_t reg_addr, uint8_t data) {
-  pbl_i2c_use(I2C_MMC5603NJ);
+  pbl_i2c_use(&MMC5603NJ->i2c);
   uint8_t d[2] = {reg_addr, data};
-  bool rv = pbl_i2c_write_block(I2C_MMC5603NJ, 2, d);
+  bool rv = pbl_i2c_write_block(&MMC5603NJ->i2c, 2, d);
   if (!rv) {
     PBL_LOG_ERR("MMC5603NJ: I2C write failed for register 0x%02x", reg_addr);
   }
-  pbl_i2c_release(I2C_MMC5603NJ);
+  pbl_i2c_release(&MMC5603NJ->i2c);
   return rv;
 }
 
@@ -364,8 +366,8 @@ void mag_set_rotated(bool rotated) {
 }
 
 static int16_t prv_get_axis_projection(axis_t axis, int16_t *raw_vector) {
-  uint8_t axis_offset = BOARD_CONFIG_MAG.mag_config.axes_offsets[axis];
-  bool invert = BOARD_CONFIG_MAG.mag_config.axes_inverts[axis];
+  uint8_t axis_offset = MMC5603NJ->mag_config.axes_offsets[axis];
+  bool invert = MMC5603NJ->mag_config.axes_inverts[axis];
 
   return (invert ? -1 : 1) * raw_vector[axis_offset];
 }

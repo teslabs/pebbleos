@@ -6,10 +6,6 @@
 #include <pbl/drivers/temperature.h>
 #include "console/prompt.h"
 
-void temperature_init(void) {
-
-}
-
 int32_t temperature_read(void) {
   return 0;
 }

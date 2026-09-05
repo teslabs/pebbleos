@@ -5,8 +5,6 @@
 
 #include <stdint.h>
 
-void temperature_init(void);
-
 // Get the temperature in millidegrees-C
 // WARNING: the temperature sensor may not be calibrated and thus this reading
 // should not be relied on to get a true representation of absolute temperature

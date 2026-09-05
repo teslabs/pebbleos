@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <pbl/drivers/i2c.h>
 
+#include <pbl/device.h>
 #include <pbl/drivers/accel.h>
 #include <pbl/drivers/rtc.h>
 #include "pbl/services/regular_timer.h"
@@ -35,6 +36,7 @@ typedef struct LIS2DW12State {
 } LIS2DW12State;
 
 typedef struct LIS2DW12Config {
+  struct pbl_device dev;
   //! Driver state
   LIS2DW12State *state;
   //! I2C slave port configuration
@@ -48,3 +50,5 @@ typedef struct LIS2DW12Config {
   //! Axis direction (1 upside, -1 downside)
   int8_t axis_dir[3];
 } LIS2DW12Config;
+
+int lis2dw12_init(const struct pbl_device *dev);

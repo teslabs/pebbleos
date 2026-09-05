@@ -7,6 +7,7 @@
 #include "board/board.h"
 
 typedef struct {
+  struct pbl_device dev;
   const struct pbl_i2c_dev *i2c;
   const struct pbl_i2c_dev *i2c_boot;
   ExtiConfig int_exti;
@@ -16,3 +17,5 @@ typedef struct {
   bool invert_x_axis;
   bool invert_y_axis;
 } TouchSensor;
+
+int cst816_init(const struct pbl_device *dev);

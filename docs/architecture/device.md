@@ -71,6 +71,28 @@ Runtime APIs assert `pbl_device_is_ready()` where a stale reference would
 otherwise fail confusingly, and never initialise on demand: bring-up is
 deterministic and happens in one place.
 
+## Peripherals
+
+A sensor or other peripheral embeds `struct pbl_device` in its config struct
+(`LSM6DSOConfig`, `TouchSensor`, `struct pbl_mmc5603nj`, ...), with the bus it
+sits on as `parent` and its supply as a dep, and the board instantiates it:
+
+```c
+PBL_DEVICE_STATE_DEFINE(s_bmp390);
+static const struct pbl_bmp390 s_bmp390 = {
+    .dev = PBL_DEVICE_INIT(s_bmp390, "bmp390", bmp390_init, &s_i2c_iic2.bus.dev,
+                           PBL_DEVICE_DEPS(&s_pmic.dev)),
+    .i2c = PBL_I2C_DEV(&s_i2c_iic2.bus, 0x76),
+};
+PBL_DEVICE_REGISTER(s_bmp390, &s_bmp390.dev);
+```
+
+The driver's init probes and configures the part and returns a negative errno
+on failure, which the core logs; nothing in `main.c` has to know the sensor
+exists. The subsystem APIs on top (`accel_*`, `mag_*`, `ambient_light_*`,
+`touch_sensor_*`) are still singletons implemented by the one driver a board
+compiles in; giving them ops vtables is the natural next step.
+
 ## Multi-function devices
 
 A chip with several unrelated functions, such as the nPM1300 PMIC (charger,

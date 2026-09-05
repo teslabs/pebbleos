@@ -3,7 +3,9 @@
 
 #include "board/board.h"
 #include "console/prompt.h"
+#include <errno.h>
 #include <pbl/drivers/ambient_light.h>
+#include <pbl/drivers/ambient/w1160.h>
 #include <pbl/drivers/i2c.h>
 #include "kernel/util/sleep.h"
 #include "pbl/kernel/mutex.h"
@@ -89,16 +91,16 @@ static uint16_t s_cached_value;
 static bool s_cache_valid;
 
 static bool prv_read_register(uint8_t register_address, uint8_t *result) {
-  pbl_i2c_use(I2C_W1160);
-  bool rv = pbl_i2c_read_register_block(I2C_W1160, register_address, 1, result);
-  pbl_i2c_release(I2C_W1160);
+  pbl_i2c_use(&W1160->i2c);
+  bool rv = pbl_i2c_read_register_block(&W1160->i2c, register_address, 1, result);
+  pbl_i2c_release(&W1160->i2c);
   return rv;
 }
 
 static bool prv_write_register(uint8_t register_address, uint8_t datum) {
-  pbl_i2c_use(I2C_W1160);
-  bool rv = pbl_i2c_write_register_block(I2C_W1160, register_address, 1, &datum);
-  pbl_i2c_release(I2C_W1160);
+  pbl_i2c_use(&W1160->i2c);
+  bool rv = pbl_i2c_write_register_block(&W1160->i2c, register_address, 1, &datum);
+  pbl_i2c_release(&W1160->i2c);
   return rv;
 }
 
@@ -114,7 +116,7 @@ static bool prv_read_data_register(uint16_t *als_out) {
   return true;
 }
 
-void ambient_light_init(void) {
+int w1160_init(const struct pbl_device *dev) {
   uint8_t chip_id;
   bool rv;
 
@@ -125,12 +127,12 @@ void ambient_light_init(void) {
   rv = prv_read_register(W1160_PDT_ID_REG, &chip_id);
   if (!rv) {
     PBL_LOG_ERR("Could not read W1160 chip ID");
-    return;
+    return -EIO;
   }
 
   if (chip_id != W1160_CHIP_ID) {
     PBL_LOG_ERR("Unexpected W1160 chip ID: 0x%02x", chip_id);
-    return;
+    return -EIO;
   }
 
   rv = prv_write_register(W1160_AGCCTRL1_REG, W1160_AGCCTRL1_AGC_EN);
@@ -148,6 +150,7 @@ void ambient_light_init(void) {
 
   ambient_light_common_init();
   s_initialized = true;
+  return 0;
 }
 
 // Block-poll FLG_ALS_DR, then read DATA_ALS. Caller must have SAMPLING_EN=1.

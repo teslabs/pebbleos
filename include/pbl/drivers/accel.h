@@ -73,8 +73,6 @@ typedef struct {
   uint32_t sampling_interval_us;
 } AccelRawBatch;
 
-//! Initialize accelerometer
-void accel_init(void);
 
 //! Set the accelerometer axes to be rotated 180deg
 //!

@@ -3,9 +3,6 @@
 #include <pbl/drivers/ambient_light.h>
 #include "console/prompt.h"
 
-void ambient_light_init(void) {
-}
-
 void ambient_light_prime(void) {
 }
 

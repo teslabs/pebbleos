@@ -185,22 +185,7 @@ static void init_drivers(void) {
   mic_init(MIC);
 #endif
 
-#ifdef CONFIG_TOUCH
-  touch_sensor_init();
-#endif
-
-  accel_init();
-#ifdef CONFIG_MAG
-  mag_init();
-#endif
-#ifdef CONFIG_PRESSURE
-  pressure_init();
-#endif
-
   backlight_init();
-  ambient_light_init();
-
-  temperature_init();
 
   rtc_init_timers();
   rtc_alarm_init();

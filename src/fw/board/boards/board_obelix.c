@@ -5,6 +5,8 @@
 #include "board/splash.h"
 #include <pbl/drivers/backlight.h>
 #include <pbl/drivers/pmic/npm1300.h>
+#include <pbl/drivers/ambient/w1160.h>
+#include <pbl/drivers/imu/mmc5603nj/mmc5603nj.h>
 #include <pbl/drivers/sf32lb52/debounced_button_definitions.h>
 #include <pbl/drivers/hrm/gh3x2x.h>
 #include "system/passert.h"
@@ -265,7 +267,10 @@ PBL_I2C_SF32LB_DEFINE(s_i2c_bus_2, "i2c2", I2C2, 5, 400000,
 
 static LSM6DSOState s_lsm6dso_state;
 
+PBL_DEVICE_STATE_DEFINE(s_lsm6dso_config);
 static const LSM6DSOConfig s_lsm6dso_config = {
+    .dev = PBL_DEVICE_INIT(s_lsm6dso_config, "lsm6dso", lsm6dso_init, &s_i2c_bus_2.bus.dev,
+                           PBL_DEVICE_DEPS(&s_pmic.dev)),
     .state = &s_lsm6dso_state,
     .i2c = PBL_I2C_DEV(&s_i2c_bus_2.bus, 0x6a),
     .int1 = {
@@ -298,6 +303,7 @@ static const LSM6DSOConfig s_lsm6dso_config = {
 #endif
 };
 
+PBL_DEVICE_REGISTER(s_lsm6dso_config, &s_lsm6dso_config.dev);
 const LSM6DSOConfig *const LSM6DSO = &s_lsm6dso_config;
 
 // Legacy LIS2DW12 (replaced by the LSM6DSO). Kept only to soft-reset the part
@@ -308,9 +314,31 @@ static const struct pbl_i2c_dev s_i2c_lis2dw12 = PBL_I2C_DEV(&s_i2c_bus_2.bus, 0
 static const struct pbl_i2c_dev s_i2c_lis2dw12 = PBL_I2C_DEV(&s_i2c_bus_2.bus, 0x19);
 #endif
 
-static const struct pbl_i2c_dev s_i2c_mmc5603nj = PBL_I2C_DEV(&s_i2c_bus_2.bus, 0x30);
-
-const struct pbl_i2c_dev *const I2C_MMC5603NJ = &s_i2c_mmc5603nj;
+PBL_DEVICE_STATE_DEFINE(s_mmc5603nj);
+static const struct pbl_mmc5603nj s_mmc5603nj = {
+    .dev = PBL_DEVICE_INIT(s_mmc5603nj, "mmc5603nj", mmc5603nj_init, &s_i2c_bus_2.bus.dev,
+                           PBL_DEVICE_DEPS(&s_pmic.dev)),
+    .i2c = PBL_I2C_DEV(&s_i2c_bus_2.bus, 0x30),
+    .mag_config = {
+#ifdef CONFIG_IS_BIGBOARD
+        .axes_offsets[AXIS_X] = 1,
+        .axes_offsets[AXIS_Y] = 0,
+        .axes_offsets[AXIS_Z] = 2,
+        .axes_inverts[AXIS_X] = true,
+        .axes_inverts[AXIS_Y] = false,
+        .axes_inverts[AXIS_Z] = false,
+#else
+        .axes_offsets[AXIS_X] = 1,
+        .axes_offsets[AXIS_Y] = 0,
+        .axes_offsets[AXIS_Z] = 2,
+        .axes_inverts[AXIS_X] = false,
+        .axes_inverts[AXIS_Y] = true,
+        .axes_inverts[AXIS_Z] = false,
+#endif
+    },
+};
+PBL_DEVICE_REGISTER(s_mmc5603nj, &s_mmc5603nj.dev);
+const struct pbl_mmc5603nj *const MMC5603NJ = &s_mmc5603nj;
 
 PBL_I2C_SF32LB_DEFINE(s_i2c_bus_3, "i2c3", I2C3, 5, 400000,
                       PBL_PINMUX(PAD_PA11, I2C3_SCL, PIN_NOPULL),
@@ -320,7 +348,10 @@ static const struct pbl_i2c_dev s_i2c_cst816 = PBL_I2C_DEV(&s_i2c_bus_3.bus, 0x1
 
 static const struct pbl_i2c_dev s_i2c_cst816_boot = PBL_I2C_DEV(&s_i2c_bus_3.bus, 0x6A);
 
+PBL_DEVICE_STATE_DEFINE(touch_cst816);
 static const TouchSensor touch_cst816 = {
+    .dev = PBL_DEVICE_INIT(touch_cst816, "cst816", cst816_init, &s_i2c_bus_3.bus.dev,
+                           PBL_DEVICE_DEPS(&s_pmic.dev)),
     .i2c = &s_i2c_cst816,
     .i2c_boot = &s_i2c_cst816_boot,
     .int_exti = {
@@ -331,6 +362,7 @@ static const TouchSensor touch_cst816 = {
     .reset = PBL_GPIO(NPM1300_GPIO, 2, PBL_GPIO_ACTIVE_LOW | PBL_GPIO_PULL_UP),
 };
 
+PBL_DEVICE_REGISTER(touch_cst816, &touch_cst816.dev);
 const TouchSensor *CST816 = &touch_cst816;
 
 PBL_I2C_SF32LB_DEFINE(s_i2c_bus_4, "i2c4", I2C4, 5, 400000,
@@ -371,9 +403,14 @@ const Npm1300Config NPM1300_CONFIG = {
   .vbus_current_startup = 500,
 };
 
-static const struct pbl_i2c_dev s_i2c_w1160 = PBL_I2C_DEV(&s_i2c_bus_1.bus, 0x48);
-  
-const struct pbl_i2c_dev *const I2C_W1160 = &s_i2c_w1160;
+PBL_DEVICE_STATE_DEFINE(s_w1160);
+static const struct pbl_w1160 s_w1160 = {
+    .dev = PBL_DEVICE_INIT(s_w1160, "w1160", w1160_init, &s_i2c_bus_1.bus.dev,
+                           PBL_DEVICE_DEPS(&s_pmic.dev)),
+    .i2c = PBL_I2C_DEV(&s_i2c_bus_1.bus, 0x48),
+};
+PBL_DEVICE_REGISTER(s_w1160, &s_w1160.dev);
+const struct pbl_w1160 *const W1160 = &s_w1160;
 
 const BoardConfigPower BOARD_CONFIG_POWER = {
   .low_power_threshold = 4U,

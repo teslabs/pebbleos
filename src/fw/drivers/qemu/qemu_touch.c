@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "board/board.h"
+#include <pbl/device.h>
 #include <pbl/drivers/touch/touch_sensor.h>
 #include "pbl/services/system_task.h"
 #include "pbl/services/touch/touch.h"
@@ -50,7 +51,7 @@ void TOUCH_IRQHandler(void) {
   }
 }
 
-void touch_sensor_init(void) {
+static int prv_init(const struct pbl_device *dev) {
   const uint32_t base = QEMU_TOUCH_BASE;
 
   REG32(base + TOUCH_INTSTAT) = INT_TOUCH_EVENT;
@@ -58,7 +59,12 @@ void touch_sensor_init(void) {
 
   NVIC_SetPriority(TOUCH_IRQn, 6);
   NVIC_EnableIRQ(TOUCH_IRQn);
+  return 0;
 }
+
+PBL_DEVICE_STATE_DEFINE(s_touch);
+static const struct pbl_device s_touch = PBL_DEVICE_INIT(s_touch, "touch", prv_init, NULL, NULL);
+PBL_DEVICE_REGISTER(s_touch, &s_touch);
 
 void touch_sensor_set_enabled(bool enabled) {
   REG32(QEMU_TOUCH_BASE + TOUCH_INTCTRL) = enabled ? INT_TOUCH_EVENT : 0;

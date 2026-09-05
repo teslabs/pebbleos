@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2025 SiFli Technologies(Nanjing) Co., Ltd */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <pbl/device.h>
 #include <pbl/drivers/temperature.h>
 
 #include "board/board.h"
@@ -13,10 +14,15 @@
 #define OFFSET (277539)
 #define ROUND_ADD (SLOPE_DEN / 2)
 
-void temperature_init(void) {
+static int prv_init(const struct pbl_device *dev) {
   HAL_RCC_EnableModule(RCC_MOD_TSEN);
   hwp_hpsys_cfg->ANAU_CR |= HPSYS_CFG_ANAU_CR_EN_BG;
+  return 0;
 }
+
+PBL_DEVICE_STATE_DEFINE(s_tsen);
+static const struct pbl_device s_tsen = PBL_DEVICE_INIT(s_tsen, "tsen", prv_init, NULL, NULL);
+PBL_DEVICE_REGISTER(s_tsen, &s_tsen);
 
 static void prv_tsen_enable(TSEN_TypeDef *tsen) {
   tsen->TSEN_CTRL_REG &= ~TSEN_TSEN_CTRL_REG_ANAU_TSEN_RSTB;
