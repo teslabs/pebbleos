@@ -2,6 +2,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
 
+#include <pbl/drivers/i2c.h>
+
 #include "board/board.h"
 
 #ifdef CONFIG_BOARD_OBELIX
@@ -9,8 +11,8 @@
 #endif
 
 typedef struct {
-  I2CSlavePort *i2c;
-  I2CSlavePort *i2c_boot;
+  const struct pbl_i2c_dev *i2c;
+  const struct pbl_i2c_dev *i2c_boot;
   ExtiConfig int_exti;
   struct pbl_gpio reset;
   uint16_t max_x;

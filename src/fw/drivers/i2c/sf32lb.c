@@ -1,25 +1,29 @@
-/* SPDX-FileCopyrightText: 2025 Core Devices LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/kernel/irq.h"
 #include <pbl/drivers/i2c/sf32lb.h>
-#include <pbl/drivers/i2c/definitions.h>
-#include <pbl/drivers/i2c/hal.h>
 
+#include "pbl/kernel/irq.h"
 #include "pbl/soc/sf32lb/sleep.h"
 #include "system/passert.h"
 
-#include "pbl/kernel/sem.h"
+static const struct pbl_i2c_sf32lb *prv_dev(const struct pbl_i2c_bus *bus) {
+  return PBL_CONTAINER_OF(bus, const struct pbl_i2c_sf32lb, bus);
+}
+
+static I2C_HandleTypeDef *prv_hdl(const struct pbl_i2c_bus *bus) {
+  return &prv_dev(bus)->state->hdl;
+}
 
 // Block deep sleep while a transfer is in flight. The flag keeps the release
 // exactly-once across the IRQ, kickoff-failure and abort paths.
-static void prv_deepsleep_block(I2CBus *bus) {
-  bus->hal->state->deepsleep_blocked = true;
+static void prv_deepsleep_block(const struct pbl_i2c_bus *bus) {
+  prv_dev(bus)->state->deepsleep_blocked = true;
   soc_sf32lb_sleep_block(SOC_SF32LB_DEEPSLEEP);
 }
 
-static void prv_deepsleep_allow(I2CBus *bus) {
-  I2CBusHalState *state = bus->hal->state;
+static void prv_deepsleep_allow(const struct pbl_i2c_bus *bus) {
+  struct pbl_i2c_sf32lb_state *state = prv_dev(bus)->state;
   pbl_irq_lock();
   bool blocked = state->deepsleep_blocked;
   state->deepsleep_blocked = false;
@@ -29,11 +33,10 @@ static void prv_deepsleep_allow(I2CBus *bus) {
   }
 }
 
-void i2c_irq_handler(I2CBus *bus) {
-  I2CBusHal *hal = bus->hal;
-  I2C_HandleTypeDef *hdl = &hal->state->hdl;
+void pbl_i2c_sf32lb_irq_handler(const struct pbl_i2c_bus *bus) {
+  I2C_HandleTypeDef *hdl = prv_hdl(bus);
   HAL_I2C_StateTypeDef state;
-  I2CTransferEvent event;
+  enum pbl_i2c_event event;
 
   if (hdl->XferISR == NULL) {
     return;
@@ -45,96 +48,88 @@ void i2c_irq_handler(I2CBus *bus) {
   if ((state == HAL_I2C_STATE_BUSY_TX) || (state == HAL_I2C_STATE_BUSY_RX)) {
     return;
   } else if (state == HAL_I2C_STATE_READY) {
-    event = I2CTransferEvent_TransferComplete;
+    event = PBL_I2C_EVENT_COMPLETE;
   } else {
-    event = I2CTransferEvent_Error;
+    event = PBL_I2C_EVENT_ERROR;
   }
 
   prv_deepsleep_allow(bus);
-
-  i2c_handle_transfer_event(bus, event);
+  pbl_i2c_bus_event(bus, event);
 }
 
-void i2c_hal_init_transfer(I2CBus *bus) {
+static int prv_init(const struct pbl_i2c_bus *bus) {
+  const struct pbl_i2c_sf32lb *i2c = prv_dev(bus);
+  HAL_StatusTypeDef ret;
+
+  HAL_PIN_Set(i2c->scl.pad, i2c->scl.func, i2c->scl.flags, 1);
+  HAL_PIN_Set(i2c->sda.pad, i2c->sda.func, i2c->sda.flags, 1);
+
+  HAL_RCC_EnableModule(i2c->module);
+  ret = HAL_I2C_Init(&i2c->state->hdl);
+  PBL_ASSERTN(ret == HAL_OK);
+
+  HAL_NVIC_SetPriority(i2c->irqn, i2c->irq_priority, 0);
+  NVIC_EnableIRQ(i2c->irqn);
+  return 0;
+}
+
+static void prv_enable(const struct pbl_i2c_bus *bus) {
+  HAL_RCC_EnableModule(prv_dev(bus)->module);
+  __HAL_I2C_ENABLE(prv_hdl(bus));
+}
+
+static void prv_disable(const struct pbl_i2c_bus *bus) {
+  __HAL_I2C_DISABLE(prv_hdl(bus));
+  HAL_RCC_DisableModule(prv_dev(bus)->module);
+}
+
+static bool prv_is_busy(const struct pbl_i2c_bus *bus) {
+  return HAL_I2C_GetState(prv_hdl(bus)) != HAL_I2C_STATE_READY;
+}
+
+static void prv_begin_transfer(const struct pbl_i2c_bus *bus) {
   prv_deepsleep_block(bus);
 }
 
-void i2c_hal_abort_transfer(I2CBus *bus) {
-  I2CBusHal *hal = bus->hal;
-  I2C_HandleTypeDef *hdl = &hal->state->hdl;
-
-  HAL_I2C_Reset(hdl);
-
-  prv_deepsleep_allow(bus);
-}
-
-void i2c_hal_start_transfer(I2CBus *bus) {
+static void prv_start_transfer(const struct pbl_i2c_bus *bus) {
+  I2C_HandleTypeDef *hdl = prv_hdl(bus);
+  struct pbl_i2c_transfer *transfer = &bus->state->transfer;
   HAL_StatusTypeDef ret;
-  I2CBusHal *hal = bus->hal;
-  I2C_HandleTypeDef *hdl = &hal->state->hdl;
-  I2CTransfer *transfer = &bus->state->transfer;
 
-  if (transfer->type == I2CTransferType_SendRegisterAddress) {
-    if (transfer->direction == I2CTransferDirection_Read) {
-      ret = HAL_I2C_Mem_Read_IT(hdl, transfer->device_address, transfer->register_address,
-                                I2C_MEMADD_SIZE_8BIT, transfer->data, transfer->size);
+  if (transfer->with_reg) {
+    if (transfer->dir == PBL_I2C_READ) {
+      ret = HAL_I2C_Mem_Read_IT(hdl, transfer->addr, transfer->reg, I2C_MEMADD_SIZE_8BIT,
+                                transfer->data, transfer->size);
     } else {
-      ret = HAL_I2C_Mem_Write_IT(hdl, transfer->device_address, transfer->register_address,
-                                 I2C_MEMADD_SIZE_8BIT, transfer->data, transfer->size);
+      ret = HAL_I2C_Mem_Write_IT(hdl, transfer->addr, transfer->reg, I2C_MEMADD_SIZE_8BIT,
+                                 transfer->data, transfer->size);
     }
   } else {
-    if (transfer->direction == I2CTransferDirection_Read) {
-      ret =
-          HAL_I2C_Master_Receive_IT(hdl, transfer->device_address, transfer->data, transfer->size);
+    if (transfer->dir == PBL_I2C_READ) {
+      ret = HAL_I2C_Master_Receive_IT(hdl, transfer->addr, transfer->data, transfer->size);
     } else {
-      ret =
-          HAL_I2C_Master_Transmit_IT(hdl, transfer->device_address, transfer->data, transfer->size);
+      ret = HAL_I2C_Master_Transmit_IT(hdl, transfer->addr, transfer->data, transfer->size);
     }
   }
 
   if (ret != HAL_OK) {
     HAL_I2C_Reset(hdl);
     prv_deepsleep_allow(bus);
-    bus->state->transfer_event = I2CTransferEvent_Error;
-    pbl_sem_give(&bus->state->event_semaphore);
+    pbl_i2c_bus_event(bus, PBL_I2C_EVENT_ERROR);
   }
 }
 
-void i2c_hal_enable(I2CBus *bus) {
-  I2CBusHal *hal = bus->hal;
-  I2C_HandleTypeDef *hdl = &bus->hal->state->hdl;
-
-  HAL_RCC_EnableModule(hal->module);
-  __HAL_I2C_ENABLE(hdl);
+static void prv_abort_transfer(const struct pbl_i2c_bus *bus) {
+  HAL_I2C_Reset(prv_hdl(bus));
+  prv_deepsleep_allow(bus);
 }
 
-void i2c_hal_disable(I2CBus *bus) {
-  I2CBusHal *hal = bus->hal;
-  I2C_HandleTypeDef *hdl = &bus->hal->state->hdl;
-
-  __HAL_I2C_DISABLE(hdl);
-  HAL_RCC_DisableModule(hal->module);
-}
-
-bool i2c_hal_is_busy(I2CBus *bus) {
-  I2CBusHal *hal = bus->hal;
-  I2C_HandleTypeDef *hdl = &hal->state->hdl;
-
-  return HAL_I2C_GetState(hdl) != HAL_I2C_STATE_READY;
-}
-
-void i2c_hal_init(I2CBus *bus) {
-  HAL_StatusTypeDef ret;
-  I2CBusHal *hal = bus->hal;
-  I2C_HandleTypeDef *hdl = &hal->state->hdl;
-
-  HAL_PIN_Set(hal->scl.pad, hal->scl.func, hal->scl.flags, 1);
-  HAL_PIN_Set(hal->sda.pad, hal->sda.func, hal->sda.flags, 1);
-
-  HAL_RCC_EnableModule(hal->module);
-  ret = HAL_I2C_Init(hdl);
-  PBL_ASSERTN(ret == HAL_OK);
-
-  HAL_NVIC_SetPriority(hal->irqn, hal->irq_priority, 0);
-  NVIC_EnableIRQ(hal->irqn);
-}
+const struct pbl_i2c_bus_ops pbl_i2c_sf32lb_ops = {
+  .init = prv_init,
+  .enable = prv_enable,
+  .disable = prv_disable,
+  .is_busy = prv_is_busy,
+  .begin_transfer = prv_begin_transfer,
+  .start_transfer = prv_start_transfer,
+  .abort_transfer = prv_abort_transfer,
+};

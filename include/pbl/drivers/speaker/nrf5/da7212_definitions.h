@@ -9,6 +9,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <pbl/drivers/i2c.h>
 
 #include "nrfx_i2s.h"
 
@@ -51,7 +52,7 @@ typedef const struct AudioDevice {
   uint32_t sdin_pin;
   uint8_t irq_priority;
 
-  I2CSlavePort *codec;
+  const struct pbl_i2c_dev *codec;
 
   const BoardPowerOps *power_ops;
 

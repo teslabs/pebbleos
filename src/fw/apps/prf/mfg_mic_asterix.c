@@ -8,6 +8,7 @@
 #include "applib/ui/text_layer.h"
 #include "applib/ui/window.h"
 #include <pbl/drivers/i2c.h>
+#include "board/board.h"
 #include <pbl/drivers/flash.h>
 #include <pbl/drivers/clocksource.h>
 #include "flash_region/flash_region.h"
@@ -96,25 +97,25 @@ static void da7212_register_write(uint8_t reg, uint8_t value) {
   uint8_t data[2] = {reg, value};
   bool ret;
 
-  i2c_use(I2C_DA7212);
+  pbl_i2c_use(I2C_DA7212);
   PBL_LOG_DBG("Writing DA7212 register 0x%02x with value 0x%02x", reg, value);
 
-  ret = i2c_write_block(I2C_DA7212, 2, data);
+  ret = pbl_i2c_write_block(I2C_DA7212, 2, data);
   PBL_ASSERTN(ret);
 
-  i2c_release(I2C_DA7212);
+  pbl_i2c_release(I2C_DA7212);
 }
 
 static uint8_t da7212_register_read(uint8_t reg) {
   uint8_t data;
   bool ret;
 
-  i2c_use(I2C_DA7212);
+  pbl_i2c_use(I2C_DA7212);
 
-  ret = i2c_read_register(I2C_DA7212, reg, &data);
+  ret = pbl_i2c_read_register(I2C_DA7212, reg, &data);
   PBL_ASSERTN(ret);
 
-  i2c_release(I2C_DA7212);
+  pbl_i2c_release(I2C_DA7212);
 
   return data;
 }

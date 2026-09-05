@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <pbl/drivers/i2c.h>
 
 #include <pbl/drivers/accel.h>
 #include <pbl/drivers/rtc.h>
@@ -42,7 +43,7 @@ typedef struct LSM6DSOConfig {
   //! Driver state
   LSM6DSOState *state;
   //! I2C slave port configuration
-  I2CSlavePort i2c;
+  struct pbl_i2c_dev i2c;
   //! INT1 EXTI configuration
   ExtiConfig int1;
   //! INT1 input configuration (to read back the pad level)

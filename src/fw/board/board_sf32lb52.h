@@ -53,6 +53,8 @@ typedef struct {
   int flags;
 } Pinmux;
 
+#define PBL_PINMUX(_pad, _func, _flags) { .pad = (_pad), .func = (_func), .flags = (_flags) }
+
 typedef struct {
   GPT_HandleTypeDef handle;
   GPT_ClockConfigTypeDef clock_config;
@@ -129,8 +131,6 @@ typedef struct {
 #include <pbl/drivers/speaker/sf32lb52/audio_definitions.h>
 
 typedef const struct UARTDevice UARTDevice;
-typedef const struct I2CBus I2CBus;
-typedef const struct I2CSlavePort I2CSlavePort;
 typedef const struct HRMDevice HRMDevice;
 typedef const struct MicDevice MicDevice;
 typedef const struct QSPIPort QSPIPort;
@@ -138,7 +138,6 @@ typedef const struct QSPIFlash QSPIFlash;
 typedef const struct DisplayJDIDevice DisplayJDIDevice;
 typedef const struct AudioDevice AudioDevice;
 
-#include <pbl/drivers/i2c/definitions.h>
 #include <pbl/drivers/i2c/sf32lb.h>
 
 void board_early_init(void);

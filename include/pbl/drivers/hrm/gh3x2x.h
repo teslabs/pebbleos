@@ -36,7 +36,7 @@ typedef struct HRMDeviceState {
 
 typedef const struct HRMDevice {
   HRMDeviceState *state;
-  I2CSlavePort *i2c;
+  const struct pbl_i2c_dev *i2c;
   ExtiConfig int_exti;
   struct pbl_gpio int_input;
   struct pbl_gpio reset_gpio;

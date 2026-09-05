@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <pbl/drivers/i2c.h>
 
 #include <pbl/drivers/accel.h>
 #include <pbl/drivers/rtc.h>
@@ -37,7 +38,7 @@ typedef struct LIS2DW12Config {
   //! Driver state
   LIS2DW12State *state;
   //! I2C slave port configuration
-  I2CSlavePort i2c;
+  struct pbl_i2c_dev i2c;
   //! INT1 EXTI configuration
   ExtiConfig int1;
   //! INT1 input configuration (to read back the pad level)

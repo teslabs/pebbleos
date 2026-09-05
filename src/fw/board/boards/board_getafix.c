@@ -224,58 +224,15 @@ const LedControllerAW9364E AW9364E = {
     .gpio = PBL_GPIO(SF32LB_GPIO1, 1, 0),
 };
 
-static I2CBusHalState s_i2c_bus_hal_state_1 = {
-    .hdl = {
-        .Instance = I2C1,
-        .Init = {
-            .AddressingMode = I2C_ADDRESSINGMODE_7BIT,
-            .ClockSpeed = 400000,
-            .GeneralCallMode = I2C_GENERALCALL_DISABLE,
-        },
-        .Mode = HAL_I2C_MODE_MASTER,
-        .core = CORE_ID_HCPU,
-    },
-};
-
-static struct I2CBusHal s_i2c_bus_hal_1 = {
-    .state = &s_i2c_bus_hal_state_1,
-    .scl =
-        {
-            .pad = PAD_PA32,
-            .func = I2C1_SCL,
-            .flags = PIN_NOPULL,
-        },
-    .sda =
-        {
-            .pad = PAD_PA33,
-            .func = I2C1_SDA,
-            .flags = PIN_NOPULL,
-        },
-    .module = RCC_MOD_I2C1,
-    .irqn = I2C1_IRQn,
-    .irq_priority = 5,
-};
-
-static I2CBusState s_i2c_bus_state_1;
-
-static I2CBus s_i2c_bus_1 = {
-    .hal = &s_i2c_bus_hal_1,
-    .name = "i2c1",
-    .state = &s_i2c_bus_state_1,
-};
-
-I2CBus *const I2C1_BUS = &s_i2c_bus_1;
-
-IRQ_MAP(I2C1, i2c_irq_handler, I2C1_BUS);
+PBL_I2C_SF32LB_DEFINE(s_i2c_bus_1, "i2c1", I2C1, 5, 400000,
+                      PBL_PINMUX(PAD_PA32, I2C1_SCL, PIN_NOPULL),
+                      PBL_PINMUX(PAD_PA33, I2C1_SDA, PIN_NOPULL), NULL);
 
 static LIS2DW12State s_lis2dw12_state;
 
 static const LIS2DW12Config s_lis2dw12_config = {
     .state = &s_lis2dw12_state,
-    .i2c = {
-        .bus = &s_i2c_bus_1,
-        .address = 0x19,
-    },
+    .i2c = PBL_I2C_DEV(&s_i2c_bus_1.bus, 0x19),
     .int1 = {
       .peripheral = hwp_gpio1,
       .gpio_pin = 26,
@@ -295,65 +252,17 @@ static const LIS2DW12Config s_lis2dw12_config = {
 
 const LIS2DW12Config *const LIS2DW12 = &s_lis2dw12_config;
 
-static const I2CSlavePort s_i2c_mmc5603nj = {
-    .bus = &s_i2c_bus_1,
-    .address = 0x30,
-};
+static const struct pbl_i2c_dev s_i2c_mmc5603nj = PBL_I2C_DEV(&s_i2c_bus_1.bus, 0x30);
 
-I2CSlavePort *const I2C_MMC5603NJ = &s_i2c_mmc5603nj;
+const struct pbl_i2c_dev *const I2C_MMC5603NJ = &s_i2c_mmc5603nj;
 
-static I2CBusHalState s_i2c_bus_hal_state_2 = {
-    .hdl = {
-        .Instance = I2C2,
-        .Init = {
-            .AddressingMode = I2C_ADDRESSINGMODE_7BIT,
-            .ClockSpeed = 400000,
-            .GeneralCallMode = I2C_GENERALCALL_DISABLE,
-        },
-        .Mode = HAL_I2C_MODE_MASTER,
-        .core = CORE_ID_HCPU,
-    },
-};
+PBL_I2C_SF32LB_DEFINE(s_i2c_bus_2, "i2c2", I2C2, 5, 400000,
+                      PBL_PINMUX(PAD_PA11, I2C2_SCL, PIN_NOPULL),
+                      PBL_PINMUX(PAD_PA10, I2C2_SDA, PIN_NOPULL), NULL);
 
-static struct I2CBusHal s_i2c_bus_hal_2 = {
-    .state = &s_i2c_bus_hal_state_2,
-    .scl =
-        {
-            .pad = PAD_PA11,
-            .func = I2C2_SCL,
-            .flags = PIN_NOPULL,
-        },
-    .sda =
-        {
-            .pad = PAD_PA10,
-            .func = I2C2_SDA,
-            .flags = PIN_NOPULL,
-        },
-    .module = RCC_MOD_I2C2,
-    .irqn = I2C2_IRQn,
-    .irq_priority = 5,
-};
+static const struct pbl_i2c_dev s_i2c_cst816 = PBL_I2C_DEV(&s_i2c_bus_2.bus, 0x15);
 
-static I2CBusState s_i2c_bus_state_2;
-
-static I2CBus s_i2c_bus_2 = {
-    .hal = &s_i2c_bus_hal_2,
-    .name = "i2c2",
-    .state = &s_i2c_bus_state_2,
-};
-
-I2CBus *const I2C2_BUS = &s_i2c_bus_2;
-IRQ_MAP(I2C2, i2c_irq_handler, I2C2_BUS);
-
-static const I2CSlavePort s_i2c_cst816 = {
-    .bus = &s_i2c_bus_2,
-    .address = 0x15,
-};
-
-static const I2CSlavePort s_i2c_cst816_boot = {
-    .bus = &s_i2c_bus_2,
-    .address = 0x6A,
-};
+static const struct pbl_i2c_dev s_i2c_cst816_boot = PBL_I2C_DEV(&s_i2c_bus_2.bus, 0x6A);
 
 static const TouchSensor s_touch_cst816 = {
     .i2c = &s_i2c_cst816,
@@ -368,70 +277,22 @@ static const TouchSensor s_touch_cst816 = {
 
 const TouchSensor *CST816 = &s_touch_cst816;
 
-static I2CBusHalState s_i2c_bus_hal_state_3 = {
-    .hdl = {
-        .Instance = I2C3,
-        .Init = {
-            .AddressingMode = I2C_ADDRESSINGMODE_7BIT,
-            .ClockSpeed = 400000,
-            .GeneralCallMode = I2C_GENERALCALL_DISABLE,
-        },
-        .Mode = HAL_I2C_MODE_MASTER,
-        .core = CORE_ID_HCPU,
-    },
-};
+PBL_I2C_SF32LB_DEFINE(s_i2c_bus_3, "i2c3", I2C3, 5, 400000,
+                      PBL_PINMUX(PAD_PA31, I2C3_SCL, PIN_NOPULL),
+                      PBL_PINMUX(PAD_PA30, I2C3_SDA, PIN_NOPULL), NULL);
 
-static struct I2CBusHal s_i2c_bus_hal_3 = {
-    .state = &s_i2c_bus_hal_state_3,
-    .scl =
-        {
-            .pad = PAD_PA31,
-            .func = I2C3_SCL,
-            .flags = PIN_NOPULL,
-        },
-    .sda =
-        {
-            .pad = PAD_PA30,
-            .func = I2C3_SDA,
-            .flags = PIN_NOPULL,
-        },
-    .module = RCC_MOD_I2C3,
-    .irqn = I2C3_IRQn,
-    .irq_priority = 5,
-};
+static const struct pbl_i2c_dev s_i2c_npm1300 = PBL_I2C_DEV(&s_i2c_bus_3.bus, 0x6B);
 
-static I2CBusState s_i2c_bus_state_3;
+const struct pbl_i2c_dev *const I2C_NPM1300 = &s_i2c_npm1300;
 
-static I2CBus s_i2c_bus_3 = {
-    .hal = &s_i2c_bus_hal_3,
-    .name = "i2c3",
-    .state = &s_i2c_bus_state_3,
-};
+static const struct pbl_i2c_dev s_i2c_w1160 = PBL_I2C_DEV(&s_i2c_bus_3.bus, 0x48);
 
-I2CBus *const I2C3_BUS = &s_i2c_bus_3;
-IRQ_MAP(I2C3, i2c_irq_handler, I2C3_BUS);
-
-static const I2CSlavePort s_i2c_npm1300 = {
-    .bus = &s_i2c_bus_3,
-    .address = 0x6B,
-};
-
-I2CSlavePort *const I2C_NPM1300 = &s_i2c_npm1300;
-
-static const I2CSlavePort s_i2c_w1160 = {
-    .bus = &s_i2c_bus_3,
-    .address = 0x48,
-};
-
-I2CSlavePort *const I2C_W1160 = &s_i2c_w1160;
+const struct pbl_i2c_dev *const I2C_W1160 = &s_i2c_w1160;
 
 #ifdef CONFIG_BOARD_GETAFIX_DVT2
-static const I2CSlavePort s_i2c_aw86225 = {
-    .bus = &s_i2c_bus_3,
-    .address = 0x58,
-};
+static const struct pbl_i2c_dev s_i2c_aw86225 = PBL_I2C_DEV(&s_i2c_bus_3.bus, 0x58);
   
-I2CSlavePort *const I2C_AW86225 = &s_i2c_aw86225;
+const struct pbl_i2c_dev *const I2C_AW86225 = &s_i2c_aw86225;
 
 static const AW86225Config s_aw86225_config = {
     .lra_frequency_hz = 240,
@@ -440,12 +301,9 @@ static const AW86225Config s_aw86225_config = {
 
 const AW86225Config *const AW86225 = &s_aw86225_config;
 #else
-static const I2CSlavePort s_i2c_aw8623x = {
-    .bus = &s_i2c_bus_3,
-    .address = 0x5a,
-};
+static const struct pbl_i2c_dev s_i2c_aw8623x = PBL_I2C_DEV(&s_i2c_bus_3.bus, 0x5a);
 
-I2CSlavePort *const I2C_AW8623X = &s_i2c_aw8623x;
+const struct pbl_i2c_dev *const I2C_AW8623X = &s_i2c_aw8623x;
 #endif
 
 const BoardConfigActuator BOARD_CONFIG_VIBE = {
@@ -542,9 +400,6 @@ void board_early_init(void) {
 }
 
 void board_init(void) {
-  i2c_init(I2C1_BUS);
-  i2c_init(I2C2_BUS);
-  i2c_init(I2C3_BUS);
 
   mic_init(MIC);
 }
