@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <pbl/drivers/gpio.h>
 #include "pbl/kernel/sem.h"
 #include <pbl/drivers/rtc.h>
 #include "pbl/kernel/mutex.h"
@@ -66,8 +67,8 @@ struct I2CBus {
   I2CBusState *const state;
   const struct I2CBusHal *const hal;
 #ifdef CONFIG_SOC_NRF52
-  AfConfig scl_gpio;  ///< Alternate Function configuration for SCL pin
-  AfConfig sda_gpio;  ///< Alternate Function configuration for SDA pin
+  struct pbl_gpio scl_gpio;
+  struct pbl_gpio sda_gpio;
 #endif
   const char *name;  //! Device ID for logging purposes
 };

@@ -44,8 +44,8 @@ typedef const struct DisplayJDIDevice {
     Pinmux vcom_frp;
     Pinmux xfrp;
   } pinmux;
-  OutputConfig vddp;
-  OutputConfig vlcd;
+  struct pbl_gpio vddp;
+  struct pbl_gpio vlcd;
   DisplayJDISplash splash;
 } DisplayJDIDevice;
 

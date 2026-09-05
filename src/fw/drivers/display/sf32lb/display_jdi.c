@@ -6,6 +6,7 @@
 #include "board/board.h"
 #include <pbl/drivers/display/display.h>
 #include <pbl/drivers/gpio.h>
+#include <pbl/util/size.h>
 #include "kernel/events.h"
 #include "kernel/util/delay.h"
 #include "pbl/soc/sf32lb/sleep.h"
@@ -99,44 +100,29 @@ static bool s_rotated_180 = false;
 #endif
 
 static void prv_power_cycle(void){
-  OutputConfig cfg = {
-    .gpio = hwp_gpio1,
-    .active_high = true,
+  struct pbl_gpio gpio = { .port = SF32LB_GPIO1 };
+  const int pads[] = {
+    DISPLAY->pinmux.b1.pad, DISPLAY->pinmux.vck.pad, DISPLAY->pinmux.xrst.pad,
+    DISPLAY->pinmux.hck.pad, DISPLAY->pinmux.r2.pad,
   };
 
   // This will disable all JDI pull-ups/downs so that VLCD can fully turn off,
   // allowing for a clean power cycle.
+  for (size_t i = 0; i < ARRAY_LENGTH(pads); i++) {
+    gpio.pin = pads[i] - PAD_PA00;
+    pbl_gpio_configure(&gpio, PBL_GPIO_OUTPUT_LOW);
+  }
 
-  cfg.gpio_pin = DISPLAY->pinmux.b1.pad - PAD_PA00;
-  gpio_output_init(&cfg, GPIO_OType_PP);
-  gpio_output_set(&cfg, false);
-
-  cfg.gpio_pin = DISPLAY->pinmux.vck.pad - PAD_PA00;
-  gpio_output_init(&cfg, GPIO_OType_PP);
-  gpio_output_set(&cfg, false);
-
-  cfg.gpio_pin = DISPLAY->pinmux.xrst.pad - PAD_PA00;
-  gpio_output_init(&cfg, GPIO_OType_PP);
-  gpio_output_set(&cfg, false);
-
-  cfg.gpio_pin = DISPLAY->pinmux.hck.pad - PAD_PA00;
-  gpio_output_init(&cfg, GPIO_OType_PP);
-  gpio_output_set(&cfg, false);
-
-  cfg.gpio_pin = DISPLAY->pinmux.r2.pad - PAD_PA00;
-  gpio_output_init(&cfg, GPIO_OType_PP);
-  gpio_output_set(&cfg, false);
-
-  gpio_output_set(&DISPLAY->vddp, false);
-  gpio_output_set(&DISPLAY->vlcd, false);
+  pbl_gpio_set(&DISPLAY->vddp, false);
+  pbl_gpio_set(&DISPLAY->vlcd, false);
 
   delay_us(POWER_RESET_CYCLE_DELAY_TIME_US);
 }
 
 static void prv_display_on() {
-  gpio_output_set(&DISPLAY->vlcd, true);
+  pbl_gpio_set(&DISPLAY->vlcd, true);
   delay_us(POWER_SEQ_DELAY_TIME_US);
-  gpio_output_set(&DISPLAY->vddp, true);
+  pbl_gpio_set(&DISPLAY->vddp, true);
   delay_us(POWER_SEQ_DELAY_TIME_US);
 
   LPTIM_TypeDef *lptim = DISPLAY->vcom.lptim;
@@ -158,9 +144,9 @@ static void prv_display_off() {
   lptim->CR &= ~LPTIM_CR_CNTSTRT;
 
   delay_us(POWER_SEQ_DELAY_TIME_US);
-  gpio_output_set(&DISPLAY->vddp, false);
+  pbl_gpio_set(&DISPLAY->vddp, false);
   delay_us(POWER_SEQ_DELAY_TIME_US);
-  gpio_output_set(&DISPLAY->vlcd, false);
+  pbl_gpio_set(&DISPLAY->vlcd, false);
 }
 
 static HAL_StatusTypeDef prv_display_update_start(void) {
@@ -331,8 +317,8 @@ void display_init(void) {
 
   DisplayJDIState *state = DISPLAY->state;
 
-  gpio_output_init(&DISPLAY->vddp, GPIO_OType_PP);
-  gpio_output_init(&DISPLAY->vlcd, GPIO_OType_PP);
+  pbl_gpio_configure(&DISPLAY->vddp, PBL_GPIO_OUTPUT);
+  pbl_gpio_configure(&DISPLAY->vlcd, PBL_GPIO_OUTPUT);
 
   prv_power_cycle();
 

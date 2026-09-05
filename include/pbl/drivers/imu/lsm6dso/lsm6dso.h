@@ -46,7 +46,7 @@ typedef struct LSM6DSOConfig {
   //! INT1 EXTI configuration
   ExtiConfig int1;
   //! INT1 input configuration (to read back the pad level)
-  InputConfig int1_in;
+  struct pbl_gpio int1_in;
   //! Axis mapping (0: X, 1: Y, 2: Z)
   uint8_t axis_map[3];
   //! Axis direction (1 upside, -1 downside)

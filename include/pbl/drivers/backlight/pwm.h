@@ -4,7 +4,7 @@
 #pragma once
 
 typedef struct {
-  const OutputConfig ctl;
+  const struct pbl_gpio ctl;
   const PwmConfig pwm;
   uint8_t max_duty_cycle_percent;
 } BacklightPwmConfig;

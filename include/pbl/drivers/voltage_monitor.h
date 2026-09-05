@@ -29,7 +29,7 @@ typedef const struct VoltageMonitorDevice {
   ADC_TypeDef *const adc; ///< One of ADCX. For example ADC1.
   const uint8_t adc_channel; ///< One of ADC_Channel_*
   uint32_t clock_ctrl;  ///< Peripheral clock control flag
-  const InputConfig input;
+  const struct pbl_gpio input;
 } VoltageMonitorDevice;
 
 #endif

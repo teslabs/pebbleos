@@ -58,7 +58,7 @@ typedef const struct AudioDevice {
   DMA_Channel_TypeDef *audec_dma_channel;
   uint32_t audec_dma_request;
   IRQn_Type audec_dma_irq;
-  OutputConfig pa_ctrl;
+  struct pbl_gpio pa_ctrl;
   const BoardPowerOps *power_ops;
   uint8_t data_format;
   uint8_t data_mode;

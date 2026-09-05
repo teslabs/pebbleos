@@ -10,6 +10,7 @@
 
 #include "bf0_hal_pinmux.h"
 #include <pbl/drivers/button_id.h>
+#include <pbl/drivers/gpio/sf32lb.h>
 
 #define IRQ_PRIORITY_INVALID (1 << __NVIC_PRIO_BITS)
 
@@ -35,11 +36,6 @@ enum {
 #define GPIO_Pin_NULL 0U
 
 typedef enum {
-  GPIO_OType_PP,
-  GPIO_OType_OD,
-} GPIOOType_TypeDef;
-
-typedef enum {
   GPIO_PuPd_NOPULL,
   GPIO_PuPd_UP,
   GPIO_PuPd_DOWN,
@@ -50,17 +46,6 @@ typedef struct {
   const uint32_t gpio_pin; ///< One of GPIO_Pin_X.
   GPIOPuPd_TypeDef pull; ///< Pull-up / pull-down configuration for the pin
 } ExtiConfig;
-
-typedef struct {
-  void *gpio;
-  uint8_t gpio_pin;
-} InputConfig;
-
-typedef struct {
-  void *gpio;
-  uint8_t gpio_pin;
-  bool active_high;
-} OutputConfig;
 
 typedef struct {
   int pad;
@@ -84,7 +69,7 @@ typedef struct {
 } PwmConfig;
 
 typedef struct {
-  const OutputConfig ctl;
+  const struct pbl_gpio ctl;
 } BoardConfigActuator;
 
 typedef struct {
@@ -106,10 +91,7 @@ typedef struct {
 
 typedef struct {
   const char* name;
-  GPIO_TypeDef* const port;
-  uint8_t pin;
-  GPIOPuPd_TypeDef pull;
-  bool active_high;
+  struct pbl_gpio gpio;
 } ButtonConfig;
 
 typedef struct {

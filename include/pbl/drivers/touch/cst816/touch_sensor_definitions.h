@@ -12,7 +12,7 @@ typedef struct {
   I2CSlavePort *i2c;
   I2CSlavePort *i2c_boot;
   ExtiConfig int_exti;
-  OutputConfig reset;
+  struct pbl_gpio reset;
   uint16_t max_x;
   uint16_t max_y;
   bool invert_x_axis;

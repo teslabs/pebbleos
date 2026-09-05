@@ -4,5 +4,5 @@
 #pragma once
 
 typedef struct LedControllerAW9364E {
-  OutputConfig gpio;
+  struct pbl_gpio gpio;
 } LedControllerAW9364E;

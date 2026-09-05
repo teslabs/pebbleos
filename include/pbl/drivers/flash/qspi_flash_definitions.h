@@ -34,5 +34,4 @@ typedef const struct QSPIFlash {
   bool default_fast_read_ddr_enabled;
   QSPIFlashReadMode read_mode;
   QSPIFlashWriteMode write_mode;
-  OutputConfig reset_gpio;
 } QSPIFlash;
