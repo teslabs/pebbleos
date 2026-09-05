@@ -11,6 +11,7 @@
 #include "console/dbgserial_input.h"
 #include "console/pulse.h"
 
+#include <pbl/device.h>
 #include <pbl/drivers/rtc.h>
 #include <pbl/drivers/flash.h>
 #include <pbl/drivers/debounced_button.h>
@@ -154,6 +155,7 @@ static void register_system_timers(void) {
 }
 
 static void init_drivers(void) {
+  pbl_device_init_all();
   board_init();
 
   // The dbgserial input support requires timer support, so it is initialized here, much later

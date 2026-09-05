@@ -7,7 +7,9 @@ these pages summarize and point, they do not duplicate.
 ## Layering
 
 PebbleOS runs on its own [kernel API](kernel.md) (`include/pbl/kernel`,
-implemented under `kernel/`). The main source layers, as described on the
+implemented under `kernel/`). Hardware is described through the
+[device model](device.md) (`include/pbl/device.h`, `subsys/device/`). The
+main source layers, as described on the
 <a href="../apidoc/index.html">API reference</a> main page:
 
 - `src/fw/applib` — application framework and UI, the API surface exposed to
@@ -119,6 +121,7 @@ Longer design documents live as their own pages:
 ```{toctree}
 :maxdepth: 1
 activity/index.md
+device.md
 kernel.md
 kernel_internals.md
 ```

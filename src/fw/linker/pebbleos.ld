@@ -64,6 +64,8 @@ SECTIONS {
 
 #include "sections/text.ld"
 
+#include "sections/devices.ld"
+
 #include "sections/kernel-ram.ld"
 
 #include "sections/identity.ld"
