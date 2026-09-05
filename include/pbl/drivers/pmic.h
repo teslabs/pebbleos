@@ -6,9 +6,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-//! Initialize the PMIC driver. Call this once at startup.
-bool pmic_init(void);
-
 //! Tell the PMIC to power off the board and enter a standby-like state. All components will
 //! have their power removed (except for the RTC so we'll still keep time) and the PMIC itself
 //! will monitor the buttons for when to wake up.

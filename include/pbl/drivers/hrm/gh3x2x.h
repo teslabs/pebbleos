@@ -8,11 +8,6 @@
 #include <pbl/drivers/i2c.h>
 #include "applib/app_timer.h"
 
-#ifdef CONFIG_BOARD_OBELIX
-// FIXME(OBELIX): Provide proper GPIO layer abstraction
-#define GH3X2X_RESET_PIN_CTRLBY_NPM1300  1
-#endif
-
 #define HRM_PPG_CH_NUM                      6
 #define HRM_PPG_FACTORY_TEST_FIFO_LEN       80
 typedef struct {

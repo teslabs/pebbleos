@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+config REGULATOR
+    bool "Regulators"
+    help
+      Power rail (regulator) class. Selected by the drivers that provide
+      regulators.

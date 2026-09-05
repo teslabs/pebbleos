@@ -171,10 +171,6 @@ static void init_drivers(void) {
   battery_init();
   vibe_init();
 
-#ifdef CONFIG_PMIC
-  pmic_init();
-#endif
-
   flash_init();
   flash_sleep_when_idle(true);
   flash_enable_write_protection();

@@ -23,9 +23,9 @@
 PBL_LOG_MODULE_DEFINE(driver_hrm_gh3x2x, CONFIG_DRIVER_HRM_LOG_LEVEL);
 
 void gh3026_reset_pin_ctrl(uint8_t pin_level) {
-#if GH3X2X_RESET_PIN_CTRLBY_NPM1300
-  NPM1300_OPS.gpio_set(Npm1300_Gpio3, pin_level);
-#endif
+  if (pbl_gpio_is_valid(&HRM->reset_gpio)) {
+    pbl_gpio_set_raw(&HRM->reset_gpio, pin_level);
+  }
 }
 
 #ifdef CONFIG_GH3X2X_ALGO
@@ -472,6 +472,10 @@ void gh3x2x_set_work_mode(int32_t mode) {
 // HRM interface
 
 void hrm_init(HRMDevice *dev) {
+  if (pbl_gpio_is_valid(&dev->reset_gpio)) {
+    pbl_gpio_configure(&dev->reset_gpio, PBL_GPIO_OUTPUT_LOW);
+  }
+
 #ifdef CONFIG_GH3X2X_ALGO
   int ret;
 

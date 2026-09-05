@@ -82,8 +82,21 @@ PBL_I2C_NRF5_DEFINE(s_i2c_npmc_iic1, "I2C_NPMC_IIC1", 1, NRF_TWIM_FREQ_400K,
 IRQ_MAP_NRFX(SPI1_SPIM1_SPIS1_TWI1_TWIM1_TWIS1, nrfx_twim_1_irq_handler);
 /* PERIPHERAL ID 9 */
 
-static const struct pbl_i2c_dev s_i2c_npm1300 = PBL_I2C_DEV(&s_i2c_npmc_iic1.bus, 0x6B);
-const struct pbl_i2c_dev *const I2C_NPM1300 = &s_i2c_npm1300;
+PBL_NPM1300_STATE_DEFINE(s_pmic);
+static const struct pbl_npm1300 s_pmic = {
+    .dev = PBL_NPM1300_DEV_INIT(s_pmic, "npm1300", &s_i2c_npmc_iic1.bus, NULL),
+    .i2c = PBL_I2C_DEV(&s_i2c_npmc_iic1.bus, 0x6B),
+    .irq = { NRFX_GPIOTE_INSTANCE(0), 1, NRF_GPIO_PIN_MAP(1, 12) },
+    .cfg = &NPM1300_CONFIG,
+    .state = &s_pmic_npm1300_state,
+    .gpio = PBL_NPM1300_GPIO_INIT(s_pmic, "npm1300_gpio"),
+};
+PBL_NPM1300_REGISTER(s_pmic);
+const struct pbl_npm1300 *const NPM1300 = &s_pmic;
+
+PBL_NPM1300_REGULATOR_DEFINE(s_pmic_buck1, "npm1300_buck1", &s_pmic, PBL_NPM1300_BUCK1, 1800, false, true);
+PBL_NPM1300_REGULATOR_DEFINE(s_pmic_buck2, "npm1300_buck2", &s_pmic, PBL_NPM1300_BUCK2, 3000, false, true);
+PBL_NPM1300_REGULATOR_DEFINE(s_pmic_ldo2, "npm1300_ldo2", &s_pmic, PBL_NPM1300_LDSW2, 1800, true, true);
 
 /* peripheral I2C bus */
 PBL_I2C_NRF5_DEFINE(s_i2c_iic2, "I2C_IIC2", 0, NRF_TWIM_FREQ_400K,
@@ -150,10 +163,10 @@ MicDevice * const MIC = &s_mic_device;
 /* Speaker / audio output (DA7212 codec over I2S) */
 static AudioDeviceState s_audio_state_storage;
 static void prv_audio_power_up(void) {
-  NPM1300_OPS.dischg_limit_ma_set(NPM1300_DISCHG_LIMIT_MA_MAX);
+  pbl_npm1300_set_dischg_limit_ma(NPM1300, NPM1300_DISCHG_LIMIT_MA_MAX);
 }
 static void prv_audio_power_down(void) {
-  NPM1300_OPS.dischg_limit_ma_set(NPM1300_CONFIG.dischg_limit_ma);
+  pbl_npm1300_set_dischg_limit_ma(NPM1300, NPM1300_CONFIG.dischg_limit_ma);
 }
 static const BoardPowerOps s_audio_power_ops = {
   .power_up = prv_audio_power_up,
@@ -190,6 +203,8 @@ const Npm1300Config NPM1300_CONFIG = {
   .term_current_pct = 10,
   .thermistor_beta = 3380,
   .ntc_hot_celsius = 45,
+  .vterm_mv = 4200,
+  .vterm_reduced_mv = 4000,
 };
 
 void board_early_init(void) {

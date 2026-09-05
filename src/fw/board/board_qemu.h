@@ -98,7 +98,6 @@ typedef struct {
 } BoardConfigButton;
 
 typedef struct {
-  ExtiConfig pmic_int;
   const uint8_t low_power_threshold;
   const uint16_t battery_capacity_hours;
 } BoardConfigPower;

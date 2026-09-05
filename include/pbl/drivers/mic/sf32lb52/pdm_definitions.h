@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <pbl/drivers/regulator.h>
+
 #include "board/board.h"
 #include <pbl/drivers/mic.h>
 #include "pbl/kernel/mutex.h"
@@ -46,6 +48,8 @@ typedef const struct MicDevice {
   IRQn_Type pdm_irq;
   uint32_t pdm_irq_priority;
   IRQn_Type pdm_dma_irq;
+  //! Optional supply, enabled while capturing
+  const struct pbl_regulator *vdd;
   Pinmux clk_gpio;
   Pinmux data_gpio;
   uint32_t channels;

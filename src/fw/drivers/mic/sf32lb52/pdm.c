@@ -2,7 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include <pbl/drivers/mic.h>
-#include <pbl/drivers/pmic/npm1300.h>
+#include <pbl/drivers/regulator.h>
 #include "board/board.h"
 #include "kernel/kernel_heap.h"
 #include "kernel/pbl_malloc.h"
@@ -20,7 +20,6 @@ PBL_LOG_MODULE_DEFINE(driver_mic_sf32lb, CONFIG_DRIVER_MIC_LOG_LEVEL);
 
 // HACK alert, we need proper regulator abstraction
 #if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_GETAFIX)
-#define PDM_POWER_NPM1300_LDO2 1
 #endif
 
 #define PDM_AUDIO_RECORD_PIPE_SIZE         (288)
@@ -57,10 +56,6 @@ void mic_init(const MicDevice *this) {
   if (state && state->is_initialized) {
     return;
   }
-
-#if PDM_POWER_NPM1300_LDO2
-  (void)NPM1300_OPS.ldo2_set_enabled(false);
-#endif
 
   pbl_mutex_init(&state->mutex);
   state->volume = PDM_AUDIO_RECORD_GAIN_DEFAULT;
@@ -359,9 +354,9 @@ bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *conte
   state->audio_buffer_len = audio_buffer_len;
   state->main_pending = false;
   
-#if PDM_POWER_NPM1300_LDO2
-  (void)NPM1300_OPS.ldo2_set_enabled(true);
-#endif
+  if (this->vdd != NULL) {
+    (void)pbl_regulator_enable(this->vdd);
+  }
   // Set is_running to true BEFORE starting PDM, since the event handler will be called immediately
   state->is_running = true;
 
@@ -382,9 +377,9 @@ bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *conte
 
     soc_sf32lb_sleep_release(SOC_SF32LB_DEEPWFI);
     state->is_running = false;  // Reset on failure
-#if PDM_POWER_NPM1300_LDO2
-  (void)NPM1300_OPS.ldo2_set_enabled(false);
-#endif
+    if (this->vdd != NULL) {
+      (void)pbl_regulator_disable(this->vdd);
+    }
     prv_free_buffers(state);
     pbl_mutex_unlock(&state->mutex);
     return false;
@@ -429,9 +424,9 @@ void mic_stop(const MicDevice *this) {
   state->audio_buffer_len = 0;
   state->main_pending = false;
 
-#if PDM_POWER_NPM1300_LDO2
-  (void)NPM1300_OPS.ldo2_set_enabled(false);
-#endif
+  if (this->vdd != NULL) {
+    (void)pbl_regulator_disable(this->vdd);
+  }
 
   // Allow CPU to enter deep sleep again
   soc_sf32lb_sleep_release(SOC_SF32LB_DEEPWFI);

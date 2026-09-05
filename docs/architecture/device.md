@@ -23,8 +23,10 @@ to: `struct pbl_device_state` for the core, plus whatever the class or driver
 needs (an I2C bus points to its transfer state, for example).
 
 Hardware relationships are captured in C. A pin is a `struct pbl_gpio`, a
-port plus pin number plus flags; an I2C peripheral is a `struct pbl_i2c_dev`,
-a bus plus address. A board file instantiates devices with the driver's
+port plus pin number plus flags, whether the port is an SoC one
+(`PBL_GPIO(NRF_GPIO_P0, 2, 0)`) or the nPM1300's
+(`PBL_GPIO(NPM1300_GPIO, 2, PBL_GPIO_ACTIVE_LOW)`); an I2C peripheral is a
+`struct pbl_i2c_dev`, a bus plus address. A board file instantiates devices with the driver's
 `PBL_*_DEFINE` macro and points the peripherals at them; SoC-fixed devices,
 such as GPIO ports, are instantiated by the SoC driver itself. Nothing is
 generated from a markup description today, but the instance definitions are
@@ -68,6 +70,24 @@ own init. A dependency cycle asserts.
 Runtime APIs assert `pbl_device_is_ready()` where a stale reference would
 otherwise fail confusingly, and never initialise on demand: bring-up is
 deterministic and happens in one place.
+
+## Multi-function devices
+
+A chip with several unrelated functions, such as the nPM1300 PMIC (charger,
+GPIOs, regulators), is one parent device plus one child device per function,
+as in the Linux MFD layer. The parent (`struct pbl_npm1300`) owns the bus
+access and a lock, and exposes register read/write/update helpers that every
+function goes through, so a read-modify-write in one function cannot
+interleave with another. The children embed their class struct (`struct
+pbl_gpio_port`, `struct pbl_regulator`) with `parent` pointing at the PMIC,
+and the parent's init ends with `pbl_device_init_children()`, so a device that
+depends on the PMIC can rely on its rails and pins being configured.
+
+Board-level facts live in the board: each rail is a
+`PBL_NPM1300_REGULATOR_DEFINE` with its voltage, mode and whether it is
+always on, and consumers reference the regulator (`MicDevice.vdd`) and
+enable it through the `struct pbl_regulator` use count rather than through
+PMIC-specific calls.
 
 ## Adding a driver
 

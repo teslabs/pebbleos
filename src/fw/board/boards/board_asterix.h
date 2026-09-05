@@ -41,8 +41,6 @@ static const BoardConfigButton BOARD_CONFIG_BUTTON = {
 };
 
 static const BoardConfigPower BOARD_CONFIG_POWER = {
-  .pmic_int = { NRFX_GPIOTE_INSTANCE(0), 1, NRF_GPIO_PIN_MAP(1, 12) },
-  .pmic_int_gpio = PBL_GPIO(NRF_GPIO_P1, 12, 0),
   .low_power_threshold = 2,
   .battery_capacity_hours = 450,
 };
@@ -105,12 +103,9 @@ extern QSPIFlash * const QSPI_FLASH;
 extern MicDevice * const MIC;
 extern AudioDevice * const AUDIO;
 
-extern const struct pbl_i2c_dev *const I2C_NPM1300;
 extern const struct pbl_i2c_dev *const I2C_DRV2604;
 extern const struct pbl_i2c_dev *const I2C_OPT3001;
 extern const struct pbl_i2c_dev *const I2C_DA7212;
 extern const struct pbl_i2c_dev *const I2C_MMC5603NJ;
 extern const struct pbl_i2c_dev *const I2C_BMP390;
 extern const LSM6DSOConfig *const LSM6DSO;
-
-extern const Npm1300Config NPM1300_CONFIG;

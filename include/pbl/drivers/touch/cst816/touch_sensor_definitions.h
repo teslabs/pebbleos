@@ -6,10 +6,6 @@
 
 #include "board/board.h"
 
-#ifdef CONFIG_BOARD_OBELIX
-#define RESET_PIN_CTRLBY_NPM1300          1
-#endif
-
 typedef struct {
   const struct pbl_i2c_dev *i2c;
   const struct pbl_i2c_dev *i2c_boot;

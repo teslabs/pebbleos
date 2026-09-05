@@ -228,9 +228,21 @@ PBL_I2C_SF32LB_DEFINE(s_i2c_bus_1, "i2c1", I2C1, 5, 400000,
                       PBL_PINMUX(PAD_PA31, I2C1_SCL, PIN_NOPULL),
                       PBL_PINMUX(PAD_PA30, I2C1_SDA, PIN_NOPULL), NULL);
 
-static const struct pbl_i2c_dev s_i2c_npm1300 = PBL_I2C_DEV(&s_i2c_bus_1.bus, 0x6B);
+PBL_NPM1300_STATE_DEFINE(s_pmic);
+static const struct pbl_npm1300 s_pmic = {
+    .dev = PBL_NPM1300_DEV_INIT(s_pmic, "npm1300", &s_i2c_bus_1.bus, NULL),
+    .i2c = PBL_I2C_DEV(&s_i2c_bus_1.bus, 0x6B),
+    .irq = { .peripheral = hwp_gpio1, .gpio_pin = 26 },
+    .cfg = &NPM1300_CONFIG,
+    .state = &s_pmic_npm1300_state,
+    .gpio = PBL_NPM1300_GPIO_INIT(s_pmic, "npm1300_gpio"),
+};
+PBL_NPM1300_REGISTER(s_pmic);
+const struct pbl_npm1300 *const NPM1300 = &s_pmic;
 
-const struct pbl_i2c_dev *const I2C_NPM1300 = &s_i2c_npm1300;
+PBL_NPM1300_REGULATOR_DEFINE(s_pmic_buck1, "npm1300_buck1", &s_pmic, PBL_NPM1300_BUCK1, 1800, false, false);
+PBL_NPM1300_REGULATOR_DEFINE(s_pmic_ldo1, "npm1300_ldo1", &s_pmic, PBL_NPM1300_LDSW1, 1800, true, true);
+PBL_NPM1300_REGULATOR_DEFINE(s_pmic_ldo2, "npm1300_ldo2", &s_pmic, PBL_NPM1300_LDSW2, 3300, true, false);
 
 static const struct pbl_i2c_dev s_i2c_aw86225 = PBL_I2C_DEV(&s_i2c_bus_1.bus, 0x58);
   
@@ -316,6 +328,7 @@ static const TouchSensor touch_cst816 = {
         .gpio_pin = 27,
         .pull = GPIO_PuPd_UP,
     },
+    .reset = PBL_GPIO(NPM1300_GPIO, 2, PBL_GPIO_ACTIVE_LOW | PBL_GPIO_PULL_UP),
 };
 
 const TouchSensor *CST816 = &touch_cst816;
@@ -335,6 +348,7 @@ static HRMDevice s_hrm = {
         .gpio_pin = 44,
     },
     .int_input = PBL_GPIO(SF32LB_GPIO1, 44, 0),
+    .reset_gpio = PBL_GPIO(NPM1300_GPIO, 3, PBL_GPIO_PULL_UP),
 };
 
 HRMDevice * const HRM = &s_hrm;
@@ -351,6 +365,8 @@ const Npm1300Config NPM1300_CONFIG = {
   .term_current_pct = 10,
   .thermistor_beta = 3380,
   .ntc_hot_celsius = 45,
+  .vterm_mv = 4350,
+  .vterm_reduced_mv = 4000,
   .vbus_current_lim0 = 500,
   .vbus_current_startup = 500,
 };
@@ -360,10 +376,6 @@ static const struct pbl_i2c_dev s_i2c_w1160 = PBL_I2C_DEV(&s_i2c_bus_1.bus, 0x48
 const struct pbl_i2c_dev *const I2C_W1160 = &s_i2c_w1160;
 
 const BoardConfigPower BOARD_CONFIG_POWER = {
-  .pmic_int = {
-    .peripheral = hwp_gpio1,
-    .gpio_pin = 26,
-  },
   .low_power_threshold = 4U,
   .battery_capacity_hours = 400U,
 };
@@ -417,6 +429,7 @@ static const MicDevice mic_device = {
     .pdm_dma_irq = DMAC1_CH5_IRQn,
     .pdm_irq = PDM1_IRQn,
     .pdm_irq_priority = 5,
+    .vdd = &s_pmic_ldo2.reg,
 #ifdef CONFIG_MFG
     // MFG mic test needs stereo capture to verify both microphones
     .channels = 2,
@@ -431,11 +444,11 @@ IRQ_MAP(PDM1, pdm1_data_handler, MIC);
 IRQ_MAP(DMAC1_CH5, pdm1_l_dma_handler, MIC);
 
 static void prv_audio_power_up(void) {
-  NPM1300_OPS.dischg_limit_ma_set(NPM1300_DISCHG_LIMIT_MA_MAX);
+  pbl_npm1300_set_dischg_limit_ma(NPM1300, NPM1300_DISCHG_LIMIT_MA_MAX);
 }
 
 static void prv_audio_power_down(void) {
-  NPM1300_OPS.dischg_limit_ma_set(NPM1300_CONFIG.dischg_limit_ma);
+  pbl_npm1300_set_dischg_limit_ma(NPM1300, NPM1300_CONFIG.dischg_limit_ma);
 }
 
 static const BoardPowerOps prv_audio_power_ops = {

@@ -281,9 +281,21 @@ PBL_I2C_SF32LB_DEFINE(s_i2c_bus_3, "i2c3", I2C3, 5, 400000,
                       PBL_PINMUX(PAD_PA31, I2C3_SCL, PIN_NOPULL),
                       PBL_PINMUX(PAD_PA30, I2C3_SDA, PIN_NOPULL), NULL);
 
-static const struct pbl_i2c_dev s_i2c_npm1300 = PBL_I2C_DEV(&s_i2c_bus_3.bus, 0x6B);
+PBL_NPM1300_STATE_DEFINE(s_pmic);
+static const struct pbl_npm1300 s_pmic = {
+    .dev = PBL_NPM1300_DEV_INIT(s_pmic, "npm1300", &s_i2c_bus_3.bus, NULL),
+    .i2c = PBL_I2C_DEV(&s_i2c_bus_3.bus, 0x6B),
+    .irq = { .peripheral = hwp_gpio1, .gpio_pin = 44 },
+    .cfg = &NPM1300_CONFIG,
+    .state = &s_pmic_npm1300_state,
+    .gpio = PBL_NPM1300_GPIO_INIT(s_pmic, "npm1300_gpio"),
+};
+PBL_NPM1300_REGISTER(s_pmic);
+const struct pbl_npm1300 *const NPM1300 = &s_pmic;
 
-const struct pbl_i2c_dev *const I2C_NPM1300 = &s_i2c_npm1300;
+PBL_NPM1300_REGULATOR_DEFINE(s_pmic_buck1, "npm1300_buck1", &s_pmic, PBL_NPM1300_BUCK1, 1800, false, false);
+PBL_NPM1300_REGULATOR_DEFINE(s_pmic_ldo1, "npm1300_ldo1", &s_pmic, PBL_NPM1300_LDSW1, 1800, true, true);
+PBL_NPM1300_REGULATOR_DEFINE(s_pmic_ldsw2, "npm1300_ldsw2", &s_pmic, PBL_NPM1300_LDSW2, 0, false, false);
 
 static const struct pbl_i2c_dev s_i2c_w1160 = PBL_I2C_DEV(&s_i2c_bus_3.bus, 0x48);
 
@@ -317,15 +329,13 @@ const Npm1300Config NPM1300_CONFIG = {
   .term_current_pct = 10,
   .thermistor_beta = 3380,
   .ntc_hot_celsius = 45,
+  .vterm_mv = 4450,
+  .vterm_reduced_mv = 4000,
   .vbus_current_lim0 = 500,
   .vbus_current_startup = 500,
 };
 
 const BoardConfigPower BOARD_CONFIG_POWER = {
-  .pmic_int = {
-    .peripheral = hwp_gpio1,
-    .gpio_pin = 44,
-  },
   .low_power_threshold = 5U,
   .battery_capacity_hours = 150U,
 };
@@ -378,6 +388,7 @@ static const MicDevice mic_device = {
     .pdm_dma_irq = DMAC1_CH5_IRQn,
     .pdm_irq = PDM1_IRQn,
     .pdm_irq_priority = 5,
+    .vdd = &s_pmic_ldsw2.reg,
 #ifdef CONFIG_MFG
     // MFG mic test needs stereo capture to verify both microphones
     .channels = 2,
