@@ -97,6 +97,22 @@ injection. A tap is a finger down then up; a swipe streams intermediate moves
 so that drag gestures are seen as continuous. Injection uses the
 absolute-pointer input path; multi-touch is not wired up in the device.
 
+## Feeding phone data
+
+Features that depend on the phone app can be exercised without one:
+`pbl feed` writes into the running emulator what the phone would, over the
+Pebble protocol serial port. Each kind of data is a subcommand:
+
+```shell
+pbl feed weather                        # a forecast for a few built-in cities
+pbl feed weather Tokyo Sydney --seed 3   # a subset; the first is the current location
+pbl feed weather --clear                 # remove every location
+```
+
+`pbl feed --help` lists the feeds and `pbl feed <feed> --help` their options.
+The feeds live in `tools/libs/pbl-cli/pbl/feeds/`, one module per kind of
+data; see [the `pbl` CLI](pbl.md) for how to add one.
+
 ## Debug
 
 You can debug with GDB using:
