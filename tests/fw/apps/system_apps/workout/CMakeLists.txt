@@ -88,7 +88,7 @@ pbl_clar_test(test_workout_active
     fw/applib/pbl_std/strftime.c
     fw/applib/pbl_std/timelocal.c
   PLATFORMS obelix gabbro asterix
-  DEFINES USE_DISPLAY_PERIMETER_ON_FONT_LAYOUT=1
+  DEFINES USE_DISPLAY_PERIMETER_ON_FONT_LAYOUT=1 CONFIG_HRM
   OVERRIDES dummy_board
   TEST_IMAGES
 )
