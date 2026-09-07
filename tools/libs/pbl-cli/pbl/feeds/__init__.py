@@ -91,6 +91,18 @@ class Watch:
     def blobdb_clear(self, database):
         self._blobdb_call(f"{database.name}: clear", "clear", database)
 
+    def send(self, packet, what=None):
+        """Send one Pebble protocol packet."""
+        if self.dry_run:
+            util.inf("[dry-run]", what or type(packet).__name__, color="yellow")
+            return
+        self._pebble.send_packet(packet)
+
+    def on(self, packet_class, handler):
+        """Call ``handler(packet)`` for every ``packet_class`` the firmware sends."""
+        if not self.dry_run:
+            self._pebble.register_endpoint(packet_class, handler)
+
 
 class Feed(ABC):
     #: The ``pbl feed <name>`` subcommand.

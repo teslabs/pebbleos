@@ -102,8 +102,10 @@ top-level help the command is listed under.
 is a module in `pbl/feeds/` with a `Feed` subclass, discovered the same
 way commands are: it names its subcommand, adds its own options in
 `add_arguments()` and writes its data in `run()` through the `Watch` it is
-given, which wraps the blob DB client and turns into a printer under
-`--dry-run`.
+given, which wraps the blob DB client, sends and receives raw protocol
+packets, and turns into a printer under `--dry-run`. A feed that has to
+answer the watch registers handlers with `watch.on()` and keeps `run()`
+going until interrupted.
 
 ```python
 from pbl.feeds import BlobDb, Feed
