@@ -4,7 +4,9 @@
 """Talking to a running QEMU.
 
 ``pbl qemu`` exposes two unix sockets in the build directory: the human
-monitor, used for screendumps, and QMP, used to inject input events.
+monitor, used for screendumps, and QMP, used to inject input events. The
+firmware's Pebble protocol is served over a TCP serial port, reached with
+:func:`connect_watch`.
 """
 
 import json
@@ -124,3 +126,24 @@ class Qmp:
     @staticmethod
     def button(down):
         return [{"type": "btn", "data": {"button": "left", "down": down}}]
+
+
+def connect_watch(host="127.0.0.1", port=PEBBLE_TOOL_PORT):
+    """A libpebble2 connection to the firmware, as the phone app would have."""
+    try:
+        from libpebble2.communication import PebbleConnection
+        from libpebble2.communication.transports.qemu import QemuTransport
+        from libpebble2.exceptions import ConnectionError as PebbleConnectionError
+    except ImportError as e:
+        raise CommandContextError(f"libpebble2 is not installed ({e})") from e
+
+    pebble = PebbleConnection(QemuTransport(host, port))
+    try:
+        pebble.connect()
+    except PebbleConnectionError as e:
+        raise CommandContextError(
+            f"cannot reach the emulator's Pebble protocol port at {host}:{port} "
+            f"-- is 'pbl qemu' running? ({e})"
+        ) from e
+    pebble.run_async()
+    return pebble
