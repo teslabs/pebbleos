@@ -23,7 +23,7 @@ enum pbl_flash_nor_qer {
 struct pbl_flash_nor_part {
   const char *name;
   uint32_t id;
-  uint32_t size;
+  struct pbl_flash_geometry geometry;
   struct {
     uint8_t write_enable;
     uint8_t rdsr1;
@@ -56,3 +56,10 @@ struct pbl_flash_nor_part {
 
 extern const struct pbl_flash_nor_part pbl_flash_nor_gd25lq255e;
 extern const struct pbl_flash_nor_part pbl_flash_nor_gd25q256e;
+
+//! The part selected by Kconfig for the board's flash.
+#if defined(CONFIG_FLASH_GD25LQ255E)
+#define PBL_FLASH_NOR_PART pbl_flash_nor_gd25lq255e
+#elif defined(CONFIG_FLASH_GD25Q256E)
+#define PBL_FLASH_NOR_PART pbl_flash_nor_gd25q256e
+#endif

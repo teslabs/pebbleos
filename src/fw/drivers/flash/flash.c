@@ -30,7 +30,8 @@ PBL_LOG_MODULE_DEFINE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
 #define ERASE_YIELD_MS 4
 
 static bool prv_in_range(const struct pbl_flash_device *dev, uint32_t addr, size_t len) {
-  return addr >= dev->base && len <= dev->size && addr - dev->base <= dev->size - len;
+  return addr >= dev->base && len <= dev->geometry->size &&
+         addr - dev->base <= dev->geometry->size - len;
 }
 
 static bool prv_is_protected(const struct pbl_flash_device *dev, uint32_t addr, size_t len) {
@@ -107,10 +108,10 @@ static void prv_schedule_resume(const struct pbl_flash_device *dev, uint32_t del
 }
 
 static uint32_t prv_erase_unit(const struct pbl_flash_device *dev, uint32_t addr, uint32_t end) {
-  if ((addr & (dev->sector_size - 1)) == 0 && addr + dev->sector_size <= end) {
-    return dev->sector_size;
+  if ((addr & (dev->geometry->sector_size - 1)) == 0 && addr + dev->geometry->sector_size <= end) {
+    return dev->geometry->sector_size;
   }
-  return dev->subsector_size;
+  return dev->geometry->subsector_size;
 }
 
 // Lock held.
@@ -182,8 +183,9 @@ static bool prv_erase_step(const struct pbl_flash_device *dev, uint32_t *wait_ms
 
   if (dev->ops->erase_status != NULL) {
     st->erase.in_progress = true;
-    st->erase.expected_ms =
-        (unit == dev->sector_size) ? dev->sector_erase_ms : dev->subsector_erase_ms;
+    st->erase.expected_ms = (unit == dev->geometry->sector_size)
+                                ? dev->geometry->sector_erase_ms
+                                : dev->geometry->subsector_erase_ms;
     *wait_ms = MAX(1, st->erase.expected_ms * 7 / 8);
   } else {
     prv_erase_unit_done(dev);
@@ -215,8 +217,8 @@ static void prv_poll_timer_cb(void *ctx) {
 }
 
 static size_t prv_erase_len(const struct pbl_flash_device *dev, uint32_t addr, size_t len) {
-  PBL_ASSERTN((addr & (dev->subsector_size - 1)) == 0);
-  len = (len + dev->subsector_size - 1) & ~(size_t)(dev->subsector_size - 1);
+  PBL_ASSERTN((addr & (dev->geometry->subsector_size - 1)) == 0);
+  len = (len + dev->geometry->subsector_size - 1) & ~(size_t)(dev->geometry->subsector_size - 1);
   PBL_ASSERTN(prv_in_range(dev, addr, len));
   return len;
 }

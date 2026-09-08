@@ -98,16 +98,20 @@ static const struct pbl_flash_ops s_async_ops = {
     .erase_resume = prv_erase_resume,
 };
 
+static const struct pbl_flash_geometry s_geometry = {
+    .size = 0x100000,
+    .page_size = 256,
+    .sector_size = SECTOR_SIZE,
+    .subsector_size = SUBSECTOR_SIZE,
+    .sector_erase_ms = 100,
+    .subsector_erase_ms = 100,
+};
 static struct pbl_flash_device_state s_state;
 static struct pbl_flash_device s_dev = {
     .state = &s_state,
     .ops = &s_sync_ops,
     .base = 0,
-    .size = 0x100000,
-    .sector_size = SECTOR_SIZE,
-    .subsector_size = SUBSECTOR_SIZE,
-    .sector_erase_ms = 100,
-    .subsector_erase_ms = 100,
+    .geometry = &s_geometry,
 };
 
 static void *s_cb_ctx;

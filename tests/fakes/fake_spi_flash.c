@@ -209,13 +209,17 @@ int pbl_flash_init(const struct pbl_flash_device *dev) { return 0; }
 
 void pbl_flash_stop(const struct pbl_flash_device *dev) {}
 
+static const struct pbl_flash_geometry s_fake_geometry = {
+    .size = UINT32_MAX,
+    .page_size = 256,
+    .sector_size = SECTOR_SIZE_BYTES,
+    .subsector_size = SUBSECTOR_SIZE_BYTES,
+};
 static struct pbl_flash_device_state s_fake_device_state;
 static const struct pbl_flash_device s_fake_device = {
     .state = &s_fake_device_state,
     .base = 0,
-    .size = UINT32_MAX,
-    .sector_size = SECTOR_SIZE_BYTES,
-    .subsector_size = SUBSECTOR_SIZE_BYTES,
+    .geometry = &s_fake_geometry,
 };
 const struct pbl_flash_device *const FLASH = &s_fake_device;
 

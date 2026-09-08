@@ -2,9 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "board/board.h"
-#include "flash_region/flash_region.h"
-#include <pbl/drivers/flash/nor_part.h>
-#include <pbl/drivers/flash/sf32lb52_mpi.h>
 #include "board/splash.h"
 #include <pbl/drivers/sf32lb52/debounced_button_definitions.h>
 #include "system/passert.h"
@@ -78,38 +75,6 @@ static UARTDevice HCI_TRACE_UART_DEVICE = {
 UARTDevice *const HCI_TRACE_UART = &HCI_TRACE_UART_DEVICE;
 #endif // NIMBLE_HCI_SF32LB52_TRACE_BINARY
 
-static struct pbl_flash_sf32lb52_mpi_state s_flash_state = {
-    .cfg = {
-      .Instance = FLASH2,
-      .line = HAL_FLASH_QMODE,
-      .base = FLASH2_BASE_ADDR,
-      .msize = 32,
-      .SpiMode = SPI_MODE_NOR,
-    },
-    .dma = {
-      .Instance = DMA1_Channel2,
-      .dma_irq = DMAC1_CH2_IRQn,
-      .request = DMA_REQUEST_1,
-    },
-};
-static const struct pbl_flash_sf32lb52_mpi s_flash = {
-    .dev =
-        {
-            .state = &s_flash_state.flash,
-            .ops = &pbl_flash_sf32lb52_mpi_ops,
-            .base = FLASH_REGION_BASE_ADDRESS,
-            .size = BOARD_NOR_FLASH_SIZE,
-            .sector_size = SECTOR_SIZE_BYTES,
-            .subsector_size = SUBSECTOR_SIZE_BYTES,
-            .sec_regs = &pbl_flash_nor_gd25q256e.sec_regs,
-        },
-    .name = "GD25Q256E",
-    .id = 0x1940c8,
-    .clk_div = 0U,
-    .dpd_enter_us = 3,
-    .dpd_exit_us = 20,
-};
-const struct pbl_flash_device *const FLASH = &s_flash.dev;
 
 static DisplayJDIState s_display_state = {
     .hlcdc = {

@@ -1,11 +1,12 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <pbl/drivers/flash/qemu.h>
+#include <pbl/drivers/flash.h>
 
 #include <errno.h>
 #include <string.h>
 
+#include "board/board.h"
 #include "pbl/util/misc.h"
 
 #define REG32(base, off) (*(volatile uint32_t *)((base) + (off)))
@@ -27,6 +28,12 @@
 #define PAGE_SIZE 256U
 #define SUBSECTOR_SIZE 4096U
 #define SECTOR_SIZE 65536U
+
+struct pbl_flash_qemu {
+  struct pbl_flash_device dev;
+  //! Controller registers of the QEMU pebble-extflash device.
+  uintptr_t regs;
+};
 
 static inline uintptr_t prv_regs(const struct pbl_flash_device *dev) {
   return container_of(dev, const struct pbl_flash_qemu, dev)->regs;
@@ -88,9 +95,30 @@ static int prv_erase_begin(const struct pbl_flash_device *dev, uint32_t addr, si
   return 0;
 }
 
-const struct pbl_flash_ops pbl_flash_qemu_ops = {
+static const struct pbl_flash_ops s_ops = {
     .init = prv_init,
     .read = prv_read,
     .write = prv_write,
     .erase_begin = prv_erase_begin,
 };
+
+static const struct pbl_flash_geometry s_geometry = {
+    .size = CONFIG_FLASH_QEMU_SIZE,
+    .page_size = PAGE_SIZE,
+    .sector_size = SECTOR_SIZE,
+    .subsector_size = SUBSECTOR_SIZE,
+    .sector_erase_ms = 1,
+    .subsector_erase_ms = 1,
+};
+static struct pbl_flash_device_state s_flash_state;
+static const struct pbl_flash_qemu s_flash = {
+    .dev =
+        {
+            .state = &s_flash_state,
+            .ops = &s_ops,
+            .base = QEMU_EXTFLASH_XIP_BASE,
+            .geometry = &s_geometry,
+        },
+    .regs = QEMU_EXTFLASH_BASE,
+};
+const struct pbl_flash_device *const FLASH = &s_flash.dev;

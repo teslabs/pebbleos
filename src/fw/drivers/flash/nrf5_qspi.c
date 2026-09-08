@@ -1,7 +1,8 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <pbl/drivers/flash/nrf5_qspi.h>
+#include <pbl/drivers/flash.h>
+#include <pbl/drivers/flash/nor_part.h>
 
 #include <errno.h>
 #include <stdint.h>
@@ -31,13 +32,43 @@ PBL_LOG_MODULE_DECLARE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
 // switching and semaphore handling, so we define a minimum size for async ops.
 #define MIN_RW_ASYNC_SIZE 256U
 
-#define PAGE_SIZE 256U
-
 // Bits 15-12 of a security register address are its one-based index.
 #define SEC_ADDR_TO_IDX(addr) (((addr) >> 12U) - 1U)
 
 // Minimum size to enable 4-byte addressing
 #define ADDR_4BYTE_THRESHOLD 0x1000000UL
+
+enum read_mode {
+  READ_FASTREAD,
+  READ_READ2O,
+  READ_READ2IO,
+  READ_READ4O,
+  READ_READ4IO,
+};
+
+enum write_mode {
+  WRITE_PP,
+  WRITE_PP2O,
+  WRITE_PP4O,
+  WRITE_PP4IO,
+};
+
+struct pbl_flash_nrf5_qspi_state {
+  struct pbl_flash_device_state flash;
+  struct pbl_sem sem;
+  bool initialized;
+};
+
+struct pbl_flash_nrf5_qspi {
+  struct pbl_flash_device dev;
+  const struct pbl_flash_nor_part *part;
+  uint32_t clk_freq_hz;
+  uint32_t cs_gpio;
+  uint32_t clk_gpio;
+  uint32_t data_gpio[4];
+  enum read_mode read_mode;
+  enum write_mode write_mode;
+};
 
 static uint8_t __attribute__((aligned(4))) s_bounce_buf[32];
 static struct pbl_flash_nrf5_qspi_state *s_state;
@@ -182,11 +213,9 @@ static void prv_configure_qe(const struct pbl_flash_nrf5_qspi *cfg) {
   const struct pbl_flash_nor_part *part = cfg->part;
   uint8_t sr[2];
 
-  if (!(cfg->read_mode == PBL_FLASH_NRF5_QSPI_READ_READ2IO ||
-        cfg->read_mode == PBL_FLASH_NRF5_QSPI_READ_READ4O ||
-        cfg->read_mode == PBL_FLASH_NRF5_QSPI_READ_READ4IO ||
-        cfg->write_mode == PBL_FLASH_NRF5_QSPI_WRITE_PP4O ||
-        cfg->write_mode == PBL_FLASH_NRF5_QSPI_WRITE_PP4IO)) {
+  if (!(cfg->read_mode == READ_READ2IO || cfg->read_mode == READ_READ4O ||
+        cfg->read_mode == READ_READ4IO || cfg->write_mode == WRITE_PP4O ||
+        cfg->write_mode == WRITE_PP4IO)) {
     return;
   }
 
@@ -232,7 +261,7 @@ static size_t prv_sec_reg_payload(const struct pbl_flash_nor_part *part, uint32_
                                   uint8_t *out) {
   size_t len = 0;
 
-  if (part->size > ADDR_4BYTE_THRESHOLD) {
+  if (part->geometry.size > ADDR_4BYTE_THRESHOLD) {
     out[len++] = (addr >> 24U) & 0xFFU;
   }
   out[len++] = (addr >> 16U) & 0xFFU;
@@ -272,16 +301,16 @@ static int prv_init(const struct pbl_flash_device *dev) {
   nrf_qspi_pins_set(NRF_QSPI, &conf_pins);
 
   switch (cfg->read_mode) {
-    case PBL_FLASH_NRF5_QSPI_READ_READ2O:
+    case READ_READ2O:
       conf_prot.readoc = NRF_QSPI_READOC_READ2O;
       break;
-    case PBL_FLASH_NRF5_QSPI_READ_READ2IO:
+    case READ_READ2IO:
       conf_prot.readoc = NRF_QSPI_READOC_READ2IO;
       break;
-    case PBL_FLASH_NRF5_QSPI_READ_READ4O:
+    case READ_READ4O:
       conf_prot.readoc = NRF_QSPI_READOC_READ4O;
       break;
-    case PBL_FLASH_NRF5_QSPI_READ_READ4IO:
+    case READ_READ4IO:
       conf_prot.readoc = NRF_QSPI_READOC_READ4IO;
       break;
     default:
@@ -290,13 +319,13 @@ static int prv_init(const struct pbl_flash_device *dev) {
   }
 
   switch (cfg->write_mode) {
-    case PBL_FLASH_NRF5_QSPI_WRITE_PP2O:
+    case WRITE_PP2O:
       conf_prot.writeoc = NRF_QSPI_WRITEOC_PP2O;
       break;
-    case PBL_FLASH_NRF5_QSPI_WRITE_PP4O:
+    case WRITE_PP4O:
       conf_prot.writeoc = NRF_QSPI_WRITEOC_PP4O;
       break;
-    case PBL_FLASH_NRF5_QSPI_WRITE_PP4IO:
+    case WRITE_PP4IO:
       conf_prot.writeoc = NRF_QSPI_WRITEOC_PP4IO;
       break;
     default:
@@ -304,7 +333,7 @@ static int prv_init(const struct pbl_flash_device *dev) {
       break;
   }
 
-  if (part->size > ADDR_4BYTE_THRESHOLD) {
+  if (part->geometry.size > ADDR_4BYTE_THRESHOLD) {
     conf_prot.addrmode = NRF_QSPI_ADDRMODE_32BIT;
   } else {
     conf_prot.addrmode = NRF_QSPI_ADDRMODE_24BIT;
@@ -419,10 +448,11 @@ static void prv_write_page(const struct pbl_flash_device *dev, uint32_t addr, co
 
 static int prv_write_op(const struct pbl_flash_device *dev, uint32_t addr, const void *buf,
                         size_t len) {
+  const struct pbl_flash_nor_part *part = prv_cfg(dev)->part;
   const uint8_t *src = buf;
 
   while (len > 0) {
-    size_t chunk = MIN(len, PAGE_SIZE - (addr % PAGE_SIZE));
+    size_t chunk = MIN(len, part->geometry.page_size - (addr % part->geometry.page_size));
     const uint8_t *data = src;
 
     // The peripheral can only read from RAM
@@ -445,9 +475,9 @@ static int prv_erase_begin(const struct pbl_flash_device *dev, uint32_t addr, si
   const struct pbl_flash_nor_part *part = prv_cfg(dev)->part;
   nrf_qspi_erase_len_t len;
 
-  if (size == 4096U) {
+  if (size == part->geometry.subsector_size) {
     len = NRF_QSPI_ERASE_LEN_4KB;
-  } else if (size == 65536U) {
+  } else if (size == part->geometry.sector_size) {
     len = NRF_QSPI_ERASE_LEN_64KB;
   } else {
     return -EINVAL;
@@ -632,7 +662,7 @@ static int prv_sec_reg_lock(const struct pbl_flash_device *dev, uint32_t addr) {
 }
 #endif
 
-const struct pbl_flash_ops pbl_flash_nrf5_qspi_ops = {
+static const struct pbl_flash_ops s_ops = {
     .init = prv_init,
     .read = prv_read_op,
     .write = prv_write_op,
@@ -650,3 +680,50 @@ const struct pbl_flash_ops pbl_flash_nrf5_qspi_ops = {
     .sec_reg_lock = prv_sec_reg_lock,
 #endif
 };
+
+#if defined(CONFIG_FLASH_NRF5_QSPI_READ_FASTREAD)
+#define READ_MODE READ_FASTREAD
+#elif defined(CONFIG_FLASH_NRF5_QSPI_READ_READ2O)
+#define READ_MODE READ_READ2O
+#elif defined(CONFIG_FLASH_NRF5_QSPI_READ_READ2IO)
+#define READ_MODE READ_READ2IO
+#elif defined(CONFIG_FLASH_NRF5_QSPI_READ_READ4O)
+#define READ_MODE READ_READ4O
+#else
+#define READ_MODE READ_READ4IO
+#endif
+
+#if defined(CONFIG_FLASH_NRF5_QSPI_WRITE_PP)
+#define WRITE_MODE WRITE_PP
+#elif defined(CONFIG_FLASH_NRF5_QSPI_WRITE_PP2O)
+#define WRITE_MODE WRITE_PP2O
+#elif defined(CONFIG_FLASH_NRF5_QSPI_WRITE_PP4IO)
+#define WRITE_MODE WRITE_PP4IO
+#else
+#define WRITE_MODE WRITE_PP4O
+#endif
+
+static struct pbl_flash_nrf5_qspi_state s_flash_state;
+static const struct pbl_flash_nrf5_qspi s_flash = {
+    .dev =
+        {
+            .state = &s_flash_state.flash,
+            .ops = &s_ops,
+            .geometry = &PBL_FLASH_NOR_PART.geometry,
+            .sec_regs = &PBL_FLASH_NOR_PART.sec_regs,
+        },
+    .part = &PBL_FLASH_NOR_PART,
+    .clk_freq_hz = CONFIG_FLASH_NRF5_QSPI_CLK_FREQ_HZ,
+    .cs_gpio = CONFIG_FLASH_NRF5_QSPI_CSN_PIN,
+    .clk_gpio = CONFIG_FLASH_NRF5_QSPI_SCK_PIN,
+    .data_gpio =
+        {
+            CONFIG_FLASH_NRF5_QSPI_IO0_PIN,
+            CONFIG_FLASH_NRF5_QSPI_IO1_PIN,
+            CONFIG_FLASH_NRF5_QSPI_IO2_PIN,
+            CONFIG_FLASH_NRF5_QSPI_IO3_PIN,
+        },
+    .read_mode = READ_MODE,
+    .write_mode = WRITE_MODE,
+};
+const struct pbl_flash_device *const FLASH = &s_flash.dev;

@@ -15,6 +15,17 @@ struct pbl_flash_device;
 
 typedef void (*pbl_flash_erase_cb_t)(void *ctx, int status);
 
+struct pbl_flash_geometry {
+  uint32_t size;
+  uint32_t page_size;
+  //! Large and small erase units.
+  uint32_t sector_size;
+  uint32_t subsector_size;
+  //! Typical erase durations, used to pace polling of asynchronous erases.
+  uint16_t sector_erase_ms;
+  uint16_t subsector_erase_ms;
+};
+
 //! One-time-programmable "security registers" of NOR parts that have them.
 struct pbl_flash_sec_regs {
   const uint32_t *addrs;
@@ -79,13 +90,7 @@ struct pbl_flash_device {
   const struct pbl_flash_ops *ops;
   //! Address of the first byte, as seen by the flash API.
   uint32_t base;
-  uint32_t size;
-  //! Large and small erase units.
-  uint32_t sector_size;
-  uint32_t subsector_size;
-  //! Typical erase durations, used to pace polling of asynchronous erases.
-  uint16_t sector_erase_ms;
-  uint16_t subsector_erase_ms;
+  const struct pbl_flash_geometry *geometry;
   //! NULL when the part has no security registers.
   const struct pbl_flash_sec_regs *sec_regs;
 };

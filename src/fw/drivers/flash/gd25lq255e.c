@@ -13,7 +13,15 @@ static const uint32_t s_sec_reg_addrs[] = {
 const struct pbl_flash_nor_part pbl_flash_nor_gd25lq255e = {
     .name = "GD25LQ255E",
     .id = 0x1960c8,
-    .size = 0x2000000,
+    .geometry =
+        {
+            .size = 0x2000000,
+            .page_size = 256,
+            .sector_size = 0x10000,
+            .subsector_size = 0x1000,
+            .sector_erase_ms = 150,
+            .subsector_erase_ms = 50,
+        },
     .cmd =
         {
             .write_enable = 0x06,
