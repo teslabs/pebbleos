@@ -312,17 +312,17 @@ static const struct pbl_flash_ops s_ops = {
 static struct pbl_flash_sf32lb52_mpi_state s_flash_state = {
     .cfg =
         {
-            .Instance = MPI_INSTANCE(CONFIG_FLASH_SF32LB52_MPI_INSTANCE),
+            .Instance = MPI_INSTANCE(CONFIG_SF32LB52_MPI_INSTANCE),
             .line = HAL_FLASH_QMODE,
-            .base = MPI_BASE_ADDR(CONFIG_FLASH_SF32LB52_MPI_INSTANCE),
-            .msize = CONFIG_FLASH_SF32LB52_MPI_MSIZE,
+            .base = MPI_BASE_ADDR(CONFIG_SF32LB52_MPI_INSTANCE),
+            .msize = CONFIG_SF32LB52_MPI_MSIZE,
             .SpiMode = SPI_MODE_NOR,
         },
     .dma =
         {
-            .Instance = DMA_CHANNEL(CONFIG_FLASH_SF32LB52_MPI_DMA_CHANNEL),
-            .dma_irq = DMA_IRQN(CONFIG_FLASH_SF32LB52_MPI_DMA_CHANNEL),
-            .request = DMA_REQUEST(CONFIG_FLASH_SF32LB52_MPI_DMA_REQUEST),
+            .Instance = DMA_CHANNEL(CONFIG_SF32LB52_MPI_DMA_CHANNEL),
+            .dma_irq = DMA_IRQN(CONFIG_SF32LB52_MPI_DMA_CHANNEL),
+            .request = DMA_REQUEST(CONFIG_SF32LB52_MPI_DMA_REQUEST),
         },
 };
 static const struct pbl_flash_sf32lb52_mpi s_flash = {
@@ -330,11 +330,11 @@ static const struct pbl_flash_sf32lb52_mpi s_flash = {
         {
             .state = &s_flash_state.flash,
             .ops = &s_ops,
-            .base = MPI_BASE_ADDR(CONFIG_FLASH_SF32LB52_MPI_INSTANCE),
+            .base = MPI_BASE_ADDR(CONFIG_SF32LB52_MPI_INSTANCE),
             .geometry = &PBL_FLASH_NOR_PART.geometry,
             .sec_regs = &PBL_FLASH_NOR_PART.sec_regs,
         },
     .part = &PBL_FLASH_NOR_PART,
-    .clk_div = CONFIG_FLASH_SF32LB52_MPI_CLK_DIV,
+    .clk_div = CONFIG_SF32LB52_MPI_CLK_DIV,
 };
 const struct pbl_flash_device *const FLASH = &s_flash.dev;

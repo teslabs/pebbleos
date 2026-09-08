@@ -17,13 +17,16 @@ The stack follows Linux MTD / spi-nor / spi-mem:
   command/address/dummy/data transactions, `supports_op()` for controllers
   with a fixed command set, and an optional direct-mapped read.
 
-Controllers that sequence the flash protocol in hardware or in a vendor HAL
-that must run from RAM (SF32 MPI, where the flash is also the XIP code
-source) implement `pbl_flash_ops` directly, like Linux `spi-intel`. QEMU's
-memory-mapped flash does the same.
+A spi_mem controller behind which the CPU executes (SF32 MPI, where the
+flash is also the XIP code source) sets `xip`: it runs from RAM, returns
+from program and erase ops only once the part is readable again, and the
+NOR layer neither resets nor reconfigures the part. Controllers that
+sequence the flash protocol in hardware or in a vendor HAL can instead
+implement `pbl_flash_ops` directly, like Linux `spi-intel`; the SiFli HAL
+driver (`FLASH_SF32LB52_MPI`) and QEMU's memory-mapped flash do that.
 
 Devices are instantiated by the drivers from Kconfig (`NRF5_QSPI_*`,
 `FLASH_SF32LB52_MPI_*`, `FLASH_QEMU_*`, the `FLASH_NOR_PART` choice) and
 exported as `FLASH`; a spi_mem controller exports the bus the NOR sits on as
-`SPI_MEM_NOR`. On nRF5, `FLASH_SPI_NOR` selects the layered stack and
-`FLASH_NRF5_QSPI` the direct driver.
+`SPI_MEM_NOR`. `FLASH_SPI_NOR` selects the layered stack; `FLASH_NRF5_QSPI`
+and `FLASH_SF32LB52_MPI` are the direct drivers.

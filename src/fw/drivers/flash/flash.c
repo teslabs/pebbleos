@@ -175,13 +175,13 @@ static bool prv_erase_step(const struct pbl_flash_device *dev, uint32_t *wait_ms
   }
 
   int ret = dev->ops->erase_begin(dev, addr, unit);
-  if (ret != 0) {
+  if (ret < 0) {
     status = ret;
     finished = true;
     goto out;
   }
 
-  if (dev->ops->erase_status != NULL) {
+  if (dev->ops->erase_status != NULL && ret == 0) {
     st->erase.in_progress = true;
     st->erase.expected_ms = (unit == dev->geometry->sector_size)
                                 ? dev->geometry->sector_erase_ms

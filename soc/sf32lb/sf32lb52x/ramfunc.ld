@@ -16,6 +16,10 @@
         *bf0_hal_mpi_ex.*.o*   (.text* .rodata*)
         *bf0_hal_mpi_psram.*.o* (.text* .rodata*)
         */flash.*.o*            (.text* .rodata*)
+        *spi_mem*sf32lb52_mpi.*.o* (.text* .rodata*)
+        */spi_mem.*.o*          (.text* .rodata*)
+        */spi_nor.*.o*          (.text* .rodata*)
+        */delay.*.o*            (.text* .rodata*)
 
         *bf0_hal_rcc.*.o*     (.text* .rodata*)
 

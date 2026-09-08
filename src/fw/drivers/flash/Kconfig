@@ -83,37 +83,12 @@ endchoice
 endif # FLASH_NRF5_QSPI
 
 config FLASH_SF32LB52_MPI
-    bool "SF32LB52 MPI NOR flash"
-    depends on SOC_SF32LB52
+    bool "SF32LB52 MPI NOR flash (SiFli HAL)"
+    depends on SOC_SF32LB52 && !FLASH_SPI_NOR
     default y
     help
-      SPI NOR flash attached to an SF32LB52 MPI controller.
-
-if FLASH_SF32LB52_MPI
-
-config FLASH_SF32LB52_MPI_INSTANCE
-    int "MPI controller instance"
-    range 1 2
-    default 2
-
-config FLASH_SF32LB52_MPI_MSIZE
-    int "Memory window size (MB)"
-    default 32
-
-config FLASH_SF32LB52_MPI_CLK_DIV
-    int "Clock divider"
-    default 0
-
-config FLASH_SF32LB52_MPI_DMA_CHANNEL
-    int "DMAC1 channel"
-    range 1 8
-    default 2
-
-config FLASH_SF32LB52_MPI_DMA_REQUEST
-    int "DMA request"
-    default 1
-
-endif # FLASH_SF32LB52_MPI
+      SPI NOR flash attached to an SF32LB52 MPI controller, driven through
+      the SiFli HAL. Instance, clock and DMA come from SF32LB52_MPI_*.
 
 config FLASH_QEMU
     bool "QEMU External Flash"

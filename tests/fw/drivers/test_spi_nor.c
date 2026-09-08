@@ -57,6 +57,8 @@ static int s_power_calls;
 #define SR2_QE 0x02
 #define SR2_SUS 0x80
 
+static struct pbl_spi_mem_device s_fake_bus;
+
 // SFDP: header + one parameter header + a 16 DWORD BFPT
 static uint8_t s_sfdp[0x30 + 16 * 4];
 
@@ -208,6 +210,9 @@ static int prv_fake_exec_op(const struct pbl_spi_mem_device *dev, const struct p
       memset(&s_mem[a], 0xff, size);
       s_sr1 = (s_sr1 & ~SR1_WEL) | SR1_WIP;
       s_erase_polls_left = 3;
+      if (s_fake_bus.xip) {
+        s_sr1 &= ~SR1_WIP;
+      }
       return 0;
     }
     case 0x75:
@@ -309,7 +314,7 @@ static const struct pbl_spi_mem_ops s_fake_bus_ops = {
 };
 
 static struct pbl_spi_mem_device_state s_fake_bus_state;
-static const struct pbl_spi_mem_device s_fake_bus = {
+static struct pbl_spi_mem_device s_fake_bus = {
     .state = &s_fake_bus_state,
     .ops = &s_fake_bus_ops,
 };
@@ -346,6 +351,7 @@ void test_spi_nor__initialize(void) {
   s_last_pp_opcode = 0;
   s_last_addr_nbytes = 0;
   s_power_calls = 0;
+  s_fake_bus.xip = false;
   prv_build_sfdp();
   memset(&s_fake_bus_state, 0, sizeof(s_fake_bus_state));
 
@@ -498,4 +504,43 @@ void test_spi_nor__sfdp_read_is_chunked_for_small_controllers(void) {
   s_exec_count = 0;
   cl_assert_equal_i(pbl_flash_init(FLASH), 0);
   cl_assert(s_exec_count < with_limit);
+}
+
+void test_spi_nor__xip_bus_is_not_reset_and_erases_synchronously(void) {
+  s_fake_bus.xip = true;
+  cl_assert_equal_i(pbl_flash_init(FLASH), 0);
+  cl_assert_equal_i(s_resets, 0);
+
+  memset(s_mem, 0x00, sizeof(s_mem));
+  int exec_before = s_exec_count;
+  cl_assert_equal_i(pbl_flash_erase(FLASH, 0x0, 0x1000), 0);
+  cl_assert_equal_i(s_mem[0x0], 0xff);
+  // Blank check read, WREN and the erase itself: no status polling
+  cl_assert_equal_i(s_exec_count - exec_before, 3);
+}
+
+// The GD25LE255E's SFDP basic table, as read from the part.
+static const uint8_t s_gd25le255e_bfpt[] = {
+    0xe5, 0x20, 0xf3, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x44, 0xeb, 0x08, 0x6b, 0x08, 0x3b, 0x42, 0xbb,
+    0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0x42, 0xeb, 0x0c, 0x20, 0x0f, 0x52,
+    0x10, 0xd8, 0x00, 0xff, 0xd4, 0x31, 0xa5, 0xfe, 0x84, 0xdf, 0x14, 0x4f, 0xec, 0x62, 0x16, 0x33,
+    0x7a, 0x75, 0x7a, 0x75, 0x04, 0xb3, 0xd5, 0x5c, 0x19, 0x06, 0x14, 0x00, 0x08, 0x50, 0x00, 0x01,
+};
+
+void test_spi_nor__decodes_real_gd25le255e_table(void) {
+  memcpy(&s_sfdp[0x30], s_gd25le255e_bfpt, sizeof(s_gd25le255e_bfpt));
+  cl_assert_equal_i(pbl_flash_init(FLASH), 0);
+  cl_assert_equal_i(FLASH->geometry->size, 0x2000000);
+  cl_assert_equal_i(FLASH->geometry->page_size, 256);
+  cl_assert_equal_i(FLASH->geometry->subsector_size, 0x1000);
+  cl_assert_equal_i(FLASH->geometry->sector_size, 0x10000);
+  cl_assert_equal_i(FLASH->geometry->subsector_erase_ms, 30);
+  cl_assert_equal_i(FLASH->geometry->sector_erase_ms, 160);
+  cl_assert(s_4byte);
+  cl_assert(s_sr2 & SR2_QE);
+
+  uint8_t buf[4];
+  pbl_flash_read(FLASH, 0x100, buf, sizeof(buf));
+  cl_assert_equal_i(s_last_read_opcode, 0xEB);
+  cl_assert_equal_i(s_last_addr_nbytes, 4);
 }

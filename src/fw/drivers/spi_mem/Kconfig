@@ -35,6 +35,35 @@ config NRF5_QSPI_IO3_PIN
 
 endif # SOC_NRF52
 
+if SOC_SF32LB52
+
+config SF32LB52_MPI_INSTANCE
+    int "SF32LB52 MPI controller instance"
+    range 1 2
+    default 2
+
+config SF32LB52_MPI_MSIZE
+    int "SF32LB52 MPI memory window size (MB)"
+    default 32
+
+config SF32LB52_MPI_CLK_DIV
+    int "SF32LB52 MPI clock divider"
+    default 0
+
+config SF32LB52_MPI_DMA_CHANNEL
+    int "SF32LB52 MPI DMAC1 channel"
+    range 1 8
+    default 2
+
+config SF32LB52_MPI_DMA_REQUEST
+    int "SF32LB52 MPI DMA request"
+    default 1
+
+config SF32LB52_MPI_INVERT_RX_CLK
+    bool "SF32LB52 MPI: invert the receive clock"
+
+endif # SOC_SF32LB52
+
 menuconfig SPI_MEM
     bool "SPI memory bus"
     help
@@ -50,5 +79,14 @@ config SPI_MEM_NRF5_QSPI
     help
       The nRF5 QSPI peripheral as a spi_mem controller. Pins and clock
       come from NRF5_QSPI_*.
+
+config SPI_MEM_SF32LB52_MPI
+    bool "SF32LB52 MPI"
+    depends on SOC_SF32LB52
+    default y
+    help
+      An SF32LB52 MPI controller in QSPI NOR mode as a spi_mem controller,
+      driven at register level from RAM. Instance, clock and DMA come from
+      SF32LB52_MPI_*.
 
 endif # SPI_MEM

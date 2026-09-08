@@ -82,6 +82,9 @@ struct pbl_spi_mem_device_state {
 struct pbl_spi_mem_device {
   struct pbl_spi_mem_device_state *state;
   const struct pbl_spi_mem_ops *ops;
+  //! The CPU executes from this memory: ops that leave it busy return only
+  //! once it is readable again, and it must not be reset or reconfigured.
+  bool xip;
 };
 
 //! The bus the board's storage NOR flash sits on.

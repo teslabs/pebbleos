@@ -40,8 +40,9 @@ struct pbl_flash_ops {
   int (*init)(const struct pbl_flash_device *dev);
   int (*read)(const struct pbl_flash_device *dev, uint32_t addr, void *buf, size_t len);
   int (*write)(const struct pbl_flash_device *dev, uint32_t addr, const void *buf, size_t len);
-  //! Erase @p size bytes (sector_size or subsector_size) at @p addr. When
-  //! erase_status is NULL the erase completes before returning.
+  //! Erase @p size bytes (sector_size or subsector_size) at @p addr.
+  //! @return 0 when started, 1 when it completed before returning (also
+  //!         implied when erase_status is NULL), negative on error.
   int (*erase_begin)(const struct pbl_flash_device *dev, uint32_t addr, size_t size);
   //! @return 0 done, -EBUSY in progress, -EAGAIN suspended, other errors failed.
   int (*erase_status)(const struct pbl_flash_device *dev);

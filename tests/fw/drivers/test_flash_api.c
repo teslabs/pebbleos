@@ -57,10 +57,12 @@ static int prv_write(const struct pbl_flash_device *dev, uint32_t addr, const vo
   return 0;
 }
 
+static int s_erase_begin_return;
+
 static int prv_erase_begin(const struct pbl_flash_device *dev, uint32_t addr, size_t size) {
   cl_assert(s_num_erase_commands < (int)(sizeof(s_erase_commands) / sizeof(s_erase_commands[0])));
   s_erase_commands[s_num_erase_commands++] = (EraseCommand){.addr = addr, .size = size};
-  return 0;
+  return s_erase_begin_return;
 }
 
 static int prv_erase_status(const struct pbl_flash_device *dev) {
@@ -144,6 +146,7 @@ void test_flash_api__initialize(void) {
   s_blank = false;
   s_erase_status_return = 0;
   s_erase_status_error_count = 0;
+  s_erase_begin_return = 0;
   s_suspend_calls = 0;
   s_resume_calls = 0;
   s_read_calls = 0;
@@ -322,4 +325,15 @@ void test_flash_api__coredump_mode_is_synchronous(void) {
   cl_assert_equal_i(s_erase_commands[0].size, SECTOR_SIZE);
   cl_assert_equal_i(s_erase_commands[1].size, SUBSECTOR_SIZE);
   cl_assert_equal_i(s_suspend_calls, 0);
+}
+
+void test_flash_api__erase_begin_can_complete_synchronously(void) {
+  s_dev.ops = &s_async_ops;
+  s_erase_status_return = -EBUSY;
+  s_erase_begin_return = 1;
+
+  pbl_flash_erase_async(&s_dev, 0x10000, SECTOR_SIZE, prv_cb, NULL);
+  prv_fire_timers(5);
+  cl_assert_equal_i(s_cb_calls, 1);
+  cl_assert_equal_i(s_cb_status, 0);
 }

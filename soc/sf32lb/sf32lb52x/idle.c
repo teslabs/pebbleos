@@ -7,7 +7,9 @@
 #include "board/board.h"
 #include "console/prompt.h"
 #include "drivers/flash.h"
+#ifdef CONFIG_FLASH_SF32LB52_MPI
 #include "drivers/flash/sf32lb52_mpi.h"
+#endif
 #include "drivers/rtc.h"
 #include "drivers/sf32lb52/rc10k.h"
 #include "drivers/task_watchdog.h"
@@ -90,7 +92,9 @@ static inline void prv_enter_wfi(void) {
 static void prv_enter_deepwfi(void) {
   s_last_sleep_type = SleepTypeDeepWfi;
 
+#ifdef CONFIG_FLASH_SF32LB52_MPI
   pbl_flash_power_down(FLASH);
+#endif
 
   __DSB();
   __ISB();
@@ -106,7 +110,11 @@ static void prv_enter_deepslep(void) {
 
   prv_save_iser();
 
+#ifdef CONFIG_FLASH_SF32LB52_MPI
   pbl_flash_sf32lb52_mpi_dpd_enter(FLASH);
+#else
+  pbl_flash_power_down(FLASH);
+#endif
 
   NVIC_EnableIRQ(AON_IRQn);
 
@@ -154,7 +162,11 @@ static void prv_enter_deepslep(void) {
     HAL_Delay_us(0);
   }
 
+#ifdef CONFIG_FLASH_SF32LB52_MPI
   pbl_flash_sf32lb52_mpi_dpd_exit(FLASH);
+#else
+  pbl_flash_power_up(FLASH);
+#endif
 
   prv_restore_iser();
 }

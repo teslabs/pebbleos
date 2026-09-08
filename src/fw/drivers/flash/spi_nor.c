@@ -17,6 +17,10 @@
 #include "pbl/util/misc.h"
 #include "system/passert.h"
 
+#ifdef CONFIG_SOC_SF32LB52
+#include <bf0_hal.h>
+#endif
+
 PBL_LOG_MODULE_DECLARE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
 
 // Generic JEDEC SPI NOR driver, after Linux spi-nor: the part is described by
@@ -48,6 +52,7 @@ PBL_LOG_MODULE_DECLARE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
 #define OP_READ_SEC 0x48
 
 #define SR1_WIP (1U << 0)
+#define SR1_BP_MASK 0x7C
 #define SR2_QE (1U << 1)
 #define SR2_SUS (1U << 7)
 
@@ -524,6 +529,26 @@ static int prv_configure(const struct pbl_flash_device *dev) {
   return prv_select_ops(dev, sfdp, qer);
 }
 
+// Some parts ship with block protection bits set
+static int prv_clear_block_protect(const struct pbl_flash_device *dev) {
+  uint8_t sr1;
+
+  int ret = prv_read_sr1(dev, &sr1);
+  if (ret != 0 || (sr1 & SR1_BP_MASK) == 0) {
+    return ret;
+  }
+
+  sr1 &= ~SR1_BP_MASK;
+  ret = prv_write_enable(dev);
+  if (ret == 0) {
+    ret = prv_write_reg(dev, OP_WRSR, &sr1, 1);
+  }
+  if (ret == 0) {
+    ret = prv_wait_idle(dev);
+  }
+  return ret;
+}
+
 static int prv_init(const struct pbl_flash_device *dev) {
   const struct spi_nor *cfg = prv_cfg(dev);
   struct spi_nor_state *st = prv_state(dev);
@@ -540,10 +565,13 @@ static int prv_init(const struct pbl_flash_device *dev) {
     return ret;
   }
 
-  // Reset the part to stop any program or erase in progress from before reboot
-  prv_cmd(dev, OP_RESET_EN);
-  prv_cmd(dev, OP_RESET);
-  psleep((cfg->part != NULL) ? cfg->part->reset_latency_ms : DEFAULT_RESET_LATENCY_MS);
+  // Reset the part to stop any program or erase in progress from before
+  // reboot, unless we are executing from it.
+  if (!prv_bus(dev)->xip) {
+    prv_cmd(dev, OP_RESET_EN);
+    prv_cmd(dev, OP_RESET);
+    psleep((cfg->part != NULL) ? cfg->part->reset_latency_ms : DEFAULT_RESET_LATENCY_MS);
+  }
 
   uint8_t id[3];
   ret = prv_read_reg(dev, OP_RDID, id, sizeof(id));
@@ -556,6 +584,9 @@ static int prv_init(const struct pbl_flash_device *dev) {
   }
 
   ret = prv_configure(dev);
+  if (ret == 0) {
+    ret = prv_clear_block_protect(dev);
+  }
   if (ret != 0) {
     return ret;
   }
@@ -571,6 +602,7 @@ static int prv_init(const struct pbl_flash_device *dev) {
 static int prv_read(const struct pbl_flash_device *dev, uint32_t addr, void *buf, size_t len) {
   struct spi_nor_state *st = prv_state(dev);
 
+  addr -= dev->base;
   if (pbl_spi_mem_has_dirmap(prv_bus(dev))) {
     return pbl_spi_mem_dirmap_read(prv_bus(dev), addr, buf, len);
   }
@@ -588,6 +620,8 @@ static int prv_write(const struct pbl_flash_device *dev, uint32_t addr, const vo
                      size_t len) {
   struct spi_nor_state *st = prv_state(dev);
   const uint8_t *src = buf;
+
+  addr -= dev->base;
 
   while (len > 0) {
     size_t chunk = MIN(len, st->geometry.page_size - (addr % st->geometry.page_size));
@@ -625,6 +659,8 @@ static int prv_erase_begin(const struct pbl_flash_device *dev, uint32_t addr, si
   struct spi_nor_state *st = prv_state(dev);
   uint8_t opcode;
 
+  addr -= dev->base;
+
   if (size == st->geometry.sector_size) {
     opcode = st->erase_sector_opcode;
   } else if (size == st->geometry.subsector_size) {
@@ -641,7 +677,13 @@ static int prv_erase_begin(const struct pbl_flash_device *dev, uint32_t addr, si
   struct pbl_spi_mem_op op =
       PBL_SPI_MEM_OP(PBL_SPI_MEM_OP_CMD(opcode, 1), PBL_SPI_MEM_OP_ADDR(st->addr_nbytes, addr, 1),
                      PBL_SPI_MEM_OP_NO_DUMMY, PBL_SPI_MEM_OP_NO_DATA);
-  return pbl_spi_mem_exec_op(prv_bus(dev), &op);
+  ret = pbl_spi_mem_exec_op(prv_bus(dev), &op);
+  if (ret != 0) {
+    return ret;
+  }
+
+  // An XIP bus only returns once the part is readable again
+  return prv_bus(dev)->xip ? 1 : 0;
 }
 
 static int prv_erase_status(const struct pbl_flash_device *dev) {
@@ -838,12 +880,21 @@ static const struct pbl_flash_ops s_ops = {
 #endif
 };
 
+#if defined(CONFIG_SPI_MEM_SF32LB52_MPI)
+#define FLASH_BASE_(n) FLASH##n##_BASE_ADDR
+#define FLASH_BASE(n) FLASH_BASE_(n)
+#define NOR_BASE FLASH_BASE(CONFIG_SF32LB52_MPI_INSTANCE)
+#else
+#define NOR_BASE 0
+#endif
+
 static struct spi_nor_state s_flash_state;
 static const struct spi_nor s_flash = {
     .dev =
         {
             .state = &s_flash_state.flash,
             .ops = &s_ops,
+            .base = NOR_BASE,
             .geometry = &s_flash_state.geometry,
 #ifdef PBL_FLASH_NOR_PART
             .sec_regs = &PBL_FLASH_NOR_PART.sec_regs,
@@ -856,5 +907,7 @@ static const struct spi_nor s_flash = {
 const struct pbl_flash_device *const FLASH = &s_flash.dev;
 
 #if UNITTEST
-void spi_nor_reset_for_test(void) { memset(&s_flash_state, 0, sizeof(s_flash_state)); }
+void spi_nor_reset_for_test(void) {
+  memset(&s_flash_state, 0, sizeof(s_flash_state));
+}
 #endif
