@@ -5,6 +5,9 @@ set(sources
   flash.c
   flash_crc.c
 )
+if(CONFIG_FLASH_SPI_NOR)
+  list(APPEND sources spi_nor.c)
+endif()
 if(CONFIG_FLASH_NRF5_QSPI)
   list(APPEND sources nrf5_qspi.c)
 endif()

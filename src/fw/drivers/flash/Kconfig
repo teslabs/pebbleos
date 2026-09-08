@@ -23,9 +23,17 @@ config FLASH_GD25Q256E
 
 endchoice
 
+config FLASH_SPI_NOR
+    bool "Generic SPI NOR flash over spi_mem"
+    depends on SPI_MEM
+    help
+      JEDEC SPI NOR flash driven through a spi_mem controller. The part
+      is discovered through SFDP, with the selected NOR part table
+      filling in what SFDP does not describe.
+
 config FLASH_NRF5_QSPI
     bool "nRF5 QSPI NOR flash (direct)"
-    depends on SOC_NRF52
+    depends on SOC_NRF52 && !FLASH_SPI_NOR
     default y
     help
       SPI NOR flash driven directly by the nRF5 QSPI peripheral, without
