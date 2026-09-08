@@ -2,6 +2,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "board/board.h"
+#include "flash_region/flash_region.h"
+#include <pbl/drivers/flash/qemu.h>
 
 // UART device for debug serial
 #include <pbl/drivers/uart/qemu.h>
@@ -30,6 +32,21 @@ static struct UARTDevice QEMU_UART_DEVICE = {
 };
 
 UARTDevice *const QEMU_UART = (UARTDevice *)&QEMU_UART_DEVICE;
+
+static struct pbl_flash_device_state s_flash_state;
+static const struct pbl_flash_qemu s_flash = {
+    .dev =
+        {
+            .state = &s_flash_state,
+            .ops = &pbl_flash_qemu_ops,
+            .base = FLASH_REGION_BASE_ADDRESS,
+            .size = BOARD_NOR_FLASH_SIZE,
+            .sector_size = SECTOR_SIZE_BYTES,
+            .subsector_size = SUBSECTOR_SIZE_BYTES,
+        },
+    .regs = QEMU_EXTFLASH_BASE,
+};
+const struct pbl_flash_device *const FLASH = &s_flash.dev;
 
 // Display device - QEMU framebuffer
 static QemuDisplayDevice s_display = {

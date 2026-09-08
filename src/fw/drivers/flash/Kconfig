@@ -8,6 +8,27 @@ menuconfig FLASH
 
 if FLASH
 
+config FLASH_NRF5_QSPI
+    bool "nRF5 QSPI NOR flash"
+    depends on SOC_NRF52
+    default y
+    help
+      SPI NOR flash attached to the nRF5 QSPI peripheral.
+
+config FLASH_SF32LB52_MPI
+    bool "SF32LB52 MPI NOR flash"
+    depends on SOC_SF32LB52
+    default y
+    help
+      SPI NOR flash attached to an SF32LB52 MPI controller.
+
+config FLASH_QEMU
+    bool "QEMU External Flash"
+    depends on SOC_QEMU
+    default y
+    help
+      Support for the QEMU external flash peripheral.
+
 config FLASH_GD25LQ255E
     bool "GigaDevice GD25LQ255E"
     help
@@ -17,12 +38,6 @@ config FLASH_GD25Q256E
     bool "GigaDevice GD25Q256E"
     help
       Support for the GigaDevice GD25Q256E NOR flash.
-
-config FLASH_QEMU
-    bool "QEMU External Flash"
-    default y if SOC_QEMU
-    help
-      Support for the QEMU external flash peripheral.
 
 module = DRIVER_FLASH
 module-str = Flash

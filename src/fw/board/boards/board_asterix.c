@@ -4,8 +4,9 @@
 #include <nrfx_i2s.h>
 
 #include "board/board.h"
+#include "flash_region/flash_region.h"
 #include <pbl/drivers/audio.h>
-#include <pbl/drivers/flash/qspi_flash_definitions.h>
+#include <pbl/drivers/flash/nrf5_qspi.h>
 #include <pbl/drivers/i2c.h>
 #include <pbl/drivers/i2c/definitions.h>
 #include <pbl/drivers/mic.h>
@@ -14,7 +15,6 @@
 #include <pbl/drivers/i2c/nrf5.h>
 #include <pbl/drivers/uart/nrf5.h>
 #include <pbl/drivers/pmic/npm1300.h>
-#include <pbl/drivers/qspi_definitions.h>
 #include <pbl/drivers/rtc.h>
 #include "flash_region/flash_region.h"
 
@@ -25,9 +25,20 @@
 #include <nrfx_twim.h>
 #include <nrfx_pdm.h>
 
-static QSPIPortState s_qspi_port_state;
-static QSPIPort QSPI_PORT = {
-    .state = &s_qspi_port_state,
+static struct pbl_flash_nrf5_qspi_state s_flash_state;
+static const struct pbl_flash_nrf5_qspi s_flash = {
+    .dev =
+        {
+            .state = &s_flash_state.flash,
+            .ops = &pbl_flash_nrf5_qspi_ops,
+            .size = BOARD_NOR_FLASH_SIZE,
+            .sector_size = SECTOR_SIZE_BYTES,
+            .subsector_size = SUBSECTOR_SIZE_BYTES,
+            .sector_erase_ms = 150,
+            .subsector_erase_ms = 50,
+            .sec_regs = &pbl_flash_nor_gd25lq255e.sec_regs,
+        },
+    .part = &pbl_flash_nor_gd25lq255e,
     .clk_freq_hz = 8000000UL,
     .cs_gpio = NRF_GPIO_PIN_MAP(0, 17),
     .clk_gpio = NRF_GPIO_PIN_MAP(0, 19),
@@ -38,17 +49,10 @@ static QSPIPort QSPI_PORT = {
             NRF_GPIO_PIN_MAP(0, 22),
             NRF_GPIO_PIN_MAP(0, 23),
         },
+    .read_mode = PBL_FLASH_NRF5_QSPI_READ_READ4IO,
+    .write_mode = PBL_FLASH_NRF5_QSPI_WRITE_PP4O,
 };
-QSPIPort *const QSPI = &QSPI_PORT;
-
-static QSPIFlashState s_qspi_flash_state;
-static QSPIFlash QSPI_FLASH_DEVICE = {
-    .state = &s_qspi_flash_state,
-    .qspi = &QSPI_PORT,
-    .read_mode = QSPI_FLASH_READ_READ4IO,
-    .write_mode = QSPI_FLASH_WRITE_PP4O,
-};
-QSPIFlash *const QSPI_FLASH = &QSPI_FLASH_DEVICE;
+const struct pbl_flash_device *const FLASH = &s_flash.dev;
 /* PERIPHERAL ID 43 */
 
 static UARTDeviceState s_dbg_uart_state;

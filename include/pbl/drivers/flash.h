@@ -1,188 +1,141 @@
-/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 
-#include "system/status_codes.h"
+#include "pbl/kernel/mutex.h"
+#include "pbl/kernel/sem.h"
+#include "pbl/services/new_timer/new_timer.h"
 
-typedef struct FlashSecurityRegisters {
-  const uint32_t *sec_regs;
-  uint8_t num_sec_regs;
-  uint16_t sec_reg_size;
-} FlashSecurityRegisters;
+struct pbl_flash_device;
 
-/**
- * Configure the micro's peripherals to communicate with the flash
- * chip.
- */
-void flash_init(void);
+typedef void (*pbl_flash_erase_cb_t)(void *ctx, int status);
 
-//! Stop all flash transactions.
-void flash_stop(void);
+//! One-time-programmable "security registers" of NOR parts that have them.
+struct pbl_flash_sec_regs {
+  const uint32_t *addrs;
+  uint8_t count;
+  uint16_t size;
+};
 
-/**
- * Read 1 or more bytes starting at the specified 24bit address into
- * the provided buffer. This function does no range checking, so it is
- * currently possible to run off the end of the flash.
- *
- * @param buffer A byte-buffer that will be used to store the data
- * read from flash.
- * @param start_addr The address of the first byte to be read from flash.
- * @param buffer_size The total number of bytes to be read from flash.
- */
-void flash_read_bytes(uint8_t* buffer, uint32_t start_addr, uint32_t buffer_size);
+//! Driver interface. Called with the device lock held (or from coredump/idle
+//! context without any OS services); drivers must not block on OS primitives
+//! when @ref pbl_flash_device_state::coredump is set.
+struct pbl_flash_ops {
+  int (*init)(const struct pbl_flash_device *dev);
+  int (*read)(const struct pbl_flash_device *dev, uint32_t addr, void *buf, size_t len);
+  int (*write)(const struct pbl_flash_device *dev, uint32_t addr, const void *buf, size_t len);
+  //! Erase @p size bytes (sector_size or subsector_size) at @p addr. When
+  //! erase_status is NULL the erase completes before returning.
+  int (*erase_begin)(const struct pbl_flash_device *dev, uint32_t addr, size_t size);
+  //! @return 0 done, -EBUSY in progress, -EAGAIN suspended, other errors failed.
+  int (*erase_status)(const struct pbl_flash_device *dev);
+  //! @return 0 suspended, 1 if the erase had already completed. Optional.
+  int (*erase_suspend)(const struct pbl_flash_device *dev);
+  int (*erase_resume)(const struct pbl_flash_device *dev);
+  //! Called with interrupts disabled around MCU stop mode. Optional.
+  void (*power_down)(const struct pbl_flash_device *dev);
+  void (*power_up)(const struct pbl_flash_device *dev);
+  int (*sec_reg_read)(const struct pbl_flash_device *dev, uint32_t addr, uint8_t *val);
+  int (*sec_reg_write)(const struct pbl_flash_device *dev, uint32_t addr, uint8_t val);
+  int (*sec_reg_erase)(const struct pbl_flash_device *dev, uint32_t addr);
+  int (*sec_reg_is_locked)(const struct pbl_flash_device *dev, uint32_t addr, bool *locked);
+  int (*sec_reg_lock)(const struct pbl_flash_device *dev, uint32_t addr);
+};
 
-/**
- * Write 1 or more bytes from the buffer to flash starting at the
- * specified 24bit address. This function will handle both writing a
- * buffer that is larger than the flash's page size and writing to a
- * non-page aligned address.
- *
- * @param buffer A byte-buffer containing the data to be written to flash.
- * @param start_addr The address of the first byte to be written to flash.
- * @param buffer_size The total number of bytes to be written.
- */
-void flash_write_bytes(const uint8_t* buffer, uint32_t start_addr, uint32_t buffer_size);
+struct pbl_flash_device_state {
+  struct pbl_mutex lock;
+  struct pbl_sem erase_sem;
+  bool initialized;
+  bool coredump;
+  struct {
+    bool enabled;
+    uint32_t start;
+    uint32_t end;
+  } protect;
+  struct {
+    bool in_progress;
+    bool suspended;
+    //! The hardware finished before a suspend was attempted.
+    bool done;
+    uint32_t next;
+    uint32_t end;
+    uint32_t unit;
+    uint32_t expected_ms;
+    uint8_t retries;
+    pbl_flash_erase_cb_t cb;
+    void *ctx;
+  } erase;
+  TimerID poll_timer;
+  TimerID resume_timer;
+};
 
-typedef void (*FlashOperationCompleteCb)(void *context, status_t result);
+struct pbl_flash_device {
+  struct pbl_flash_device_state *state;
+  const struct pbl_flash_ops *ops;
+  //! Address of the first byte, as seen by the flash API.
+  uint32_t base;
+  uint32_t size;
+  //! Large and small erase units.
+  uint32_t sector_size;
+  uint32_t subsector_size;
+  //! Typical erase durations, used to pace polling of asynchronous erases.
+  uint16_t sector_erase_ms;
+  uint16_t subsector_erase_ms;
+  //! NULL when the part has no security registers.
+  const struct pbl_flash_sec_regs *sec_regs;
+};
 
-/**
- * Erase a subsector asynchronously.
- *
- * The callback function will be called when the erase completes, whether the
- * erase succeeded or failed. The callback will be executed on an arbitrary
- * (possibly high-priority) task, so the callback function must return quickly.
- * The callback may also be called directly from within flash_erase_subsector.
- */
-void flash_erase_subsector(uint32_t subsector_addr,
-                           FlashOperationCompleteCb on_complete,
-                           void *context);
+//! The board's storage flash.
+extern const struct pbl_flash_device *const FLASH;
 
-/**
- * Erase a sector asynchronously.
- *
- * The callback function will be called when the erase completes, whether the
- * erase succeeded or failed. The callback will be executed on an arbitrary
- * (possibly high-priority) task, so the callback function must return quickly.
- * The callback may also be called directly from within flash_erase_sector.
- */
-void flash_erase_sector(uint32_t sector_addr,
-                        FlashOperationCompleteCb on_complete,
-                        void *context);
+int pbl_flash_init(const struct pbl_flash_device *dev);
 
-/**
- * Erase the subsector containing the specified address.
- */
-void flash_erase_subsector_blocking(uint32_t subsector_addr);
+//! Re-initialise the device for use from a fault handler: no locking, no
+//! sleeping, no timers. Not reversible.
+int pbl_flash_coredump_init(const struct pbl_flash_device *dev);
 
-/**
- * Erase the sector containing the specified address.
- *
- * Beware: this function takes 100ms+ to execute, so be careful when you call it.
- */
-void flash_erase_sector_blocking(uint32_t sector_addr);
+//! Wait for an in-progress erase to finish. Called before reset.
+void pbl_flash_stop(const struct pbl_flash_device *dev);
 
-/**
- * Check whether the sector containing the specified address is already erased.
- */
-bool flash_sector_is_erased(uint32_t sector_addr);
+//! Reads and writes are thread safe and may be issued while an erase is in
+//! progress. Write and erase assert on hardware failure.
+int pbl_flash_read(const struct pbl_flash_device *dev, uint32_t addr, void *buf, size_t len);
+int pbl_flash_write(const struct pbl_flash_device *dev, uint32_t addr, const void *buf, size_t len);
 
-/**
- * Check whether the subsector containing the specified address is already erased.
- */
-bool flash_subsector_is_erased(uint32_t sector_addr);
+//! Erase [addr, addr + len). @p addr must be subsector aligned; @p len is
+//! rounded up to a subsector. Sector erases are used wherever the range allows.
+int pbl_flash_erase(const struct pbl_flash_device *dev, uint32_t addr, size_t len);
 
-/**
- * Erase a region of flash asynchronously using as few erase operations as
- * possible.
- *
- * At least (max_start, min_end) but no more than (min_start, max_end) will be
- * erased. Both min_start and max_end must be aligned to a subsector address as
- * that is the smallest unit that can be erased.
- */
-void flash_erase_optimal_range(
-    uint32_t min_start, uint32_t max_start, uint32_t min_end, uint32_t max_end,
-    FlashOperationCompleteCb on_complete, void *context);
+//! Like @ref pbl_flash_erase, completing through @p cb from an arbitrary task.
+//! The callback may also run before this function returns. Blocks while
+//! another erase is ongoing.
+int pbl_flash_erase_async(const struct pbl_flash_device *dev, uint32_t addr, size_t len,
+                          pbl_flash_erase_cb_t cb, void *ctx);
 
-// This is only intended to be called when entering stop mode. It does not use
-// any locks because IRQs have already been disabled. The idea is to only incur
-// the wait penalty for entering/exiting deep sleep mode for the flash
-// before/after stop mode. The flash part consumes ~100uA in standby mode and
-// ~10uA when its in deep sleep mode. If the MCU is not in stop mode, this
-// difference is negligible
-void flash_power_down_for_stop_mode(void);
-void flash_power_up_after_stop_mode(void);
+bool pbl_flash_is_erased(const struct pbl_flash_device *dev, uint32_t addr, size_t len);
 
-// Returns the sector address that the given flash address lies in
-uint32_t flash_get_sector_base_address(uint32_t flash_addr);
+//! Refuse writes and erases in [addr, addr + len). Only one range at a time.
+int pbl_flash_protect(const struct pbl_flash_device *dev, uint32_t addr, size_t len);
+int pbl_flash_unprotect(const struct pbl_flash_device *dev);
 
-// Returns the subsector address that the given flash address lies in
-uint32_t flash_get_subsector_base_address(uint32_t flash_addr);
+//! Around MCU stop mode, with interrupts disabled.
+void pbl_flash_power_down(const struct pbl_flash_device *dev);
+void pbl_flash_power_up(const struct pbl_flash_device *dev);
 
-// Write-protects the prf region of flash
-void flash_prf_set_protection(bool do_protect);
+uint32_t pbl_flash_crc32(const struct pbl_flash_device *dev, uint32_t addr, size_t len);
+uint32_t pbl_flash_legacy_checksum(const struct pbl_flash_device *dev, uint32_t addr, size_t len);
 
-//! Compute a CRC32 checksum of a region of flash.
-uint32_t flash_crc32(uint32_t flash_addr, uint32_t length);
-
-//! Apply the legacy defective checksum to a region of flash.
-uint32_t flash_calculate_legacy_defective_checksum(uint32_t flash_addr,
-                                                   uint32_t length);
-
-//! Read security register
-//!
-//! @param addr The address of the security register to read.
-//!
-//! @param [out] val The value of the security register read.
-//!
-//! @retval S_SUCCESS if the read was successful
-//! @retval StatusCode if the read failed
-status_t flash_read_security_register(uint32_t addr, uint8_t *val);
-
-//! Check if a security register is locked
-//!
-//! @param addr The address of the security register to check.
-//! @param [out] locked True if the security registers are locked
-//!
-//! @retval S_SUCCESS if the check was successful
-//! @retval StatusCode if the check failed
-status_t flash_security_register_is_locked(uint32_t addr, bool *locked);
-
-//! Erase security register
-//!
-//! @param addr The address of the security register to erase.
-//!
-//! @retval S_SUCCESS if the erase was successful
-//! @retval StatusCode if the erase failed
-status_t flash_erase_security_register(uint32_t addr);
-
-//! Write security register
-//!
-//! @param addr The address of the security register to write.
-//!
-//! @param val The value to write to the security register.
-//!
-//! @retval S_SUCCESS if the write was successful
-//! @retval StatusCode if the write failed
-status_t flash_write_security_register(uint32_t addr, uint8_t val);
-
-//! Obtain security registers information
-//!
-//! @returns The information about the security registers.
-const FlashSecurityRegisters *flash_security_registers_info(void);
-
+//! Security registers. -ENOTSUP when the part has none.
+int pbl_flash_sec_reg_read(const struct pbl_flash_device *dev, uint32_t addr, uint8_t *val);
+int pbl_flash_sec_reg_write(const struct pbl_flash_device *dev, uint32_t addr, uint8_t val);
+int pbl_flash_sec_reg_erase(const struct pbl_flash_device *dev, uint32_t addr);
+int pbl_flash_sec_reg_is_locked(const struct pbl_flash_device *dev, uint32_t addr, bool *locked);
 #ifdef CONFIG_RECOVERY_FW
-//! Lock security register
-//!
-//! @warning This is a one time operation and will permanently lock the security registers.
-//!
-//! @param addr The address of the security register to lock.
-//!
-//! @retval S_SUCCESS if the lock was successful
-//! @retval StatusCode if the lock failed
-status_t flash_lock_security_register(uint32_t addr);
-#endif // CONFIG_RECOVERY_FW
+//! Permanently locks the register. One-time operation.
+int pbl_flash_sec_reg_lock(const struct pbl_flash_device *dev, uint32_t addr);
+#endif
