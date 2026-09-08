@@ -72,10 +72,6 @@ extern void command_read_word(const char* address_str) {
   prompt_send_response_fmt(buffer, sizeof(buffer), "0x%"PRIx32" = 0x%"PRIx32, address, word);
 }
 
-void command_format_flash(void) {
-  flash_erase_bulk();
-}
-
 void command_erase_flash(const char *address_str, const char *length_str) {
   int32_t address = str_to_address(address_str);
   if (address < 0) {
@@ -194,11 +190,6 @@ void command_flash_read(const char* address_str, const char* length_str) {
   }
 
   kernel_free(buffer);
-}
-
-void command_flash_switch_mode (const char* mode_str) {
-  int mode = atoi(mode_str);
-  flash_switch_mode(mode);
 }
 
 #define WRITE_PAGE_SIZE_BYTES 64

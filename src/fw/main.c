@@ -174,8 +174,6 @@ static void init_drivers(void) {
 #endif
 
   flash_init();
-  flash_sleep_when_idle(true);
-  flash_enable_write_protection();
   flash_prf_set_protection(true);
 
   uint8_t vibe_cali = mfg_info_get_vibe_cali();
