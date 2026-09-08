@@ -24,43 +24,14 @@ config FLASH_GD25Q256E
 endchoice
 
 config FLASH_NRF5_QSPI
-    bool "nRF5 QSPI NOR flash"
+    bool "nRF5 QSPI NOR flash (direct)"
     depends on SOC_NRF52
     default y
     help
-      SPI NOR flash attached to the nRF5 QSPI peripheral.
+      SPI NOR flash driven directly by the nRF5 QSPI peripheral, without
+      the spi_mem and SPI NOR layers. Pins and clock come from NRF5_QSPI_*.
 
 if FLASH_NRF5_QSPI
-
-config FLASH_NRF5_QSPI_CLK_FREQ_HZ
-    int "QSPI clock frequency (Hz)"
-    default 8000000
-    help
-      Frequencies above 8 MHz are exposed to nRF52 anomaly 244.
-
-config FLASH_NRF5_QSPI_SCK_PIN
-    int "SCK pin"
-    default 0
-
-config FLASH_NRF5_QSPI_CSN_PIN
-    int "CSN pin"
-    default 0
-
-config FLASH_NRF5_QSPI_IO0_PIN
-    int "IO0 pin"
-    default 0
-
-config FLASH_NRF5_QSPI_IO1_PIN
-    int "IO1 pin"
-    default 0
-
-config FLASH_NRF5_QSPI_IO2_PIN
-    int "IO2 pin"
-    default 0
-
-config FLASH_NRF5_QSPI_IO3_PIN
-    int "IO3 pin"
-    default 0
 
 choice FLASH_NRF5_QSPI_READ_MODE
     prompt "Read command"

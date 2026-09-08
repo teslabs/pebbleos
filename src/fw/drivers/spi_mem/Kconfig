@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+if SOC_NRF52
+
+config NRF5_QSPI_CLK_FREQ_HZ
+    int "nRF5 QSPI clock frequency (Hz)"
+    default 8000000
+    help
+      Frequencies above 8 MHz are exposed to nRF52 anomaly 244.
+
+config NRF5_QSPI_SCK_PIN
+    int "nRF5 QSPI SCK pin"
+    default 0
+
+config NRF5_QSPI_CSN_PIN
+    int "nRF5 QSPI CSN pin"
+    default 0
+
+config NRF5_QSPI_IO0_PIN
+    int "nRF5 QSPI IO0 pin"
+    default 0
+
+config NRF5_QSPI_IO1_PIN
+    int "nRF5 QSPI IO1 pin"
+    default 0
+
+config NRF5_QSPI_IO2_PIN
+    int "nRF5 QSPI IO2 pin"
+    default 0
+
+config NRF5_QSPI_IO3_PIN
+    int "nRF5 QSPI IO3 pin"
+    default 0
+
+endif # SOC_NRF52
+
+menuconfig SPI_MEM
+    bool "SPI memory bus"
+    help
+      Controllers that execute command/address/dummy/data transactions
+      against SPI memories (NOR, NAND, PSRAM).
+
+if SPI_MEM
+
+config SPI_MEM_NRF5_QSPI
+    bool "nRF5 QSPI"
+    depends on SOC_NRF52
+    default y
+    help
+      The nRF5 QSPI peripheral as a spi_mem controller. Pins and clock
+      come from NRF5_QSPI_*.
+
+endif # SPI_MEM
