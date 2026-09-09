@@ -37,15 +37,33 @@ static const OptionMenuStyle s_style_large = {
   .right_text_inset_with_icon = 4,
 };
 
+// Single-line rows hold one line of title text, so their height tracks the title font: Large's
+// 46 px carries a 24 px GOTHIC_24_BOLD, ExtraLarge's carries a 28 px GOTHIC_28_BOLD.
+static const OptionMenuStyle s_style_extra_large = {
+#if PBL_RECT
+  .cell_heights[OptionMenuContentType_SingleLine] = 54,
+#endif
+  .top_inset = 1,
+  .right_icon_spacing = PBL_IF_RECT_ELSE(10, 35),
+  .text_inset_single = -1,
+  .text_inset_multi = -3,
+  .right_text_inset_with_icon = 4,
+};
+
 static const OptionMenuStyle * const s_styles[NumPreferredContentSizes] = {
   [PreferredContentSizeSmall] = &s_style_medium,
   [PreferredContentSizeMedium] = &s_style_medium,
   [PreferredContentSizeLarge] = &s_style_large,
-  [PreferredContentSizeExtraLarge] = &s_style_large,
+  [PreferredContentSizeExtraLarge] = &s_style_extra_large,
 };
 
 static const OptionMenuStyle *prv_get_style(void) {
-  return s_styles[PreferredContentSizeDefault];
+  return s_styles[system_theme_get_content_size_for_process()];
+}
+
+static GFont prv_get_title_font(const OptionMenu *option_menu) {
+  return option_menu->title_font ?:
+      system_theme_get_font_for_process(TextStyleFont_MenuCellTitle);
 }
 
 static uint16_t prv_get_num_rows_callback(MenuLayer *menu_layer, uint16_t section_index,
@@ -248,7 +266,6 @@ void option_menu_configure(OptionMenu *option_menu,
 void option_menu_init(OptionMenu *option_menu) {
   *option_menu = (OptionMenu) {
     .choice = OPTION_MENU_CHOICE_NONE,
-    .title_font = system_theme_get_font_for_default_size(TextStyleFont_MenuCellTitle),
   };
 
   // radio button icons are enabled by default
@@ -312,7 +329,7 @@ void option_menu_system_draw_row(OptionMenu *option_menu, GContext *ctx, const L
   const GTextAlignment text_alignment =
       PBL_IF_RECT_ELSE(GTextAlignmentLeft,
                        option_menu->icons_enabled ? GTextAlignmentRight : GTextAlignmentCenter);
-  GFont const title_font = option_menu->title_font;
+  GFont const title_font = prv_get_title_font(option_menu);
   const GSize text_size = graphics_text_layout_get_max_used_size(ctx, title, title_font,
                                                                  *cell_frame, overflow_mode,
                                                                  text_alignment, NULL);

@@ -4,6 +4,7 @@
 #include "applib/ui/option_menu_window.h"
 #include "resource/resource.h"
 #include "resource/resource_ids.auto.h"
+#include "shell/system_theme.h"
 #include "pbl/services/timeline/timeline_resources.h"
 
 #include "clar.h"
@@ -64,6 +65,9 @@ void test_option_menu_window__initialize(void) {
 
   s_data = (OptionMenuTestData) {};
   rtc_set_time(3 * SECONDS_PER_DAY);
+
+  // The content size setting leaks across tests in this process
+  system_theme_set_content_size(PreferredContentSizeDefault);
 }
 
 void test_option_menu_window__cleanup(void) {
@@ -212,5 +216,33 @@ void test_option_menu_window__short_title_special_height(void) {
 void test_option_menu_window__short_title_special_height_icons(void) {
   prv_create_menu_and_render_short_title(true /* icons_enabled */, "Special Height",
                                          true /* special_height */);
+  FAKE_GRAPHICS_CONTEXT_CHECK_DEST_BITMAP_FILE();
+}
+
+// The option menu follows the user's content size: fonts and single-line row heights grow with it.
+
+static void prv_render_at_content_size(PreferredContentSize size) {
+  system_theme_set_content_size(size);
+  prv_create_menu_and_render_short_title(true /* icons_enabled */, "Text Size",
+                                         true /* special_height */);
+}
+
+void test_option_menu_window__content_size_small(void) {
+  prv_render_at_content_size(PreferredContentSizeSmall);
+  FAKE_GRAPHICS_CONTEXT_CHECK_DEST_BITMAP_FILE();
+}
+
+void test_option_menu_window__content_size_medium(void) {
+  prv_render_at_content_size(PreferredContentSizeMedium);
+  FAKE_GRAPHICS_CONTEXT_CHECK_DEST_BITMAP_FILE();
+}
+
+void test_option_menu_window__content_size_large(void) {
+  prv_render_at_content_size(PreferredContentSizeLarge);
+  FAKE_GRAPHICS_CONTEXT_CHECK_DEST_BITMAP_FILE();
+}
+
+void test_option_menu_window__content_size_extra_large(void) {
+  prv_render_at_content_size(PreferredContentSizeExtraLarge);
   FAKE_GRAPHICS_CONTEXT_CHECK_DEST_BITMAP_FILE();
 }

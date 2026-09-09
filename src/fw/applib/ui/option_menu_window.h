@@ -60,6 +60,7 @@ struct OptionMenu {
   StatusBarLayer status_layer;
   MenuLayer menu_layer;
   const char *title;
+  //! Optional; the menu cell title font of the content size in use when NULL
   GFont title_font;
   OptionMenuContentType content_type;
 
