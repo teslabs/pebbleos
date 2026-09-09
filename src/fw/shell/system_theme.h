@@ -81,6 +81,15 @@ GFont system_theme_get_font_for_size(PreferredContentSize size, TextStyleFont fo
 //! @return The font of the given font class for the runtime platform's default size.
 GFont system_theme_get_font_for_default_size(TextStyleFont font);
 
+//! @return The content size the calling process should render at: the user's preferred size for
+//! system processes, and the runtime platform's default for third-party apps, whose layouts must
+//! not change with the user's preference.
+PreferredContentSize system_theme_get_content_size_for_process(void);
+
+//! @param font The desired font class to obtain a font of.
+//! @return The font of the font class at \ref system_theme_get_content_size_for_process().
+GFont system_theme_get_font_for_process(TextStyleFont font);
+
 //! @param content_size The user's desired content size.
 void system_theme_set_content_size(PreferredContentSize content_size);
 

@@ -33,3 +33,11 @@ PreferredContentSize WEAK system_theme_convert_host_content_size_to_runtime_plat
     PreferredContentSize size) {
   return size;
 }
+
+PreferredContentSize WEAK system_theme_get_content_size_for_process(void) {
+  return PreferredContentSizeDefault;
+}
+
+GFont WEAK system_theme_get_font_for_process(TextStyleFont font) {
+  return NULL;
+}

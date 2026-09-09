@@ -5,8 +5,6 @@
 
 #include "applib/ui/kino/kino_reel.h"
 #include "applib/ui/kino/kino_reel_gbitmap_private.h"
-#include "kernel/pebble_tasks.h"
-#include "process_management/app_install_types.h"
 #include "process_management/process_manager.h"
 #include "shell/system_theme.h"
 #include "syscall/syscall.h"
@@ -57,18 +55,8 @@ static const MenuCellDimensions s_menu_cell_dimensions[NumPreferredContentSizes]
   },
 };
 
-//! Third-party apps keep the runtime platform's default size so their layouts are unaffected by
-//! the user's preferred content size.
-static bool prv_use_platform_default_size(void) {
-  return (pebble_task_get_current() == PebbleTask_App) &&
-         !app_install_id_from_system(sys_process_manager_get_current_process_id());
-}
-
 static const MenuCellDimensions *prv_get_cell_dimensions(void) {
-  const PreferredContentSize size = prv_use_platform_default_size() ?
-      system_theme_get_default_content_size_for_runtime_platform() :
-      system_theme_get_content_size();
-  return &s_menu_cell_dimensions[size];
+  return &s_menu_cell_dimensions[system_theme_get_content_size_for_process()];
 }
 
 int16_t menu_cell_basic_cell_height(void) {
@@ -89,17 +77,12 @@ static int16_t prv_title_subtitle_left_margin(void) {
 }
 #endif
 
-static GFont prv_get_cell_font(TextStyleFont font) {
-  return prv_use_platform_default_size() ? system_theme_get_font_for_default_size(font) :
-                                           system_theme_get_font(font);
-}
-
 static ALWAYS_INLINE GFont prv_get_cell_title_font(const MenuCellLayerConfig *config) {
-  return config->title_font ?: prv_get_cell_font(TextStyleFont_MenuCellTitle);
+  return config->title_font ?: system_theme_get_font_for_process(TextStyleFont_MenuCellTitle);
 }
 
 static ALWAYS_INLINE GFont prv_get_cell_subtitle_font(const MenuCellLayerConfig *config) {
-  return config->subtitle_font ?: prv_get_cell_font(TextStyleFont_MenuCellSubtitle);
+  return config->subtitle_font ?: system_theme_get_font_for_process(TextStyleFont_MenuCellSubtitle);
 }
 
 static ALWAYS_INLINE GFont prv_get_cell_value_font(const MenuCellLayerConfig *config) {

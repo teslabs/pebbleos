@@ -4,7 +4,10 @@
 #include "system_theme.h"
 
 #include "applib/fonts/fonts.h"
+#include "kernel/pebble_tasks.h"
+#include "process_management/app_install_types.h"
 #include "process_management/process_manager.h"
+#include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"
 #include "system/passert.h"
 #include "pbl/util/size.h"
@@ -161,6 +164,24 @@ GFont system_theme_get_font_for_size(PreferredContentSize size, TextStyleFont fo
 GFont system_theme_get_font_for_default_size(TextStyleFont font) {
   return fonts_get_system_font(system_theme_get_font_key_for_size(PreferredContentSizeDefault,
                                                                   font));
+}
+
+//! Third-party apps keep the runtime platform's default size so their layouts are unaffected by
+//! the user's preferred content size.
+static bool prv_use_platform_default_size(void) {
+  return (pebble_task_get_current() == PebbleTask_App) &&
+         !app_install_id_from_system(sys_process_manager_get_current_process_id());
+}
+
+PreferredContentSize system_theme_get_content_size_for_process(void) {
+  return prv_use_platform_default_size() ?
+      system_theme_get_default_content_size_for_runtime_platform() :
+      system_theme_get_content_size();
+}
+
+GFont system_theme_get_font_for_process(TextStyleFont font) {
+  return prv_use_platform_default_size() ? system_theme_get_font_for_default_size(font) :
+                                           system_theme_get_font(font);
 }
 
 static const PreferredContentSize s_platform_default_content_sizes[] = {
