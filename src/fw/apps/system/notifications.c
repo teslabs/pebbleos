@@ -356,8 +356,8 @@ static void prv_draw_notification_cell_rect(GContext *ctx, const Layer *cell_lay
   mutable_cell_layer->bounds = grect_inset(cell_layer_bounds,
                                            GEdgeInsets(0, 5, 0, text_left_margin));
 
-  const GFont title_font = system_theme_get_font_for_default_size(TextStyleFont_MenuCellTitle);
-  const GFont subtitle_font = system_theme_get_font_for_default_size(TextStyleFont_Caption);
+  const GFont title_font = system_theme_get_font_for_process(TextStyleFont_MenuCellTitle);
+  const GFont subtitle_font = system_theme_get_font_for_process(TextStyleFont_Caption);
   menu_cell_basic_draw_custom(ctx, cell_layer, title_font, title, NULL /* value_font */,
                               NULL /* value */, subtitle_font, subtitle, NULL /* icon */,
                               false /* icon_on_right */, GTextOverflowModeTrailingEllipsis);
@@ -433,9 +433,9 @@ static void prv_draw_notification_cell_round_selected(GContext *ctx, const Layer
   frame.origin.y += inset;
   frame.size.h -= inset * 2;
   frame.size.w -= inset * 2;
-  const GFont title_font = system_theme_get_font_for_default_size(TextStyleFont_MenuCellTitle);
+  const GFont title_font = system_theme_get_font_for_process(TextStyleFont_MenuCellTitle);
   const GFont subtitle_font =
-      system_theme_get_font_for_default_size(TextStyleFont_MenuCellSubtitle);
+      system_theme_get_font_for_process(TextStyleFont_MenuCellSubtitle);
   prv_draw_notification_cell_round(ctx, cell_layer, &frame, title_font, title, subtitle_font,
                                    subtitle, icon);
 }
@@ -455,7 +455,7 @@ static void prv_draw_notification_cell_round_unselected(GContext *ctx, const Lay
   // Using TextStyleFont_Header here is a little bit of a hack to achieve Gothic 18 Bold on
   // Spalding's default content size (medium) while still being a little robust for any future round
   // watches that have a default content size larger than medium
-  const GFont font = system_theme_get_font_for_default_size(TextStyleFont_Header);
+  const GFont font = system_theme_get_font_for_process(TextStyleFont_Header);
   prv_draw_notification_cell_round(ctx, cell_layer, &frame, font, title, NULL, NULL, NULL);
 }
 #endif
@@ -515,17 +515,14 @@ static int16_t prv_get_cell_height(struct MenuLayer *menu_layer, MenuIndex *cell
   return ((DISP_ROWS - STATUS_BAR_LAYER_HEIGHT * 2) - MENU_CELL_ROUND_FOCUSED_TALL_CELL_HEIGHT) / 4;
 #endif
 #endif
-  const PreferredContentSize runtime_platform_content_size =
-      system_theme_get_default_content_size_for_runtime_platform();
   return ((int16_t[NumPreferredContentSizes]) {
     //! @note this is the same as Medium until Small is designed
     [PreferredContentSizeSmall] = PBL_IF_RECT_ELSE(46, MENU_CELL_ROUND_UNFOCUSED_SHORT_CELL_HEIGHT),
     [PreferredContentSizeMedium] = PBL_IF_RECT_ELSE(46,
                                                     MENU_CELL_ROUND_UNFOCUSED_SHORT_CELL_HEIGHT),
     [PreferredContentSizeLarge] = menu_cell_basic_cell_height(),
-    //! @note this is the same as Large until ExtraLarge is designed
     [PreferredContentSizeExtraLarge] = menu_cell_basic_cell_height(),
-  })[runtime_platform_content_size];
+  })[system_theme_get_content_size_for_process()];
 }
 
 static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
@@ -548,7 +545,7 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIn
 #if PBL_ROUND
     draw_cell(ctx, cell_layer, i18n_get("Clear All", data), NULL, NULL);
 #else
-    const GFont font = system_theme_get_font_for_default_size(TextStyleFont_MenuCellTitle);
+    const GFont font = system_theme_get_font_for_process(TextStyleFont_MenuCellTitle);
     GRect box = cell_layer->bounds;
     box.origin.y += (box.size.h - fonts_get_font_height(font)) / 2 - fonts_get_font_cap_offset(font);
 
@@ -723,7 +720,7 @@ static void prv_window_load(Window *window) {
 
   TextLayer *text_layer = &data->text_layer;
   const int16_t horizontal_margin = 5;
-  const GFont font = system_theme_get_font_for_default_size(TextStyleFont_MenuCellTitle);
+  const GFont font = system_theme_get_font_for_process(TextStyleFont_MenuCellTitle);
   // configure text layer to be vertically aligned (15 is hacking around our poor fonts)
   text_layer_init_with_parameters(text_layer,
                                   &GRect(horizontal_margin, window->layer.bounds.size.h / 2 - 15,
