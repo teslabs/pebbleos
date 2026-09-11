@@ -916,11 +916,9 @@ void timeline_layer_init(TimelineLayer *layer, const GRect *frame_ref,
   GRect frame;
   prv_get_day_sep_show_frame(layer, &frame);
   peek_layer_init(&layer->day_separator, &frame);
-  const GFont title_font =
-      system_theme_get_font_for_size(PreferredContentSizeDefault, TextStyleFont_Title);
+  const GFont title_font = system_theme_get_font_for_process(TextStyleFont_Title);
   peek_layer_set_title_font(&layer->day_separator, title_font);
-  const GFont subtitle_font =
-      system_theme_get_font_for_size(PreferredContentSizeDefault, TextStyleFont_PinSubtitle);
+  const GFont subtitle_font = system_theme_get_font_for_process(TextStyleFont_PinSubtitle);
   peek_layer_set_subtitle_font(&layer->day_separator, subtitle_font,
                                style->day_sep_subtitle_margin);
 
