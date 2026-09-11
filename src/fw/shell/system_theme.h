@@ -96,6 +96,23 @@ void system_theme_set_content_size(PreferredContentSize content_size);
 //! @return The user's preferred content size.
 PreferredContentSize system_theme_get_content_size(void);
 
+//! Stored in place of a \ref PreferredContentSize by a preference that may defer to the system
+//! content size instead of naming one of its own.
+#define SystemThemeContentSizeFollowSystem ((PreferredContentSize)NumPreferredContentSizes)
+
+//! @param content_size The size notifications should render at, or
+//! \ref SystemThemeContentSizeFollowSystem to follow the system content size.
+void system_theme_set_notification_content_size(PreferredContentSize content_size);
+
+//! @return The stored notification content size preference, which is
+//! \ref SystemThemeContentSizeFollowSystem while notifications follow the system content size.
+//! Render with \ref system_theme_get_resolved_notification_content_size() instead.
+PreferredContentSize system_theme_get_notification_content_size(void);
+
+//! @return The content size notifications render at: their own preference when one is set, and
+//! the system content size otherwise.
+PreferredContentSize system_theme_get_resolved_notification_content_size(void);
+
 //! @return The default content size for the current runtime platform
 PreferredContentSize system_theme_get_default_content_size_for_runtime_platform(void);
 

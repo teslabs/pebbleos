@@ -29,6 +29,9 @@ _Static_assert(sizeof(PreferredContentSize) == sizeof(s_content_size),
                "sizeof(PreferredContentSize) grew, pref needs to be migrated!");
 #endif
 
+#define PREF_KEY_NOTIFICATION_CONTENT_SIZE "notifContentSize"
+static uint8_t s_notification_content_size = SystemThemeContentSizeFollowSystem;
+
 #ifdef CONFIG_APP_SCALING
 #define PREF_KEY_LEGACY_APP_RENDER_MODE "legacyAppRenderMode"
 static uint8_t s_legacy_app_render_mode = 1; // Default to scaled mode
@@ -52,6 +55,12 @@ void shell_prefs_init(void) {
   if (settings_file_get(&file, PREF_KEY_CONTENT_SIZE, sizeof(PREF_KEY_CONTENT_SIZE),
                         &s_content_size, sizeof(s_content_size)) != S_SUCCESS) {
     s_content_size = PreferredContentSizeDefault;
+  }
+  if (settings_file_get(&file, PREF_KEY_NOTIFICATION_CONTENT_SIZE,
+                        sizeof(PREF_KEY_NOTIFICATION_CONTENT_SIZE),
+                        &s_notification_content_size,
+                        sizeof(s_notification_content_size)) != S_SUCCESS) {
+    s_notification_content_size = SystemThemeContentSizeFollowSystem;
   }
   settings_file_close(&file);
 cleanup:
@@ -183,6 +192,27 @@ void system_theme_set_content_size(PreferredContentSize content_size) {
 PreferredContentSize system_theme_get_content_size(void) {
   return system_theme_convert_host_content_size_to_runtime_platform(
       (PreferredContentSize)s_content_size);
+}
+
+void system_theme_set_notification_content_size(PreferredContentSize content_size) {
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
+  const uint8_t content_size_uint = content_size;
+  if (content_size > SystemThemeContentSizeFollowSystem) {
+    PBL_LOG_WRN("Ignoring attempt to set notification content size to invalid size %d",
+            content_size);
+  } else if (prv_pref_set(PREF_KEY_NOTIFICATION_CONTENT_SIZE,
+                          &content_size_uint, sizeof(content_size_uint))) {
+    s_notification_content_size = content_size_uint;
+  }
+  pbl_mutex_unlock(&s_mutex);
+}
+
+PreferredContentSize system_theme_get_notification_content_size(void) {
+  if (s_notification_content_size == SystemThemeContentSizeFollowSystem) {
+    return SystemThemeContentSizeFollowSystem;
+  }
+  return system_theme_convert_host_content_size_to_runtime_platform(
+      (PreferredContentSize)s_notification_content_size);
 }
 
 bool activity_prefs_tracking_is_enabled(void) {

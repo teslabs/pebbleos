@@ -64,6 +64,16 @@ PreferredContentSize WEAK system_theme_get_content_size(void) {
   return (PreferredContentSize)s_content_size;
 }
 
+PreferredContentSize s_notification_content_size = SystemThemeContentSizeFollowSystem;
+
+void WEAK system_theme_set_notification_content_size(PreferredContentSize content_size) {
+  s_notification_content_size = content_size;
+}
+
+PreferredContentSize WEAK system_theme_get_notification_content_size(void) {
+  return (PreferredContentSize)s_notification_content_size;
+}
+
 static bool s_menu_scroll_enable = false;
 
 bool WEAK shell_prefs_get_menu_scroll_wrap_around_enable(void) {

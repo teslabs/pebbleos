@@ -194,6 +194,13 @@ PreferredContentSize system_theme_get_content_size(void) {
   return system_theme_get_default_content_size_for_runtime_platform();
 }
 
+void system_theme_set_notification_content_size(PreferredContentSize content_size) {
+}
+
+PreferredContentSize system_theme_get_notification_content_size(void) {
+  return SystemThemeContentSizeFollowSystem;
+}
+
 AlertMask alerts_get_mask(void) {
   return AlertMaskAllOff;
 }

@@ -180,6 +180,12 @@ GFont system_theme_get_font_for_process(TextStyleFont font) {
                                            system_theme_get_font(font);
 }
 
+PreferredContentSize system_theme_get_resolved_notification_content_size(void) {
+  const PreferredContentSize content_size = system_theme_get_notification_content_size();
+  return (content_size == SystemThemeContentSizeFollowSystem) ? system_theme_get_content_size() :
+                                                                content_size;
+}
+
 static const PreferredContentSize s_platform_default_content_sizes[] = {
   [PlatformTypeAplite] = PreferredContentSizeMedium,
   [PlatformTypeBasalt] = PreferredContentSizeMedium,

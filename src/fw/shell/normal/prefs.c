@@ -181,6 +181,10 @@ _Static_assert(sizeof(PreferredContentSize) == sizeof(s_text_style),
                "sizeof(PreferredContentSize) grew, pref needs to be migrated!");
 #endif
 
+// Notifications either follow s_text_style or carry a content size of their own
+#define PREF_KEY_NOTIFICATION_TEXT_STYLE "notifTextStyle"
+static uint8_t s_notification_text_style = SystemThemeContentSizeFollowSystem;
+
 #define PREF_KEY_LANG_ENGLISH "langEnglish"
 static bool s_language_english = false;
 
@@ -565,6 +569,15 @@ static bool prv_set_s_default_worker(Uuid *uuid) {
 
 static bool prv_set_s_text_style(uint8_t *style) {
   s_text_style = *style;
+  return true;
+}
+
+static bool prv_set_s_notification_text_style(uint8_t *style) {
+  if (*style > SystemThemeContentSizeFollowSystem) {
+    s_notification_text_style = SystemThemeContentSizeFollowSystem;
+    return false;
+  }
+  s_notification_text_style = *style;
   return true;
 }
 
@@ -1823,6 +1836,34 @@ void system_theme_set_content_size(PreferredContentSize content_size) {
 PreferredContentSize system_theme_get_content_size(void) {
   return system_theme_convert_host_content_size_to_runtime_platform(
       (PreferredContentSize)s_text_style);
+}
+
+void system_theme_set_notification_content_size(PreferredContentSize content_size) {
+  if (content_size > SystemThemeContentSizeFollowSystem) {
+    PBL_LOG_WRN("Ignoring attempt to set notification content size to invalid size %d",
+            content_size);
+    return;
+  }
+  const uint8_t content_size_uint = content_size;
+  prv_pref_set(PREF_KEY_NOTIFICATION_TEXT_STYLE, &content_size_uint, sizeof(content_size_uint));
+
+  // Watch-side sets bypass the blob-db path, so notify subscribed UI here too.
+  PebbleEvent pref_event = {
+    .type = PEBBLE_PREF_CHANGE_EVENT,
+    .pref_change = {
+      .key = PREF_KEY_NOTIFICATION_TEXT_STYLE,
+      .key_len = sizeof(PREF_KEY_NOTIFICATION_TEXT_STYLE),
+    },
+  };
+  event_put(&pref_event);
+}
+
+PreferredContentSize system_theme_get_notification_content_size(void) {
+  if (s_notification_text_style == SystemThemeContentSizeFollowSystem) {
+    return SystemThemeContentSizeFollowSystem;
+  }
+  return system_theme_convert_host_content_size_to_runtime_platform(
+      (PreferredContentSize)s_notification_text_style);
 }
 
 bool shell_prefs_get_language_english(void) {
