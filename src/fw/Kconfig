@@ -18,6 +18,15 @@ config THEMING
     help
       Expose the highlight-color theming UI under Settings.
 
+config BACKLIGHT_STANDARD_INTENSITY
+    int "Standard backlight preset intensity (%)"
+    range 1 100
+    default 50
+    help
+      Logical brightness used by the Standard backlight preset and fresh
+      shell preferences. The light service scales it to the board hardware
+      maximum. Saved brightness preferences take precedence.
+
 config DYNAMIC_BACKLIGHT
     bool "Dynamic backlight"
     help

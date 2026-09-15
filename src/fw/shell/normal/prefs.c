@@ -76,7 +76,6 @@ static uint32_t s_backlight_timeout_ms = DEFAULT_BACKLIGHT_TIMEOUT_MS;
 #define BACKLIGHT_INTENSITY_MIN 1U
 #define BACKLIGHT_INTENSITY_MAX 100U
 #define BACKLIGHT_INTENSITY_MEDIUM 25U
-#define BACKLIGHT_INTENSITY_HIGH 50U
 #define BACKLIGHT_INTENSITY_DEFAULT BACKLIGHT_INTENSITY_MEDIUM
 static uint8_t s_backlight_intensity; // default set in shell_prefs_init()
 
@@ -142,7 +141,7 @@ static const BacklightPresetSettings s_backlight_preset_settings[] = {
 #ifdef CONFIG_DYNAMIC_BACKLIGHT
     .dynamic_mode = BacklightDynamicMode_Standard,
 #endif
-    .intensity = BACKLIGHT_INTENSITY_HIGH,
+    .intensity = CONFIG_BACKLIGHT_STANDARD_INTENSITY,
     .timeout_ms = DEFAULT_BACKLIGHT_TIMEOUT_MS,
     .motion_enabled = true,
     .touch_wake = BacklightTouchWake_DoubleTap,
