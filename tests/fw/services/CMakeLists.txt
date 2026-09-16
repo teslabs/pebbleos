@@ -265,6 +265,12 @@ pbl_clar_test(test_app_cache
   OVERRIDES dummy_board
 )
 
+pbl_clar_test(test_mic_manager
+  SOURCES
+    fw/services/mic_manager/mic_manager.c
+  OVERRIDES dummy_board
+)
+
 pbl_clar_test(test_app_install_manager
   MODULES settings rand gtypes
   SOURCES
