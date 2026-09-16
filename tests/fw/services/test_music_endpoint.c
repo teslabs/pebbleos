@@ -8,6 +8,8 @@
 #include "pbl/services/music_endpoint_types.h"
 #include "pbl/services/music_internal.h"
 
+#include "applib/graphics/gtypes.h"
+
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/comm_session/session_remote_os.h"
 
@@ -164,6 +166,13 @@ static void prv_set_dummy_server_connected(bool connected) {
                              connected /* connected */);
 }
 
+static GBitmap *prv_make_album_art(void) {
+  GBitmap *bitmap = kernel_zalloc(sizeof(*bitmap));
+  bitmap->addr = kernel_zalloc(4);
+  bitmap->palette = kernel_zalloc(sizeof(GColor));
+  return bitmap;
+}
+
 static void prv_assert_no_data_sent_cb(uint16_t endpoint_id,
                                        const uint8_t* data, unsigned int data_length) {
   cl_assert(false);
@@ -228,6 +237,50 @@ void test_music_endpoint__cleanup(void) {
   prv_receive_app_event(false /* is_open */);
 
   fake_comm_session_cleanup();
+}
+
+void test_music_endpoint__album_art_transfer_failure_does_not_latch(void) {
+  music_update_now_playing("one", 3, "artist", 6, "album", 5);
+  const uint8_t first_generation = music_get_now_playing_generation();
+  music_set_album_art(NULL, first_generation);
+  cl_assert(music_album_art_is_current());
+
+  music_update_now_playing("two", 3, "artist", 6, "album", 5);
+  const uint8_t failed_generation = music_get_now_playing_generation();
+  fake_event_clear_last();
+  music_album_art_transfer_failed(failed_generation);
+
+  cl_assert(!music_album_art_is_current());
+  const PebbleEvent event = fake_event_get_last();
+  cl_assert_equal_i(event.type, PEBBLE_MEDIA_EVENT);
+  cl_assert_equal_i(event.media.type, PebbleMediaEventTypeAlbumArtUpdated);
+}
+
+void test_music_endpoint__no_art_response_latches_generation(void) {
+  music_update_now_playing("no art", 6, "artist", 6, "album", 5);
+  const uint8_t generation = music_get_now_playing_generation();
+  fake_event_clear_last();
+  music_set_album_art(NULL, generation);
+
+  cl_assert(music_album_art_is_current());
+  const PebbleEvent event = fake_event_get_last();
+  cl_assert_equal_i(event.media.type, PebbleMediaEventTypeAlbumArtUpdated);
+}
+
+void test_music_endpoint__held_art_is_released_when_transfer_starts(void) {
+  music_update_now_playing("first", 5, "artist", 6, "album", 5);
+  music_set_album_art(prv_make_album_art(), music_get_now_playing_generation());
+  music_update_now_playing("second", 6, "artist", 6, "album", 5);
+  const uint8_t generation = music_get_now_playing_generation();
+
+  music_update_now_playing("second", 6, "artist", 6, "album", 5);
+  cl_assert(music_album_art_lock() != NULL);
+  music_album_art_unlock();
+
+  cl_assert(s_imaging_will_receive_handlers[ImagingImageTypeAlbumArt] != NULL);
+  s_imaging_will_receive_handlers[ImagingImageTypeAlbumArt](generation);
+  cl_assert(music_album_art_lock() == NULL);
+  music_album_art_unlock();
 }
 
 void test_music_endpoint__ignore_now_playing_while_not_connected(void) {

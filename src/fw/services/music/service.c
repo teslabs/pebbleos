@@ -84,14 +84,30 @@ struct MusicServiceContext {
   uint8_t now_playing_generation;
 } s_music_ctx;
 
+static void prv_free_album_art_locked(void);
+
 // Album art arrives via the generic image-fetch service; store it against the requesting token.
 static void prv_imaging_album_art_received(uint8_t token, GBitmap *bitmap) {
   music_set_album_art(bitmap, token);
 }
 
+static void prv_imaging_album_art_will_receive(uint8_t token) {
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
+  if (token == s_music_ctx.now_playing_generation) {
+    prv_free_album_art_locked();
+  }
+  pbl_mutex_unlock(&s_music_ctx.mutex);
+}
+
+static void prv_imaging_album_art_transfer_failed(uint8_t token) {
+  music_album_art_transfer_failed(token);
+}
+
 void music_init(void) {
   pbl_mutex_init(&s_music_ctx.mutex);
   imaging_register_handler(ImagingImageTypeAlbumArt, prv_imaging_album_art_received);
+  imaging_register_transfer_handlers(ImagingImageTypeAlbumArt, prv_imaging_album_art_will_receive,
+                                     prv_imaging_album_art_transfer_failed);
 }
 
 //! Length to keep from (src, src_length) so the copy fits the buffer without splitting a UTF-8
@@ -542,6 +558,8 @@ void music_set_album_art(GBitmap *bitmap, uint8_t token) {
 
   if (token != s_music_ctx.now_playing_generation) {
     // The track changed while the art was in flight; it's for the wrong song. Drop it.
+    PBL_LOG_DBG("Drop stale album art token=%u current=%u", token,
+                s_music_ctx.now_playing_generation);
     if (bitmap) {
       kernel_free(bitmap->addr);
       kernel_free(bitmap->palette);
@@ -560,6 +578,19 @@ void music_set_album_art(GBitmap *bitmap, uint8_t token) {
   pbl_mutex_unlock(&s_music_ctx.mutex);
 
   prv_put_album_art_updated_event();
+}
+
+void music_album_art_transfer_failed(uint8_t token) {
+  pbl_mutex_lock(&s_music_ctx.mutex, PBL_FOREVER);
+  const bool is_current = (token == s_music_ctx.now_playing_generation);
+  pbl_mutex_unlock(&s_music_ctx.mutex);
+
+  if (is_current) {
+    prv_put_album_art_updated_event();
+  } else {
+    PBL_LOG_DBG("Ignore stale album art failure token=%u current=%u", token,
+                music_get_now_playing_generation());
+  }
 }
 
 bool music_album_art_is_current(void) {
