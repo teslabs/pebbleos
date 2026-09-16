@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include "kernel/pebble_tasks.h"
 #include "pbl/util/attributes.h"
+
+#include <pbl/drivers/mpu.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -57,6 +60,10 @@ bool mcu_call_unprivileged_reentry_setup(uintptr_t orig_sp, uintptr_t *lr_ptr);
 //! when SYSCALL_PRIVILEGED_STACK is disabled.
 uint16_t syscall_app_stack_free_bytes(void);
 uint16_t syscall_worker_stack_free_bytes(void);
+
+//! No-access MPU region guarding the bottom of @p task's syscall stack, or
+//! NULL when the platform bounds it some other way (PSPLIM) or has none.
+const MpuRegion *syscall_get_stack_guard_region(PebbleTask task);
 
 // Test overrides.
 // TODO: really implement privilege escalation in unit tests. See PBL-9688
