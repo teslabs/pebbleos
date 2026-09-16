@@ -19,10 +19,12 @@
 // Demo app that deliberately runs a series of memory accesses that the
 // MPU is supposed to deny for the unprivileged App task. Use up/down to
 // cycle through tests; press select to run the highlighted test. The
-// expected outcome for every test is a MemManage fault: the kernel
+// expected outcome for most tests is a MemManage fault: the kernel
 // kills the App task and the launcher reclaims the screen. If the app
 // stays alive long enough to render "SURVIVED!" the MPU let the access
-// through -- that's the regression signal.
+// through -- that's the regression signal. Tests marked as expected to
+// survive exercise the other direction: the kernel must keep working
+// where the task's own stack is nearly gone.
 //
 // SimpleMenuLayer would have been a nicer UI but it touches kernel data
 // not accessible to an unprivileged App task, so we use a plain Window
@@ -33,6 +35,7 @@ extern const uint32_t __WORKER_RAM__[];
 extern const uint32_t __FLASH_start__[];
 extern const uint32_t __APP_RAM__[];
 extern const uint32_t __kernel_main_stack_start__[];
+extern const uint32_t __stack_guard_size__[];
 #ifdef CONFIG_SOC_SF32LB52
 extern const uint32_t __ramfunc_start[];
 #endif
@@ -58,6 +61,7 @@ typedef enum {
   TestKind_StackGuardWrite,
 #endif
   TestKind_StackOverflow,
+  TestKind_SyscallNearLimit,
   TestKindCount,
 } TestKind;
 
@@ -78,6 +82,11 @@ static const char *const s_test_titles[TestKindCount] = {
   [TestKind_StackGuardWrite] = "Stack guard W",
 #endif
   [TestKind_StackOverflow] = "Stack overflow",
+  [TestKind_SyscallNearLimit] = "Syscall near limit",
+};
+
+static const bool s_test_expect_survive[TestKindCount] = {
+  [TestKind_SyscallNearLimit] = true,
 };
 
 typedef struct {
@@ -103,6 +112,25 @@ static uint32_t __attribute__((noinline)) prv_overflow_recurse(uint32_t depth) {
   return prv_overflow_recurse(depth + 1) + big_local[0];
 }
 #pragma GCC diagnostic pop
+
+// Leaves only `headroom` bytes of the task stack and then makes a syscall
+// whose privileged call chain needs far more than that. The kernel must
+// run it on its own syscall stack; running it on ours overflows into the
+// stack guard while privileged, which reboots the system.
+static void __attribute__((noinline)) prv_syscall_near_limit(size_t headroom) {
+  volatile uint8_t marker;
+  const uintptr_t stack_base = (uintptr_t)__APP_RAM__ + (uintptr_t)__stack_guard_size__;
+  const uintptr_t sp = (uintptr_t)&marker;
+  const size_t burn = (sp > stack_base + headroom) ? (sp - stack_base - headroom) : 1;
+  volatile uint8_t pad[burn];
+  for (size_t i = 0; i < burn; i += 32) {
+    pad[i] = (uint8_t)i;
+  }
+  // Loading a system font the app has not used yet walks resource_storage
+  // and the filesystem, several hundred bytes of privileged stack.
+  (void)fonts_get_system_font(FONT_KEY_DROID_SERIF_28_BOLD);
+  marker = pad[0];
+}
 
 static void prv_run_test(TestKind kind) {
   switch (kind) {
@@ -171,6 +199,11 @@ static void prv_run_test(TestKind kind) {
       // (ARMv7-M), since each call frame consumes ~128 B.
       (void)prv_overflow_recurse(0);
       break;
+    case TestKind_SyscallNearLimit:
+      // Enough for the SVC exception frame (with FP state) and the syscall
+      // wrapper's pushes, nothing more.
+      prv_syscall_near_limit(160);
+      break;
     case TestKindCount:
       break;
   }
@@ -188,9 +221,11 @@ static void prv_attempt(void *cb_data) {
   prv_run_test((TestKind)data->selected_index);
 
   // Reaching this point means no fault. Surface that prominently --
-  // the previous "TESTING..." text gets replaced so the survival is
+  // the previous "TESTING..." text gets replaced so the outcome is
   // obvious in a screenshot.
-  text_layer_set_text(&data->selection_text, "SURVIVED!\n(MPU MISS)");
+  text_layer_set_text(&data->selection_text, s_test_expect_survive[data->selected_index]
+                                                 ? "SURVIVED\n(expected)"
+                                                 : "SURVIVED!\n(MPU MISS)");
   layer_mark_dirty(text_layer_get_layer(&data->selection_text));
   data->test_running = false;
 }
