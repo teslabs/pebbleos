@@ -141,12 +141,17 @@ void arch_thread_init(struct pbl_thread *t, void (*entry)(void *), void *arg) {
 
 // The port expects the attribute word to hold RASR/RLAR verbatim and derives
 // RBAR from the base: on ARMv7-M the region number and VALID bit are ORed in
-// so no RNR write is needed per region.
+// so no RNR write is needed per region. An empty slot must still carry them:
+// an RBAR write with VALID clear lands on whatever region RNR last selected,
+// i.e. it would wipe the slot programmed just before it.
 void arch_thread_regions_set(struct pbl_thread *t, const MpuRegion *const *regions) {
   for (unsigned int i = 0; i < NUM_MPU_REGIONS; i++) {
     const MpuRegion *r = regions ? regions[i] : NULL;
     uint32_t rbar = 0;
     uint32_t attr = 0;
+#ifndef CONFIG_MPU_TYPE_ARMV8M
+    rbar = MPU_RBAR_VALID_Msk | (FIRST_MPU_REGION + i);
+#endif
     if (r != NULL) {
       KERNEL_ASSERT(r->region_num == FIRST_MPU_REGION + i);
       uint32_t base_reg;
@@ -154,8 +159,7 @@ void arch_thread_regions_set(struct pbl_thread *t, const MpuRegion *const *regio
 #ifdef CONFIG_MPU_TYPE_ARMV8M
       rbar = base_reg;
 #else
-      rbar = (base_reg & ~(MPU_RBAR_VALID_Msk | MPU_RBAR_REGION_Msk)) | MPU_RBAR_VALID_Msk |
-             (FIRST_MPU_REGION + i);
+      rbar |= base_reg & ~(MPU_RBAR_VALID_Msk | MPU_RBAR_REGION_Msk);
 #endif
     }
     t->backend.arch.mpu[2 * i] = rbar;
