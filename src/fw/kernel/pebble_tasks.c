@@ -297,7 +297,7 @@ struct pbl_thread *pebble_task_create(PebbleTask pebble_task, struct pbl_thread_
   attr->regions[0] = &app_region;
   attr->regions[1] = &worker_region;
   attr->regions[2] = stack_guard_region;
-  attr->regions[3] = NULL;
+  attr->regions[3] = syscall_get_stack_guard_region(pebble_task);
 
   struct pbl_thread *thread = &s_threads[pebble_task];
   PBL_ASSERT(pbl_thread_create(thread, attr) == 0, "Could not start task %s", attr->name);

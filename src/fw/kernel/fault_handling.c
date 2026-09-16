@@ -19,6 +19,7 @@
 #include "process_state/worker_state/worker_state.h"
 #include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"
+#include "pbl/util/size.h"
 #include <pbl/logging/logging.h>
 #include "system/reboot_reason.h"
 #include "syscall/syscall.h"
@@ -339,13 +340,17 @@ static void mem_manage_handler_c(unsigned int *stacked_args, unsigned int lr) {
   const uint8_t mmfsr = cfsr & 0xff;
   if (mmfsr & (1 << 7)) {
     uint32_t fault_addr = SCB->MMFAR;
-    MpuRegion mpu_region = mpu_get_region(MemoryRegion_IsrStackGuard);
-    if (memory_layout_is_pointer_in_region(&mpu_region, (void *)fault_addr)) {
-      stack_overflow = true;
-    } else {
-      mpu_region = mpu_get_region(MemoryRegion_TaskStackGuard);
-      if (memory_layout_is_pointer_in_region(&mpu_region, (void *)fault_addr)) {
+    static const uint8_t s_guard_regions[] = {
+      MemoryRegion_IsrStackGuard,
+      MemoryRegion_TaskStackGuard,
+      MemoryRegion_Task4, // syscall stack guard, when the task has one
+    };
+    for (unsigned int i = 0; i < ARRAY_LENGTH(s_guard_regions); i++) {
+      MpuRegion mpu_region = mpu_get_region(s_guard_regions[i]);
+      if (mpu_region.enabled &&
+          memory_layout_is_pointer_in_region(&mpu_region, (void *)fault_addr)) {
         stack_overflow = true;
+        break;
       }
     }
   }
