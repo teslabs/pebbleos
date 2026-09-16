@@ -233,6 +233,11 @@ static const int16_t TIME_BOUNDS_OFFSET = 2;
 static const uint32_t VOLUME_REPEAT_INTERVAL_MS = 400;
 static const uint32_t ACTION_BAR_TIMEOUT_MS = 2000;
 static const uint32_t VOLUME_ICON_TIMEOUT_MS = 2000;
+#if MUSIC_ALBUM_ART_SUPPORTED
+static const uint32_t ALBUM_ART_REQUEST_DELAY_MS = 500;
+static const uint32_t ALBUM_ART_RETRY_DELAY_MS = 3000;
+static const uint8_t ALBUM_ART_MAX_RETRIES = 2;
+#endif
 
 
 typedef struct {
@@ -294,6 +299,11 @@ typedef struct {
   // Last now-playing generation we requested art for, so a track change re-fetches even if the
   // title/artist strings happen to match.
   uint8_t last_art_generation;
+  AppTimer *album_art_request_timer;
+  bool album_art_request_initialized;
+  AppTimer *album_art_retry_timer;
+  uint8_t album_art_retry_generation;
+  uint8_t album_art_retry_attempts;
   // One-way "digital sign" scroll for the title beside the tape (album-art mode). Runs for a couple
   // of cycles after a track change then rests at the start; only scrolls when the title overflows.
   AppTimer *title_marquee_timer;
@@ -347,7 +357,15 @@ static void prv_update_layout(MusicAppData *data);
 static void prv_set_pos_update_timer(MusicAppData *data, MusicPlayState playstate);
 static void prv_apply_art_appearance(MusicAppData *data);
 static void prv_maybe_request_album_art(void);
+static void prv_schedule_album_art_retry(MusicAppData *data);
 
+#if MUSIC_ALBUM_ART_SUPPORTED
+static void prv_album_art_request_timer(void *context) {
+  MusicAppData *data = context;
+  data->album_art_request_timer = NULL;
+  prv_maybe_request_album_art();
+}
+#endif
 
 static void prv_do_haptic_feedback_vibe(MusicAppData *data) {
   vibe_score_do_vibe(data->score);
@@ -899,13 +917,32 @@ static void prv_update_now_playing(MusicAppData *data) {
       prv_trigger_track_change_animation(data);
     }
   }
+#if MUSIC_ALBUM_ART_SUPPORTED
   // Re-request art whenever the service reports a new track (generation bumps on title/artist/album
-  // change); the service has already dropped the old art by this point.
+  // change). The old cover remains until the replacement transfer actually starts.
   const uint8_t generation = music_get_now_playing_generation();
   if (generation != data->last_art_generation) {
+    if (data->album_art_request_timer) {
+      app_timer_cancel(data->album_art_request_timer);
+      data->album_art_request_timer = NULL;
+    }
+    if (data->album_art_retry_timer) {
+      app_timer_cancel(data->album_art_retry_timer);
+      data->album_art_retry_timer = NULL;
+    }
+    data->album_art_retry_generation = generation;
+    data->album_art_retry_attempts = 0;
     data->last_art_generation = generation;
-    prv_maybe_request_album_art();
+    // Coalesce the burst of metadata updates phones send for one track change.
+    if (data->album_art_request_initialized) {
+      data->album_art_request_timer = app_timer_register(ALBUM_ART_REQUEST_DELAY_MS,
+                                                         prv_album_art_request_timer, data);
+    } else {
+      data->album_art_request_initialized = true;
+      prv_maybe_request_album_art();
+    }
   }
+#endif
   prv_apply_art_appearance(data);
   prv_update_layout(data);
 }
@@ -1210,6 +1247,34 @@ static void prv_maybe_request_album_art(void) {
   music_get_now_playing(title, artist, NULL);
   imaging_request_album_art(music_get_now_playing_generation(), ImagingFormat4BitPalette,
                             side, side, title, artist);
+#endif
+}
+
+#if MUSIC_ALBUM_ART_SUPPORTED
+static void prv_album_art_retry_timer(void *context) {
+  MusicAppData *data = context;
+  data->album_art_retry_timer = NULL;
+  if (data->album_art_retry_generation != music_get_now_playing_generation() ||
+      music_album_art_is_current() || data->album_art_retry_attempts >= ALBUM_ART_MAX_RETRIES) {
+    return;
+  }
+  data->album_art_retry_attempts++;
+  prv_maybe_request_album_art();
+}
+#endif
+
+static void prv_schedule_album_art_retry(MusicAppData *data) {
+#if MUSIC_ALBUM_ART_SUPPORTED
+  const uint8_t generation = music_get_now_playing_generation();
+  if (data->album_art_retry_timer || music_album_art_is_current() ||
+      data->album_art_retry_attempts >= ALBUM_ART_MAX_RETRIES) {
+    return;
+  }
+  data->album_art_retry_generation = generation;
+  data->album_art_retry_timer = app_timer_register(ALBUM_ART_RETRY_DELAY_MS,
+                                                   prv_album_art_retry_timer, data);
+#else
+  (void)data;
 #endif
 }
 
@@ -1571,6 +1636,14 @@ static void prv_music_event_handler(PebbleEvent *event, void *context) {
       return;
     }
     case PebbleMediaEventTypeAlbumArtUpdated:
+      if (music_album_art_is_current()) {
+        if (data->album_art_retry_timer) {
+          app_timer_cancel(data->album_art_retry_timer);
+          data->album_art_retry_timer = NULL;
+        }
+      } else {
+        prv_schedule_album_art_retry(data);
+      }
       prv_apply_art_appearance(data);
       return;
     case PebbleMediaEventTypeVolumeChanged:
@@ -1607,6 +1680,7 @@ static void prv_handle_init(void) {
   // TODO: Once we have some sort of system-wide "needs bluetooth" assertion, invoke that here.
 
   data->current_play_state = MusicPlayStateInvalid;
+  data->last_art_generation = music_get_now_playing_generation() - 1;
 
   gbitmap_init_with_resource(&data->icon_skip_backward, RESOURCE_ID_MUSIC_ICON_SKIP_BACKWARD);
   gbitmap_init_with_resource(&data->icon_skip_forward, RESOURCE_ID_MUSIC_ICON_SKIP_FORWARD);
@@ -1646,6 +1720,12 @@ static void prv_handle_deinit(void) {
   MusicAppData *data = app_state_get_user_data();
   event_service_client_unsubscribe(&data->pref_change_event_info);
   prv_title_marquee_stop(data);
+  if (data->album_art_request_timer) {
+    app_timer_cancel(data->album_art_request_timer);
+  }
+  if (data->album_art_retry_timer) {
+    app_timer_cancel(data->album_art_retry_timer);
+  }
   if (data->temporarily_show_progress_timer) {
     app_timer_cancel(data->temporarily_show_progress_timer);
   }

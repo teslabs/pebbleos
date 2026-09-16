@@ -428,6 +428,90 @@ void test_music__album_art_not_requested_when_pref_off(void) {
   cl_assert_equal_i(s_imaging_request_count, 0);
 }
 
+void test_music__album_art_failure_retries_are_bounded_per_generation(void) {
+#if MUSIC_ALBUM_ART_SUPPORTED
+  prv_set_now_playing("Track One", "Artist");
+  s_music_now_playing_generation = 1;
+  s_imaging_supported = true;
+  s_prefs_music_show_album_art = true;
+  prv_launch_app_and_render();
+  cl_assert_equal_i(s_imaging_request_count, 1);
+
+  PebbleEvent event = {
+    .type = PEBBLE_MEDIA_EVENT,
+    .media = { .type = PebbleMediaEventTypeAlbumArtUpdated },
+  };
+  prv_music_event_handler(&event, NULL);
+  prv_album_art_retry_timer(app_state_get_user_data());
+  cl_assert_equal_i(s_imaging_request_count, 2);
+  prv_music_event_handler(&event, NULL);
+  prv_album_art_retry_timer(app_state_get_user_data());
+  cl_assert_equal_i(s_imaging_request_count, 3);
+  prv_music_event_handler(&event, NULL);
+  prv_album_art_retry_timer(app_state_get_user_data());
+  cl_assert_equal_i(s_imaging_request_count, 3);
+
+  prv_set_now_playing("Track Two", "Artist");
+  s_music_now_playing_generation = 2;
+  event.media.type = PebbleMediaEventTypeNowPlayingChanged;
+  prv_music_event_handler(&event, NULL);
+  prv_album_art_request_timer(app_state_get_user_data());
+  cl_assert_equal_i(s_imaging_request_count, 4);
+
+  s_album_art_current = true;
+  event.media.type = PebbleMediaEventTypeAlbumArtUpdated;
+  prv_music_event_handler(&event, NULL);
+  prv_album_art_retry_timer(app_state_get_user_data());
+  cl_assert_equal_i(s_imaging_request_count, 4);
+#endif
+}
+
+void test_music__album_art_requests_coalesce_now_playing_updates(void) {
+#if MUSIC_ALBUM_ART_SUPPORTED
+  prv_set_now_playing("Track One", "Artist");
+  s_music_now_playing_generation = 1;
+  s_imaging_supported = true;
+  s_prefs_music_show_album_art = true;
+  prv_launch_app_and_render();
+  cl_assert_equal_i(s_imaging_request_count, 1);
+
+  PebbleEvent event = {
+    .type = PEBBLE_MEDIA_EVENT,
+    .media = { .type = PebbleMediaEventTypeNowPlayingChanged },
+  };
+  prv_set_now_playing("Track Two", "Artist");
+  s_music_now_playing_generation = 2;
+  prv_music_event_handler(&event, NULL);
+  prv_set_now_playing("Track Two", "New Artist");
+  s_music_now_playing_generation = 3;
+  prv_music_event_handler(&event, NULL);
+  cl_assert_equal_i(s_imaging_request_count, 1);
+
+  prv_album_art_request_timer(app_state_get_user_data());
+  cl_assert_equal_i(s_imaging_request_count, 2);
+  cl_assert_equal_i(s_imaging_request_token, 3);
+#endif
+}
+
+void test_music__album_art_success_does_not_duplicate_request(void) {
+#if MUSIC_ALBUM_ART_SUPPORTED
+  prv_set_now_playing("Track One", "Artist");
+  s_music_now_playing_generation = 1;
+  s_imaging_supported = true;
+  s_prefs_music_show_album_art = true;
+  prv_launch_app_and_render();
+  cl_assert_equal_i(s_imaging_request_count, 1);
+
+  s_album_art_current = true;
+  PebbleEvent event = {
+    .type = PEBBLE_MEDIA_EVENT,
+    .media = { .type = PebbleMediaEventTypeAlbumArtUpdated },
+  };
+  prv_music_event_handler(&event, NULL);
+  cl_assert_equal_i(s_imaging_request_count, 1);
+#endif
+}
+
 void test_music__playing_album_art(void) {
 #if MUSIC_ALBUM_ART_SUPPORTED
   prv_set_now_playing("Crumbling Castle", "King Gizzard & The Lizard Wizard");
