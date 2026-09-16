@@ -47,8 +47,23 @@ uint16_t gbitmap_format_get_row_size_bytes(int16_t width, GBitmapFormat format) 
 ///////////////////////////////////////////////////////////
 
 static int s_deliveries;
+static int s_will_receives;
+static int s_failures;
 static uint8_t s_last_token;
+static uint8_t s_last_failure_token;
 static GBitmap *s_last_bitmap;
+
+Heap *kernel_heap_get(void) {
+  static Heap heap;
+  return &heap;
+}
+
+void heap_calc_totals(Heap *heap, unsigned int *used, unsigned int *free_bytes,
+                      unsigned int *max_free) {
+  *used = 0;
+  *free_bytes = 0;
+  *max_free = 64 * 1024;
+}
 
 static void prv_free_last_bitmap(void) {
   if (s_last_bitmap) {
@@ -64,6 +79,15 @@ static void prv_art_handler(uint8_t token, GBitmap *bitmap) {
   s_last_token = token;
   prv_free_last_bitmap();
   s_last_bitmap = bitmap;
+}
+
+static void prv_will_receive_handler(uint8_t token) {
+  s_will_receives++;
+}
+
+static void prv_failure_handler(uint8_t token) {
+  s_failures++;
+  s_last_failure_token = token;
 }
 
 static int s_notif_deliveries;
@@ -140,17 +164,23 @@ void test_imaging__initialize(void) {
   s_transport = fake_transport_create(TransportDestinationSystem, NULL, NULL);
   fake_transport_set_connected(s_transport, true);
   imaging_register_handler(ImagingImageTypeAlbumArt, prv_art_handler);
+  imaging_register_transfer_handlers(ImagingImageTypeAlbumArt, prv_will_receive_handler,
+                                     prv_failure_handler);
   imaging_register_handler(ImagingImageTypeNotification, prv_notif_handler);
-  s_deliveries = 0;
-  s_notif_deliveries = 0;
-  s_last_token = 0;
-  s_last_bitmap = NULL;
-  // Reset any latched state left over from a previous test
+  // Reset any in-flight transfer or latched state left over from a previous test.
   const PebbleCommSessionEvent closed_event = {
     .is_open = false,
     .is_system = true,
   };
   imaging_handle_comm_session_event(&closed_event);
+  s_deliveries = 0;
+  s_will_receives = 0;
+  s_failures = 0;
+  s_notif_deliveries = 0;
+  s_last_token = 0;
+  s_last_failure_token = 0;
+  s_last_bitmap = NULL;
+  stub_pbl_malloc_set_kernel_malloc_should_fail(false);
 }
 
 void test_imaging__cleanup(void) {
@@ -160,6 +190,8 @@ void test_imaging__cleanup(void) {
 
 void test_imaging__single_chunk_image(void) {
   prv_receive_valid_image(TEST_TOKEN);
+  cl_assert_equal_i(s_will_receives, 1);
+  cl_assert_equal_i(s_failures, 0);
   cl_assert_equal_i(s_deliveries, 1);
   cl_assert_equal_i(s_last_token, TEST_TOKEN);
   cl_assert(s_last_bitmap != NULL);
@@ -184,6 +216,41 @@ void test_imaging__multi_chunk_image(void) {
   cl_assert_equal_i(s_deliveries, 1);
   cl_assert(s_last_bitmap != NULL);
   cl_assert(memcmp(s_last_bitmap->addr, s_pixels, sizeof(s_pixels)) == 0);
+}
+
+void test_imaging__allocation_failure_notifies_and_resets(void) {
+  stub_pbl_malloc_set_kernel_malloc_should_fail(true);
+  prv_receive_valid_image(TEST_TOKEN);
+  stub_pbl_malloc_set_kernel_malloc_should_fail(false);
+
+  cl_assert_equal_i(s_will_receives, 1);
+  cl_assert_equal_i(s_failures, 1);
+  cl_assert_equal_i(s_last_failure_token, TEST_TOKEN);
+  cl_assert_equal_i(s_deliveries, 0);
+
+  prv_receive_valid_image(TEST_TOKEN + 1);
+  cl_assert_equal_i(s_deliveries, 1);
+  cl_assert_equal_i(s_last_token, TEST_TOKEN + 1);
+}
+
+void test_imaging__session_close_mid_transfer_notifies_and_resets(void) {
+  uint8_t buf[64];
+  const size_t len = prv_build_response(buf, TEST_TOKEN, ImagingResponseFlagFirst, 0, 2,
+                                        4, 2, ImagingFormat4BitPalette,
+                                        s_palette, sizeof(s_palette), s_pixels, 2);
+  prv_receive(buf, len);
+  const PebbleCommSessionEvent closed_event = {
+    .is_open = false,
+    .is_system = true,
+  };
+  imaging_handle_comm_session_event(&closed_event);
+
+  cl_assert_equal_i(s_failures, 1);
+  cl_assert_equal_i(s_last_failure_token, TEST_TOKEN);
+  cl_assert_equal_i(s_deliveries, 0);
+
+  prv_receive_valid_image(TEST_TOKEN + 1);
+  cl_assert_equal_i(s_deliveries, 1);
 }
 
 void test_imaging__no_image(void) {
@@ -262,6 +329,8 @@ void test_imaging__non_contiguous_chunk_resets(void) {
                            0, 0, 0, NULL, 0, s_pixels + 3, 1);
   prv_receive(buf, len);
   cl_assert_equal_i(s_deliveries, 0);
+  cl_assert_equal_i(s_failures, 1);
+  cl_assert_equal_i(s_last_failure_token, TEST_TOKEN);
   // The transfer was reset: a well-formed follow-up chunk must also be ignored
   len = prv_build_response(buf, TEST_TOKEN, ImagingResponseFlagLast, 2, 2,
                            0, 0, 0, NULL, 0, s_pixels + 2, 2);

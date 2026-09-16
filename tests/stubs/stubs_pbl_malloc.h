@@ -98,7 +98,9 @@ void *kernel_malloc_check(size_t bytes) {
 
 void *kernel_zalloc(size_t bytes) {
   void *ptr = kernel_malloc(bytes);
-  memset(ptr, 0, bytes);
+  if (ptr) {
+    memset(ptr, 0, bytes);
+  }
   return ptr;
 }
 
