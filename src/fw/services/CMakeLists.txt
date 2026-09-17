@@ -72,9 +72,3 @@ pbl_add_subdirectory_ifdef(CONFIG_SERVICE_WEATHER weather)
 
 pbl_library()
 pbl_library_sources(services.c)
-
-# Every service that has translatable strings contributes a catalog.
-get_property(service_pots GLOBAL PROPERTY PBL_SERVICES_POT)
-if(service_pots)
-  pbl_msgcat(${CMAKE_CURRENT_BINARY_DIR}/services.pot ${service_pots})
-endif()
