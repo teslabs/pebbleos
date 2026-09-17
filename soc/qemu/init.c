@@ -3,9 +3,14 @@
 
 #include <stdint.h>
 
+#include <pbl/drivers/watchdog.h>
+
 // System clock frequency for QEMU (64 MHz)
 uint32_t SystemCoreClock = 64000000;
 
-// SoC early init - nothing to do for QEMU
 void soc_early_init(void) {
+#ifndef CONFIG_NO_WATCHDOG
+  watchdog_init();
+  watchdog_start();
+#endif
 }
