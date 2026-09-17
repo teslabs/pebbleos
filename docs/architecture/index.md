@@ -17,8 +17,9 @@ implemented under `kernel/`). The main source layers, as described on the
 - `src/fw/kernel` — task management, events, memory.
 - `src/fw/drivers` — hardware drivers (public interfaces under
   `include/pbl/drivers`).
-- `subsys/` — OS subsystems shared beyond the firmware tree; currently
-  logging, included via the `pbl/logging/` header path.
+- `subsys/` — OS subsystems shared beyond the firmware tree: logging
+  (`pbl/logging/` headers) and the [task watchdog](task_watchdog.md)
+  (`pbl/task_wdt/`).
 
 Alongside these sit `src/fw/shell` (launcher/watchface UX flow),
 `src/fw/process_management` (app lifecycle) and `src/fw/comm` (phone
