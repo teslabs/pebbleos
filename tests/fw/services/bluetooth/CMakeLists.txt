@@ -1,7 +1,24 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
+pbl_clar_test(test_hci_probe)
 pbl_clar_test(test_cvsd)
+
+pbl_clar_test(test_hci_local_audio
+  INCLUDES src/bluetooth-fw/hci_bridge
+  SOURCES
+    src/bluetooth-fw/hci_bridge/local_audio.c
+    src/bluetooth-fw/hci_bridge/voice_resampler.c
+    src/bluetooth-fw/hci_bridge/voice_playback.c
+  OVERRIDES dummy_board
+)
+
+pbl_clar_test(test_sifli_sco
+  INCLUDES src/bluetooth-fw/hci_bridge
+  SOURCES
+    src/bluetooth-fw/hci_bridge/h4_stream.c
+    src/bluetooth-fw/hci_bridge/sifli_sco.c
+)
 
 pbl_clar_test(test_ble_hrm
   SOURCES

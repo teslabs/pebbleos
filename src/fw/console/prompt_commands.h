@@ -247,6 +247,19 @@ extern void command_ble_rediscover(void);
 extern void command_ble_logging_set_level(const char *level);
 extern void command_ble_logging_get_level(void);
 extern void command_ble_host_reset(void);
+#ifdef CONFIG_BT_CONTROLLER_PROBE
+extern void command_bt_controller_probe(void);
+#endif
+#ifdef CONFIG_BT_HCI_AUDIO_PROBE
+extern void command_bt_audio_probe(void);
+#endif
+#ifdef CONFIG_BT_HCI_LOCAL_AUDIO
+extern void command_bt_audio_speaker_test(void);
+extern void command_bt_audio_pcm_test(void);
+extern void command_bt_audio_capture(void);
+extern void command_bt_audio_dump(void);
+extern void command_bt_audio_gain(const char *);
+#endif
 
 extern void command_audit_delay_us(void);
 
@@ -468,6 +481,19 @@ static const Command s_prompt_commands[] = {
   {"ble set log level", command_ble_logging_set_level, 1},
   {"ble get log level", command_ble_logging_get_level, 0},
   {"ble host reset", command_ble_host_reset, 0},
+#ifdef CONFIG_BT_CONTROLLER_PROBE
+  {"bt controller probe", command_bt_controller_probe, 0},
+#endif
+#ifdef CONFIG_BT_HCI_AUDIO_PROBE
+  {"bt audio probe", command_bt_audio_probe, 0},
+#endif
+#ifdef CONFIG_BT_HCI_LOCAL_AUDIO
+  {"bt audio speaker test", command_bt_audio_speaker_test, 0},
+  {"bt audio pcm test", command_bt_audio_pcm_test, 0},
+  {"bt audio capture", command_bt_audio_capture, 0},
+  {"bt audio dump", command_bt_audio_dump, 0},
+  {"bt audio gain", command_bt_audio_gain, 1},
+#endif
 
   /*
   { "stats dump now", command_stats_dump_now, 0 },

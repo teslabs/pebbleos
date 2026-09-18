@@ -46,6 +46,13 @@ typedef struct AudioState {
   //! DMA buffer. haudcodec->buf[] is bumped up to a cache-line boundary so
   //! dcache_flush() of one half can't touch the other half's lines.
   uint8_t *raw_dac_buffer;
+#ifdef CONFIG_BT_HCI_LOCAL_AUDIO
+  volatile uint32_t diagnostic_refills;
+  volatile uint32_t diagnostic_underrun_bytes;
+  volatile uint32_t diagnostic_signal_samples;
+  volatile uint32_t diagnostic_peak;
+  uint32_t diagnostic_write_drops;
+#endif
 } AudioDeviceState;
 
 typedef const struct AudioDevice {
