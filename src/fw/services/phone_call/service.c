@@ -217,6 +217,33 @@ PBL_T_STATIC void prv_handle_phone_event(PebbleEvent *e, void *context) {
     return;
   }
 
+#ifdef CONFIG_BT_HFP
+  HfpStatus hfp;
+  hfp_get_status(&hfp);
+  if (hfp.ready && event.source != PhoneCallSource_HFP) {
+    // Companion notifications supply identity; HFP owns the call lifecycle.
+    if (event.type == PhoneEventType_Incoming || event.type == PhoneEventType_CallerID) {
+      event.source = PhoneCallSource_HFP;
+    } else {
+      phone_call_util_destroy_caller(event.caller);
+      return;
+    }
+  }
+  if (s_call_in_progress && event.source == PhoneCallSource_HFP &&
+      event.type == PhoneEventType_Incoming) {
+    if (s_call_source != PhoneCallSource_HFP) {
+      prv_cancel_call_watchdog();
+      s_call_source = PhoneCallSource_HFP;
+      s_call_identifier = 0;
+      phone_ui_handle_incoming_call(event.caller, true, PhoneCallSource_HFP);
+    } else if (event.caller) {
+      prv_handle_caller_id(&event);
+    }
+    phone_call_util_destroy_caller(event.caller);
+    return;
+  }
+#endif
+
   if (s_call_in_progress &&
       ((event.source == PhoneCallSource_HFP) != (s_call_source == PhoneCallSource_HFP))) {
     phone_call_util_destroy_caller(event.caller);

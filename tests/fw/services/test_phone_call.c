@@ -29,6 +29,11 @@ extern PBL_T_STATIC void prv_handle_ancs_disconnected_event(PebbleEvent *e, void
 
 static unsigned s_hfp_answer_count, s_hfp_hangup_count;
 static bool s_show_ongoing;
+static HfpStatus s_hfp_status;
+
+void hfp_get_status(HfpStatus *status) {
+  *status = s_hfp_status;
+}
 
 bool hfp_answer(void) {
   ++s_hfp_answer_count;
@@ -164,6 +169,7 @@ static void prv_ancs_disconnect(void) {
 ///////////////////////////////////////////////////////////
 
 void test_phone_call__initialize(void) {
+  s_hfp_status = (HfpStatus){};
   s_hfp_answer_count = s_hfp_hangup_count = 0;
   s_show_ongoing = false;
   prv_put_phone_event(PhoneEventType_End, PhoneCallSource_HFP, 0);
@@ -287,7 +293,6 @@ void test_phone_call__ancs_hide(void) {
   ASSERT_LAST_EVENT(PhoneEventType_Hide);
 }
 
-
 void test_phone_call__hfp_without_mobile_app(void) {
   prv_put_incoming_call_event(PhoneCallSource_HFP, false);
   ASSERT_LAST_EVENT(PhoneEventType_Incoming);
@@ -319,6 +324,38 @@ void test_phone_call__hfp_reject_and_disconnect(void) {
 
   prv_put_incoming_call_event(PhoneCallSource_HFP, false);
   ASSERT_LAST_EVENT(PhoneEventType_Incoming);
+  prv_put_phone_event(PhoneEventType_End, PhoneCallSource_HFP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_End);
+}
+
+void test_phone_call__companion_ringing_before_hfp_uses_hfp_control(void) {
+  s_hfp_status.ready = true;
+  prv_put_incoming_call_event(PhoneCallSource_PP, true);
+  ASSERT_LAST_EVENT(PhoneEventType_Incoming);
+  cl_assert(s_show_ongoing);
+  prv_put_incoming_call_event(PhoneCallSource_HFP, true);
+  ASSERT_LAST_EVENT(PhoneEventType_Invalid);
+  phone_call_answer();
+  cl_assert_equal_i(s_hfp_answer_count, 1);
+  prv_put_phone_event(PhoneEventType_End, PhoneCallSource_PP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_Invalid);
+  prv_put_phone_event(PhoneEventType_Start, PhoneCallSource_HFP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_Start);
+  prv_put_phone_event(PhoneEventType_End, PhoneCallSource_HFP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_End);
+}
+
+void test_phone_call__hfp_connection_during_ringing_takes_over_control(void) {
+  prv_put_incoming_call_event(PhoneCallSource_ANCS, false);
+  ASSERT_LAST_EVENT(PhoneEventType_Incoming);
+  s_hfp_status.ready = true;
+  prv_put_incoming_call_event(PhoneCallSource_HFP, false);
+  ASSERT_LAST_EVENT(PhoneEventType_Incoming);
+  cl_assert(s_show_ongoing);
+  prv_ancs_disconnect();
+  ASSERT_LAST_EVENT(PhoneEventType_Invalid);
+  phone_call_decline();
+  cl_assert_equal_i(s_hfp_hangup_count, 1);
   prv_put_phone_event(PhoneEventType_End, PhoneCallSource_HFP, 0);
   ASSERT_LAST_EVENT(PhoneEventType_End);
 }
