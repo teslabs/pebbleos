@@ -807,3 +807,44 @@ The tested SiFli controller uses native shared-memory audio. Its adapter
 keeps this detail below HCI, preserving packet status, handles, codec format
 and pacing. Other controllers can provide standard SCO directly through the
 same audio boundary. Vendor voice APIs do not belong in the call service.
+
+## Local Android call testing
+
+`tools/android_hfp_test` is an Apache-2.0 Android Telecom `ConnectionService`
+for testing HFP without placing a cellular or network call. It uses a local
+SIP address under `.invalid`, has no network permission, and does not save
+audio. Active calls send a 1 kHz tone and report microphone RMS, routed audio
+devices, sample counts and playback underruns to the `HfpTest` logcat tag.
+A call ends automatically after five minutes. Keep the activity visible;
+this diagnostic app does not run a background foreground service.
+
+Build with Android SDK platform 36, build-tools 36.0.0, and a JDK supporting
+`javac --release 8`. The builder defaults to the macOS Android Studio SDK
+and JDK locations; `--sdk` and `--java-home` override them. No Gradle or
+third-party Java dependencies are downloaded.
+
+```sh
+python tools/android_hfp_test/build.py
+adb install -r -g build-android-hfp-test/hfp-test.apk
+adb shell am start -n com.teslabs.hfptest/.MainActivity \
+  --es device WATCH_BLUETOOTH_ADDRESS --es command incoming
+adb logcat -s HfpTest
+```
+
+Replace `WATCH_BLUETOOTH_ADDRESS` with the already bonded watch's address.
+`-g` grants the test app microphone and nearby-device permissions. Answer
+or reject on the watch to exercise HFP. The activity also supports
+`outgoing`, `active`, `bluetooth`, and `hangup` commands; `outgoing` creates a
+local dialing call and `active` simulates the remote party answering it.
+Always end the test explicitly when finished:
+
+```sh
+adb shell am start -n com.teslabs.hfptest/.MainActivity --es command hangup
+```
+
+This tests Android Telecom routing and HFP signaling, including VoIP-style
+calls. It does not replace cellular-call, iPhone, acoustic quality, or
+long-duration coexistence testing. Android can establish SCO while ringing;
+missing-packet indications before answer must be distinguished from loss
+while active. Check that both logged audio routes use Bluetooth SCO before
+interpreting microphone RMS as watch capture.
