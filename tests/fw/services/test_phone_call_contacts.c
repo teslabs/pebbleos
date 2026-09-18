@@ -93,3 +93,13 @@ void test_phone_call_contacts__rejects_unsafe_or_non_phone_addresses(void) {
   cl_assert_equal_i(phone_call_contacts_get(result, 4), 0);
   cl_assert_equal_i(s_freed, 4);
 }
+
+void test_phone_call_contacts__finds_exact_normalized_number(void) {
+  PhoneContact contact = {};
+  cl_assert(phone_call_contacts_find("+1 202 555 0100", &contact));
+  cl_assert_equal_s(contact.name, "Test contact");
+  cl_assert_equal_s(contact.number, "+12025550100");
+  cl_assert(!phone_call_contacts_find("2025550100", &contact));
+  cl_assert(!phone_call_contacts_find("+12025550100;AT", &contact));
+  cl_assert(!phone_call_contacts_find(NULL, &contact));
+}

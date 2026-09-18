@@ -9,6 +9,8 @@
 #include "pbl/services/phone_call.h"
 #include "pbl/services/bluetooth/hfp.h"
 #include "pbl/services/phone_call_util.h"
+#include "pbl/services/phone_call_contacts.h"
+#include <string.h>
 #include "pbl/util/testing.h"
 
 extern PBL_T_STATIC void prv_handle_phone_event(PebbleEvent *e, void *context);
@@ -30,6 +32,14 @@ extern PBL_T_STATIC void prv_handle_ancs_disconnected_event(PebbleEvent *e, void
 static unsigned s_hfp_answer_count, s_hfp_hangup_count;
 static bool s_show_ongoing;
 static HfpStatus s_hfp_status;
+static char s_caller_name[64];
+
+bool phone_call_contacts_find(const char *number, PhoneContact *contact) {
+  if (strcmp(number, "+12025550100"))
+    return false;
+  *contact = (PhoneContact){.name = "Test contact", .number = "+12025550100"};
+  return true;
+}
 
 void hfp_get_status(HfpStatus *status) {
   *status = s_hfp_status;
@@ -73,6 +83,8 @@ void phone_ui_handle_incoming_call(PebblePhoneCaller *caller, bool show_ongoing_
                                    PhoneCallSource source) {
   s_last_phone_ui_event = PhoneEventType_Incoming;
   s_show_ongoing = show_ongoing_call_ui;
+  if (caller && caller->name)
+    strcpy(s_caller_name, caller->name);
 }
 
 void phone_ui_handle_outgoing_call(PebblePhoneCaller *caller) {
@@ -97,6 +109,8 @@ void phone_ui_handle_call_hide(void) {
 
 void phone_ui_handle_caller_id(PebblePhoneCaller *caller) {
   s_last_phone_ui_event = PhoneEventType_CallerID;
+  if (caller && caller->name)
+    strcpy(s_caller_name, caller->name);
 }
 
 ///////////////////////////////////////////////////////////
@@ -169,6 +183,7 @@ static void prv_ancs_disconnect(void) {
 ///////////////////////////////////////////////////////////
 
 void test_phone_call__initialize(void) {
+  s_caller_name[0] = 0;
   s_hfp_status = (HfpStatus){};
   s_hfp_answer_count = s_hfp_hangup_count = 0;
   s_show_ongoing = false;
@@ -180,6 +195,37 @@ void test_phone_call__initialize(void) {
   //  s_transport = fake_transport_create(TransportDestinationSystem, NULL, NULL);
   //  s_session = fake_transport_set_connected(s_transport, true /* connected */);
   //  pp_get_phone_state_set_enabled(false);
+}
+
+void test_phone_call__hfp_caller_uses_contact_name(void) {
+  s_hfp_status.ready = true;
+  PebblePhoneCaller caller = {.number = "+12025550100"};
+  PebbleEvent event = {
+    .type = PEBBLE_PHONE_EVENT,
+    .phone = {.type = PhoneEventType_Incoming, .source = PhoneCallSource_HFP, .caller = &caller},
+  };
+  prv_handle_phone_event(&event, NULL);
+  cl_assert_equal_s(s_caller_name, "Test contact");
+  kernel_free(caller.name);
+}
+
+void test_phone_call__hfp_identity_preserves_companion_name(void) {
+  s_hfp_status.ready = true;
+  PebblePhoneCaller companion = {.number = "+12025550100", .name = "Companion name"};
+  PebbleEvent event = {
+    .type = PEBBLE_PHONE_EVENT,
+    .phone = {.type = PhoneEventType_Incoming, .source = PhoneCallSource_PP, .caller = &companion},
+  };
+  prv_handle_phone_event(&event, NULL);
+  PebblePhoneCaller hfp = {.number = "+12025550100"};
+  event.phone = (PebblePhoneEvent){
+    .type = PhoneEventType_CallerID,
+    .source = PhoneCallSource_HFP,
+    .caller = &hfp
+  };
+  prv_handle_phone_event(&event, NULL);
+  cl_assert_equal_s(s_caller_name, "Companion name");
+  kernel_free(hfp.name);
 }
 
 // ---------------------------------------------------------------------------------------

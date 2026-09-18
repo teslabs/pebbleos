@@ -49,6 +49,7 @@ class ClassicHostTest(unittest.TestCase):
         )
         cls.lib = ctypes.CDLL(str(library))
         cls.lib.demo_detail.restype = ctypes.c_char_p
+        cls.lib.demo_caller_number.restype = ctypes.c_char_p
 
     @classmethod
     def tearDownClass(cls):
@@ -168,7 +169,7 @@ class ClassicHostTest(unittest.TestCase):
         self.rf_receive(rfcomm.RFCOMM_Frame.sabm(1, 2))
         frames = self.frames()
         self.assertEqual(frames[0].type, rfcomm.FrameType.UA)
-        self.assertEqual(frames[-1].information, b"AT+BRSF=0\r")
+        self.assertEqual(frames[-1].information, b"AT+BRSF=4\r")
 
     def at(self, text):
         self.rf_receive(
@@ -186,8 +187,34 @@ class ClassicHostTest(unittest.TestCase):
             [b"AT+CIND?\r"],
         )
         self.assertEqual(self.at("\r\n+CIND: 1,0,0\r\nOK\r\n"), [b"AT+CMER=3,0,0,1\r"])
+        self.assertEqual(self.at("\r\nOK\r\n"), [b"AT+CLIP=1\r"])
         self.assertEqual(self.at("\r\nOK\r\n"), [])
         self.assertTrue(self.lib.demo_flags() & 4)
+        self.rf_receive(rfcomm.RFCOMM_Frame.uih(1, 2, b"\7", p_f=1))
+        self.frames()
+
+    def test_caller_number_is_normalized_and_cleared(self):
+        self.ready()
+        self.at('\r\n+CIEV: 3,1\r\nRING\r\n+CLIP: "12025550100",145\r\n')
+        self.assertEqual(self.lib.demo_caller_number(), b"+12025550100")
+        self.at("\r\n+CIEV: 2,1\r\n+CIEV: 3,0\r\n")
+        self.assertEqual(self.lib.demo_caller_number(), b"+12025550100")
+        self.at("\r\n+CIEV: 2,0\r\n")
+        self.assertEqual(self.lib.demo_caller_number(), b"")
+
+    def test_invalid_and_withheld_caller_identity(self):
+        self.ready()
+        self.at('\r\nRING\r\n+CLIP: "+12025550100",145\r\n')
+        for line in (
+            '+CLIP: "555;ATD123",129',
+            '+CLIP: "123",999',
+            '+CLIP: "' + "1" * 33 + '",129',
+            '+CLIP: "123",129junk',
+        ):
+            self.at("\r\n" + line + "\r\n")
+            self.assertEqual(self.lib.demo_caller_number(), b"+12025550100")
+        self.at('\r\n+CLIP: "+12025550100",145,"",128,"Hidden",1\r\n')
+        self.assertEqual(self.lib.demo_caller_number(), b"")
 
     def test_dial_answer_hangup_and_disconnect(self):
         self.ready()
@@ -605,11 +632,12 @@ class ReconnectTest(ClassicHostTest):
         )
         self.l2cap(0x41, bytes(rfcomm.RFCOMM_Frame.ua(1, 14)))
         frames = [rfcomm.RFCOMM_Frame.from_bytes(data) for _, data in self.drain()]
-        self.assertEqual(frames[-1].information, b"AT+BRSF=0\r")
+        self.assertEqual(frames[-1].information, b"AT+BRSF=4\r")
         for response, expected in [
             (b"\r\n+BRSF: 512\r\nOK\r\n", b"AT+CIND=?\r"),
             (b'\r\n+CIND: ("call",(0,1)),("callsetup",(0-3))\r\nOK\r\n', b"AT+CIND?\r"),
             (b"\r\n+CIND: 0,0\r\nOK\r\n", b"AT+CMER=3,0,0,1\r"),
+            (b"\r\nOK\r\n", b"AT+CLIP=1\r"),
             (b"\r\nOK\r\n", None),
         ]:
             self.l2cap(0x41, bytes(rfcomm.RFCOMM_Frame.uih(0, 14, response)))

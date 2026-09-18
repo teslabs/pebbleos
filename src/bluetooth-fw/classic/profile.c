@@ -54,9 +54,9 @@ static void at_command(BtClassicHost *s, const char *text) {
 
 static void slc_next(BtClassicHost *s) {
   static const char *const commands[] = {
-    "AT+BRSF=0\r", "AT+CIND=?\r", "AT+CIND?\r", "AT+CMER=3,0,0,1\r"
+    "AT+BRSF=4\r", "AT+CIND=?\r", "AT+CIND?\r", "AT+CMER=3,0,0,1\r", "AT+CLIP=1\r"
   };
-  if (s->slc_step < 4)
+  if (s->slc_step < sizeof(commands) / sizeof(commands[0]))
     at_command(s, commands[s->slc_step++]);
   else {
     s->status.ready = true;
@@ -90,6 +90,80 @@ static void indicator(BtClassicHost *s, unsigned index, unsigned value) {
     s->status.call_setup = value;
     s->status.incoming = value == 1;
   }
+  if ((index == s->indicator_call || index == s->indicator_setup) && !s->status.call &&
+      !s->status.call_setup)
+    s->status.caller_number[0] = 0;
+}
+
+static void caller_id(BtClassicHost *s, const char *text) {
+  while (*text == ' ')
+    ++text;
+  if (*text++ != '"')
+    return;
+  const char *end = strchr(text, '"');
+  if (!end)
+    return;
+  const char *p = end + 1;
+  while (*p == ' ')
+    ++p;
+  if (*p++ != ',')
+    return;
+  while (*p == ' ')
+    ++p;
+  if (*p < '0' || *p > '9')
+    return;
+  unsigned type = 0;
+  while (*p >= '0' && *p <= '9') {
+    type = type * 10 + *p++ - '0';
+    if (type > 255)
+      return;
+  }
+  while (*p == ' ')
+    ++p;
+  if (*p && *p != ',')
+    return;
+  // Honor an optional CLI validity field; do not display withheld identities.
+  bool withheld = false;
+  for (unsigned field = 2; *p == ',' && field <= 5; ++field) {
+    ++p;
+    while (*p == ' ')
+      ++p;
+    const char *start = p;
+    if (*p == '"') {
+      p = strchr(p + 1, '"');
+      if (!p)
+        return;
+      ++p;
+    } else {
+      while (*p && *p != ',')
+        ++p;
+    }
+    const char *stop = p;
+    while (stop > start && stop[-1] == ' ')
+      --stop;
+    if (field == 5 && stop != start) {
+      if (stop - start != 1 || *start < '0' || *start > '2')
+        return;
+      withheld = *start != '0';
+    }
+    while (*p == ' ')
+      ++p;
+    if (*p && *p != ',')
+      return;
+  }
+  char number[BT_CLASSIC_NUMBER_SIZE] = {0};
+  unsigned prefix = type == 145 && *text != '+' && end != text;
+  size_t length = end - text;
+  if (length + prefix >= sizeof(number))
+    return;
+  if (prefix)
+    number[0] = '+';
+  memcpy(number + prefix, text, length);
+  if (length && !bt_classic_valid_number(number))
+    return;
+  if (withheld)
+    memset(number, 0, sizeof(number));
+  memcpy(s->status.caller_number, number, sizeof(number));
 }
 
 static void line(BtClassicHost *s, const char *text) {
@@ -111,7 +185,9 @@ static void line(BtClassicHost *s, const char *text) {
       bt_classic_disconnect_peer(s);
   } else if (!strcmp(text, "RING"))
     s->status.incoming = true;
-  else if (!strncmp(text, "+CIEV:", 6)) {
+  else if (!strncmp(text, "+CLIP:", 6)) {
+    caller_id(s, text + 6);
+  } else if (!strncmp(text, "+CIEV:", 6)) {
     unsigned index, value;
     if (sscanf(text + 6, " %u , %u", &index, &value) == 2)
       indicator(s, index, value);
@@ -157,6 +233,7 @@ void bt_classic_profile_reset(BtClassicHost *s) {
   s->status.ready = s->status.busy = false;
   s->status.call = s->status.incoming = false;
   s->status.call_setup = 0;
+  s->status.caller_number[0] = 0;
   s->at_tx_length = s->at_line_length = 0;
   s->indicator_call = s->indicator_setup = 0;
 }

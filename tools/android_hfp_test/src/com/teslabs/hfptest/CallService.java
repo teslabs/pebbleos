@@ -5,6 +5,7 @@ package com.teslabs.hfptest;
 import android.bluetooth.BluetoothManager;
 import android.os.Handler;
 import android.os.Looper;
+import android.net.Uri;
 import android.telecom.CallAudioState;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
@@ -27,7 +28,8 @@ public class CallService extends ConnectionService {
       handler.postDelayed(timeout, 300000);
       setConnectionProperties(PROPERTY_SELF_MANAGED);
       setAudioModeIsVoip(true);
-      setAddress(MainActivity.ADDRESS, TelecomManager.PRESENTATION_ALLOWED);
+      // Display-only reserved test number; the local account still routes via SIP.
+      setAddress(Uri.fromParts("tel", "+12025550100", null), TelecomManager.PRESENTATION_ALLOWED);
       setCallerDisplayName("Local HFP test", TelecomManager.PRESENTATION_ALLOWED);
       if (incoming)
         setRinging();

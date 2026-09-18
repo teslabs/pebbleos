@@ -114,3 +114,18 @@ unsigned phone_call_contacts_get(PhoneContact *contacts, unsigned capacity) {
   task_free(prefs);
   return count;
 }
+
+bool phone_call_contacts_find(const char *number, PhoneContact *contact) {
+  char normalized[33];
+  if (!contact || !normalize_number(normalized, number))
+    return false;
+  PhoneContact contacts[PHONE_MAX_CONTACTS];
+  unsigned count = phone_call_contacts_get(contacts, PHONE_MAX_CONTACTS);
+  for (unsigned i = 0; i < count; ++i) {
+    if (!strcmp(contacts[i].number, normalized)) {
+      *contact = contacts[i];
+      return true;
+    }
+  }
+  return false;
+}

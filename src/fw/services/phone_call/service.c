@@ -4,6 +4,8 @@
 #include "pbl/services/phone_call.h"
 #ifdef CONFIG_BT_HFP
 #include "pbl/services/bluetooth/hfp.h"
+#include "pbl/services/phone_call_contacts.h"
+#include "kernel/pbl_malloc.h"
 #endif
 
 #include "applib/event_service_client.h"
@@ -47,6 +49,9 @@ static bool s_mobile_app_is_connected;
 // We can't expect iOS to reliably send us phone call events, so we must poll for the current
 // status of the phone call
 static TimerID s_call_watchdog = TIMER_INVALID_ID;
+#ifdef CONFIG_BT_HFP
+static char *s_companion_caller_name;
+#endif
 
 static void prv_handle_call_end(bool disconnected);
 
@@ -102,6 +107,10 @@ static bool prv_can_hangup(void) {
 
 // Handles the common things when we hide an incoming call
 static void prv_call_end_common(void) {
+#ifdef CONFIG_BT_HFP
+  kernel_free(s_companion_caller_name);
+  s_companion_caller_name = NULL;
+#endif
   s_call_in_progress = false;
   prv_cancel_call_watchdog();
   PBL_ANALYTICS_TIMER_STOP(phone_call_time_ms);
@@ -220,6 +229,27 @@ PBL_T_STATIC void prv_handle_phone_event(PebbleEvent *e, void *context) {
 #ifdef CONFIG_BT_HFP
   HfpStatus hfp;
   hfp_get_status(&hfp);
+  if (hfp.ready &&
+      (event.type == PhoneEventType_Incoming ||
+       (event.type == PhoneEventType_CallerID && s_call_in_progress)) &&
+      event.caller) {
+    if (event.source != PhoneCallSource_HFP && event.caller->name && *event.caller->name) {
+      kernel_free(s_companion_caller_name);
+      s_companion_caller_name = kernel_strdup(event.caller->name);
+    } else if (event.source == PhoneCallSource_HFP && s_companion_caller_name) {
+      char *name = kernel_strdup(s_companion_caller_name);
+      if (name) {
+        kernel_free(event.caller->name);
+        event.caller->name = name;
+      }
+    }
+  }
+  if (event.source == PhoneCallSource_HFP && event.caller && event.caller->number &&
+      !event.caller->name) {
+    PhoneContact contact;
+    if (phone_call_contacts_find(event.caller->number, &contact))
+      event.caller->name = kernel_strdup(contact.name);
+  }
   if (hfp.ready && event.source != PhoneCallSource_HFP) {
     // Companion notifications supply identity; HFP owns the call lifecycle.
     if (event.type == PhoneEventType_Incoming || event.type == PhoneEventType_CallerID) {

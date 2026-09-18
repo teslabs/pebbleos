@@ -97,7 +97,7 @@ static const struct {
   {0x0005, 5, {0x35, 3, 0x19, 0x10, 2}},
   {0x0009, 10, {0x35, 8, 0x35, 6, 0x19, 0x11, 0x1e, 9, 1, 7}},
   {0x0100, 10, {0x25, 8, 'H', 'F', 'P', ' ', 'D', 'e', 'm', 'o'}},
-  {0x0311, 3, {9, 0, 0}},
+  {0x0311, 3, {9, 0, 4}},
 };
 
 static void respond(BtClassicHost *s, BtClassicChannel *ch, uint8_t type, const uint8_t *id,

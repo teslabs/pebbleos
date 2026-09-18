@@ -40,6 +40,9 @@ unsigned demo_errors(void) {
 const char *demo_detail(void) {
   return s_host.status.detail;
 }
+const char *demo_caller_number(void) {
+  return s_host.status.caller_number;
+}
 int demo_dial(const char *number) {
   return bt_classic_dial(&s_host, number);
 }

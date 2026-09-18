@@ -12,6 +12,7 @@ typedef struct {
 
 // Reads companion-synced favorites on the calling task.
 unsigned phone_call_contacts_get(PhoneContact *contacts, unsigned capacity);
+bool phone_call_contacts_find(const char *number, PhoneContact *contact);
 unsigned phone_call_contacts_test_revision(void);
 #ifdef CONFIG_PROMPT
 bool phone_call_contacts_set_test(const char *name, const char *number);

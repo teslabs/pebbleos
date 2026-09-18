@@ -14,6 +14,7 @@ typedef struct {
   bool available, connected, ready, audio, call, incoming, busy;
   unsigned call_setup, errors;
   char detail[64];
+  char caller_number[BT_CLASSIC_NUMBER_SIZE];
 } BtClassicStatus;
 
 typedef struct {

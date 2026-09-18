@@ -648,6 +648,13 @@ disconnected both transports. Fresh BLE numeric comparison negotiated CT2 and
 restored encrypted HFP automatically without a second pairing prompt. These
 tests used nRF Connect, not a full CoreApp session.
 
+HFP enables calling-line identification with `AT+CLIP=1`. The service validates
+the number, handles international numbering and withheld identities, and
+updates the existing incoming-call popup. Exact normalized matches in the
+companion-synced favorites supply a contact name. Lookup runs on the phone
+service task, outside the Bluetooth host task. On the Pixel, the local Telecom
+test's reserved display number resolved to a temporary contact in the popup.
+
 ### Initial integration validation
 
 On 2026-09-18, a non-release Obelix build completed NimBLE and Classic
@@ -804,7 +811,8 @@ Apache-2.0 modules and the NimBLE changes small enough to review separately.
    while PP/ANCS can supply caller identity. Protocol timeout, malformed-line,
    and queue-exhaustion handling have regression coverage. BLE-triggered
    reconnect and shared-bond revocation are implemented and hardware tested.
-   Broader caller identification and multi-call handling remain open.
+   Basic HFP caller identification and favorite-contact lookup are implemented;
+   multi-call handling remains open.
 5. **Portability and release gate.** Run the common controller tests against
    simulated standard HCI controllers with both buffer layouts, and exercise
    a second controller transport when hardware is available. Measure flash,
@@ -868,7 +876,7 @@ readiness. Before enabling calling by default, complete these gates:
 
 1. Full CoreApp setup and sustained notification/GATT traffic during calls,
    on Android and iPhone, including deleting and re-establishing the shared bond.
-2. Reconnect interoperability on iPhone, caller identification, volume/mute synchronization,
+2. Reconnect and caller-identification interoperability on iPhone, volume/mute synchronization,
    audio transfer, and call waiting/multiple-call behavior.
 3. Measured speaker/microphone latency, packet-loss recovery and clock drift;
    acoustic echo cancellation using the actual playback reference.

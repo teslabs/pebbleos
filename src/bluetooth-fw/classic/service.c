@@ -31,12 +31,15 @@ void hfp_service_init(void) {
 }
 
 static void notify_call(PhoneEventType type) {
+  const char *number = s_host.status.caller_number;
   PebbleEvent event = {
     .type = PEBBLE_PHONE_EVENT,
     .phone = {
       .type = type,
       .source = PhoneCallSource_HFP,
-      .caller = type == PhoneEventType_Incoming ? phone_call_util_create_caller(NULL, NULL) : NULL,
+      .caller = type == PhoneEventType_Incoming || type == PhoneEventType_CallerID
+                    ? phone_call_util_create_caller(*number ? number : NULL, NULL)
+                    : NULL,
     },
   };
   event_put(&event);
@@ -44,14 +47,21 @@ static void notify_call(PhoneEventType type) {
 
 static void publish_call_state(void) {
   static bool incoming, started;
+  static char caller_number[BT_CLASSIC_NUMBER_SIZE];
   const BtClassicStatus *status = &s_host.status;
   if (!incoming && status->ready && status->incoming && !status->call) {
     incoming = true;
     started = false;
+    memcpy(caller_number, status->caller_number, sizeof(caller_number));
     notify_call(PhoneEventType_Incoming);
   }
   if (!incoming)
     return;
+  if (status->ready && (status->incoming || status->call || status->call_setup) &&
+      strcmp(caller_number, status->caller_number)) {
+    memcpy(caller_number, status->caller_number, sizeof(caller_number));
+    notify_call(PhoneEventType_CallerID);
+  }
   if (status->call && !started) {
     started = true;
     notify_call(PhoneEventType_Start);
