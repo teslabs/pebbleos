@@ -156,6 +156,17 @@ static void disconnect_link(BtClassicHost *s, uint16_t handle) {
   command(s, 0x0406, data, sizeof(data));
 }
 
+void bt_classic_disconnect_peer(BtClassicHost *s) {
+  if (s->revoking)
+    return;
+  s->revoking = true;
+  s->encrypted = false;
+  bt_classic_profile_reset(s);
+  s->output_count = 0;
+  disconnect_link(s, s->sco_handle);
+  disconnect_link(s, s->handle);
+}
+
 void bt_classic_stop(BtClassicHost *s) {
   bool cancel_accept = false;
   for (unsigned i = 0; i < s->command_count; ++i) {
@@ -191,12 +202,7 @@ void bt_classic_poll(BtClassicHost *s, uint32_t now) {
   s->now = now;
   if (s->get_link_key && s->encrypted && !s->revoking && !s->stopping &&
       !s->get_link_key(s->peer, NULL, s->context)) {
-    s->revoking = true;
-    s->encrypted = false;
-    bt_classic_profile_reset(s);
-    s->output_count = 0;
-    disconnect_link(s, s->sco_handle);
-    disconnect_link(s, s->handle);
+    bt_classic_disconnect_peer(s);
   }
   if (s->pending_opcode && (int32_t)(now - s->command_deadline) >= 0) {
     bt_classic_error(s, "Controller command timed out; restart");

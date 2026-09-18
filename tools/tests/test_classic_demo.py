@@ -207,6 +207,33 @@ class ClassicHostTest(unittest.TestCase):
         self.assertEqual(self.lib.demo_flags(), 1)
         self.assertFalse(self.lib.demo_dial(b"123"))
 
+    def test_oversized_line_cannot_inject_a_response_suffix(self):
+        self.rf_open()
+        for _ in range(6):
+            self.assertEqual(self.at("X" * 100), [])
+        self.assertEqual(self.at("OK\r\n"), [])
+        self.assertEqual(self.lib.demo_errors(), 1)
+        self.assertEqual(self.at("OK\r\n"), [b"AT+CIND=?\r"])
+
+    def test_nul_cannot_hide_trailing_response_data(self):
+        self.rf_open()
+        self.assertEqual(self.at("OK\0junk\r\n"), [])
+        self.assertEqual(self.lib.demo_errors(), 1)
+        self.assertEqual(self.at("OK\r\n"), [b"AT+CIND=?\r"])
+
+    def test_late_ok_after_timeout_cannot_resume_calls(self):
+        self.ready()
+        self.assertTrue(self.lib.demo_dial(b"5550100"))
+        self.frames()
+        self.now += 10001
+        self.lib.demo_tick(self.now)
+        packet = self.pop()
+        self.assertEqual(packet[1:3], le(0x0406))
+        self.complete(packet)
+        self.assertEqual(self.at("OK\r\n+CIEV: 2,1\r\n"), [])
+        self.assertFalse(self.lib.demo_flags() & (4 | 8))
+        self.assertFalse(self.lib.demo_dial(b"5550100"))
+
     def test_numbers_cannot_inject_at_commands(self):
         self.ready()
         for number in (b"", b"+", b"12\rATA", b"123;", b"++123", b"1" * 33):
@@ -327,6 +354,18 @@ class ClassicHostTest(unittest.TestCase):
 
 class ManagedClassicHostTest(ClassicHostTest):
     managed = True
+
+    def test_full_output_queue_closes_session(self):
+        self.ready()
+        self.lib.demo_acl_ready(False)
+        echo = rfcomm.RFCOMM_Frame.make_mcc(0x08, 1, b"test")
+        for _ in range(13):
+            self.rf_receive(rfcomm.RFCOMM_Frame.uih(1, 0, echo))
+        packet = self.pop()
+        self.assertEqual(packet[1:3], le(0x0406))
+        self.assertFalse(self.lib.demo_flags() & 4)
+        self.assertFalse(self.lib.demo_dial(b"5550100"))
+        self.assertEqual(self.lib.demo_errors(), 1)
 
     def test_shutdown_does_not_reenable_scan(self):
         self.ready()

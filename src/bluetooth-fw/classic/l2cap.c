@@ -11,9 +11,9 @@ static void put16(uint8_t *p, unsigned n) {
   p[1] = n >> 8;
 }
 
-void bt_classic_l2cap_send(BtClassicHost *s, uint16_t cid, const uint8_t *data, size_t length) {
-  if (s->handle == BT_CLASSIC_NO_HANDLE || !s->acl_mtu || length > BT_CLASSIC_MTU)
-    return;
+bool bt_classic_l2cap_send(BtClassicHost *s, uint16_t cid, const uint8_t *data, size_t length) {
+  if (s->revoking || s->handle == BT_CLASSIC_NO_HANDLE || !s->acl_mtu || length > BT_CLASSIC_MTU)
+    return false;
   uint8_t pdu[BT_CLASSIC_MTU + 4];
   put16(pdu, length);
   put16(pdu + 2, cid);
@@ -23,7 +23,8 @@ void bt_classic_l2cap_send(BtClassicHost *s, uint16_t cid, const uint8_t *data, 
   unsigned fragments = (total + s->acl_mtu - 1) / s->acl_mtu;
   if (fragments > 12 - s->output_count) {
     bt_classic_error(s, "ACL queue full");
-    return;
+    bt_classic_disconnect_peer(s);
+    return false;
   }
   for (unsigned offset = 0; offset < total;) {
     unsigned n = total - offset;
@@ -37,6 +38,7 @@ void bt_classic_l2cap_send(BtClassicHost *s, uint16_t cid, const uint8_t *data, 
     out->length = n + 5;
     offset += n;
   }
+  return true;
 }
 
 static void signal_send(BtClassicHost *s, uint8_t code, uint8_t id, const void *data, unsigned n) {

@@ -53,7 +53,7 @@ typedef struct {
   BtClassicChannel channels[4];
   uint16_t rfcomm_cid, rfcomm_mtu, rfcomm_credits;
   uint8_t dlci, rx_credits, slc_step;
-  bool rfcomm_open, credit_mode, modem_ready, at_pending;
+  bool rfcomm_open, credit_mode, modem_ready, at_pending, at_discard;
   uint8_t at_tx[96];
   unsigned at_tx_length;
   char at_line[512];

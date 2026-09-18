@@ -15,11 +15,11 @@ static uint8_t fcs(const uint8_t *p, unsigned n) {
   return 0xff - crc;
 }
 
-static void frame(BtClassicHost *s, unsigned dlci, unsigned control, bool response,
+static bool frame(BtClassicHost *s, unsigned dlci, unsigned control, bool response,
                   const uint8_t *data, unsigned length, unsigned credits) {
   uint8_t p[140];
   if (length > 127 || !s->rfcomm_cid)
-    return;
+    return false;
   p[0] = (dlci << 2) | (response ? 3 : 1);
   p[1] = control | (credits ? 0x10 : 0);
   p[2] = (length << 1) | 1;
@@ -30,7 +30,7 @@ static void frame(BtClassicHost *s, unsigned dlci, unsigned control, bool respon
     memcpy(p + offset, data, length);
   offset += length;
   p[offset++] = fcs(p, (control & ~0x10) == 0xef ? 2 : 3);
-  bt_classic_l2cap_send(s, s->rfcomm_cid, p, offset);
+  return bt_classic_l2cap_send(s, s->rfcomm_cid, p, offset);
 }
 
 static void mcc(BtClassicHost *s, uint8_t type, const uint8_t *data, unsigned length) {
@@ -75,14 +75,21 @@ static void indicator(BtClassicHost *s, unsigned index, unsigned value) {
 
 static void line(BtClassicHost *s, const char *text) {
   if (!strcmp(text, "OK")) {
-    if (!s->at_pending)
+    if (!s->at_pending || s->at_tx_length)
       return;
+    if (s->slc_step == 2 && (!s->indicator_call || !s->indicator_setup)) {
+      bt_classic_error(s, "Missing call indicators");
+      bt_classic_disconnect_peer(s);
+      return;
+    }
     s->at_pending = s->status.busy = false;
     if (!s->status.ready)
       slc_next(s);
   } else if (!strcmp(text, "ERROR") || !strncmp(text, "+CME ERROR", 10)) {
     s->at_pending = s->status.busy = false;
     bt_classic_error(s, "Phone rejected command");
+    if (!s->status.ready)
+      bt_classic_disconnect_peer(s);
   } else if (!strcmp(text, "RING"))
     s->status.incoming = true;
   else if (!strncmp(text, "+CIEV:", 6)) {
@@ -126,7 +133,10 @@ void bt_classic_profile_reset(BtClassicHost *s) {
   s->rfcomm_cid = s->rfcomm_mtu = s->rfcomm_credits = 0;
   s->dlci = s->rx_credits = s->slc_step = 0;
   s->rfcomm_open = s->credit_mode = s->modem_ready = s->at_pending = false;
+  s->at_discard = false;
   s->status.ready = s->status.busy = false;
+  s->status.call = s->status.incoming = false;
+  s->status.call_setup = 0;
   s->at_tx_length = s->at_line_length = 0;
   s->indicator_call = s->indicator_setup = 0;
 }
@@ -138,12 +148,16 @@ void bt_classic_profile_poll(BtClassicHost *s) {
     s->at_pending = s->status.busy = false;
     s->at_tx_length = 0;
     bt_classic_error(s, "Phone command timed out");
+    // A late response cannot be associated safely with another AT command.
+    bt_classic_disconnect_peer(s);
+    return;
   }
   if (s->at_tx_length && (!s->credit_mode || s->rfcomm_credits)) {
     unsigned length = s->at_tx_length;
     if (length > s->rfcomm_mtu)
       length = s->rfcomm_mtu;
-    frame(s, s->dlci, 0xef, false, s->at_tx, length, 0);
+    if (!frame(s, s->dlci, 0xef, false, s->at_tx, length, 0))
+      return;
     memmove(s->at_tx, s->at_tx + length, s->at_tx_length - length);
     s->at_tx_length -= length;
     if (s->credit_mode)
@@ -152,7 +166,7 @@ void bt_classic_profile_poll(BtClassicHost *s) {
 }
 
 void bt_classic_rfcomm(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *p, size_t n) {
-  if (n < 4 || !(p[0] & 1))
+  if (s->revoking || n < 4 || !(p[0] & 1))
     return;
   unsigned dlci = p[0] >> 2, control = p[1] & ~0x10, length = p[2] >> 1, offset = 3;
   if (!(p[2] & 1)) {
@@ -171,7 +185,8 @@ void bt_classic_rfcomm(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *p,
   s->rfcomm_cid = ch->remote;
   if (control == 0x2f) {
     if (dlci == 0 || (dlci == s->dlci && s->rfcomm_mtu)) {
-      frame(s, dlci, 0x73, true, NULL, 0, 0);
+      if (!frame(s, dlci, 0x73, true, NULL, 0, 0))
+        return;
       if (dlci) {
         s->rfcomm_open = true;
         uint8_t modem[] = {(dlci << 2) | 3, 0x8d};
@@ -254,21 +269,28 @@ void bt_classic_rfcomm(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *p,
   for (unsigned i = 0; i < length; ++i) {
     char c = p[offset + i];
     if (c == '\r' || c == '\n') {
-      if (s->at_line_length) {
+      if (s->at_line_length && !s->at_discard) {
         s->at_line[s->at_line_length] = 0;
         line(s, s->at_line);
-        s->at_line_length = 0;
+        if (s->revoking)
+          return;
       }
-    } else if (s->at_line_length + 1 < sizeof(s->at_line))
+      s->at_line_length = 0;
+      s->at_discard = false;
+    } else if (s->at_discard) {
+      continue;
+    } else if ((c == '\t' || (uint8_t)c >= 32) && c != 127 &&
+               s->at_line_length + 1 < sizeof(s->at_line))
       s->at_line[s->at_line_length++] = c;
     else {
       s->at_line_length = 0;
-      bt_classic_error(s, "HFP response too long");
+      s->at_discard = true;
+      bt_classic_error(s, "Invalid HFP response");
     }
   }
   if (s->credit_mode && s->rx_credits <= 3) {
-    frame(s, s->dlci, 0xef, false, NULL, 0, 7 - s->rx_credits);
-    s->rx_credits = 7;
+    if (frame(s, s->dlci, 0xef, false, NULL, 0, 7 - s->rx_credits))
+      s->rx_credits = 7;
   }
 }
 
