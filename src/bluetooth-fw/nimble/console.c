@@ -14,7 +14,7 @@ void command_ble_host_reset(void) {
 #include <host/ble_store.h>
 #include "../classic/service.h"
 #include <nimble/nimble_port.h>
-#include <pbl/services/bluetooth/hfp_demo.h>
+#include <pbl/services/bluetooth/hfp.h>
 #include "ble_hs_hci_priv.h"
 #include <stdio.h>
 
@@ -34,8 +34,8 @@ static int collect_connections(uint16_t handle, void *context) {
 static void report_dual_status(struct ble_npl_event *event) {
   Connections connections = {0};
   ble_gap_conn_foreach_handle(collect_connections, &connections);
-  HfpDemoStatus hfp;
-  hfp_demo_get_status(&hfp);
+  HfpStatus hfp;
+  hfp_get_status(&hfp);
   char line[160];
   snprintf(line, sizeof(line), "NimBLE enabled=%u synced=%u LE=%u BR=%u HFP=%u SCO=%u errors=%u",
            ble_hs_is_enabled(), ble_hs_synced(), connections.count, hfp.connected, hfp.ready,

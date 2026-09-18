@@ -134,6 +134,11 @@ pbl_clar_test(test_phone_call
     src/fw/services/phone_call/service.c
 )
 
+pbl_clar_test(test_phone_call_contacts
+  SOURCES
+    src/fw/services/phone_call/contacts.c
+)
+
 pbl_clar_test(test_debounced_connection_service
   SOURCES
     src/fw/services/regular_timer/service.c

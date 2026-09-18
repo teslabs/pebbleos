@@ -1,4 +1,4 @@
-# Bluetooth calling proof of concept
+# Bluetooth calling
 
 ## Scope and constraints
 
@@ -499,16 +499,17 @@ Saved contacts appear by name on the call screen, with the number as a fallback.
 The app can close while a call continues.
 
 **Contacts** shows names and numbers in a vertically scrollable list.
-Selecting a contact dials it when the phone is ready. Up to eight contacts
-can be configured for the current boot; configuring an existing name updates
-its number without adding a duplicate. Optional build settings
-`CONFIG_BT_HFP_DEMO_CONTACT_1_NAME` / `_NUMBER` and
-`CONFIG_BT_HFP_DEMO_CONTACT_2_NAME` / `_NUMBER` seed two contacts at boot.
-They default to empty; personal contacts belong in local build configuration.
-Console changes last until reboot:
+Selecting a contact dials it when the phone is ready. The Phone app reads
+up to eight entries from the existing companion-synced contact favorites
+used by Send Text. Those entries survive reboot and update when contact or
+preference blobs change. Common visual number separators are removed before
+dialing; unsupported address formats are skipped.
+
+For development, console commands can add temporary contacts in RAM. These
+are not stored in firmware configuration and disappear on reboot:
 
 ```sh
-.venv/bin/python tools/hfp_demo.py \
+.venv/bin/python tools/hfp.py \
   --tty /dev/tty.wchusbserial5B7A1355001 \
   --contact-name Test --contact-number YOUR_NUMBER --launch
 ```
@@ -585,7 +586,7 @@ Build without private contacts:
 
 ```sh
 CCACHE_DISABLE=1 pbl configure -b build-obelix-dual --board obelix@pvt \
-  -DCONFIG_RELEASE=n -DCONFIG_BT_CLASSIC=y -DCONFIG_DEMO_APP_HFP_DEMO=y
+  -DCONFIG_RELEASE=n -DCONFIG_BT_CLASSIC=y -DCONFIG_APP_PHONE=y
 CCACHE_DISABLE=1 pbl build -b build-obelix-dual
 pbl flash -b build-obelix-dual --tty /dev/tty.wchusbserial5B7A1355001 --resources
 ```
@@ -646,7 +647,7 @@ The existing phone-service tests also pass.
 For a live session, use:
 
 ```sh
-.venv/bin/python tools/hfp_demo.py \
+.venv/bin/python tools/hfp.py \
   --tty /dev/tty.wchusbserial5B7A1355001 --dual --monitor
 ```
 

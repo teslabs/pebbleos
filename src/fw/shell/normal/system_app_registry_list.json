@@ -25,10 +25,10 @@
   "system_apps": [
     {
       "id": -194,
-      "enum": "HFP_DEMO",
-      "md_fn": "hfp_demo_get_app_info",
+      "enum": "PHONE",
+      "md_fn": "phone_get_app_info",
       "ifdefs": [
-        "CONFIG_DEMO_APP_HFP_DEMO"
+        "CONFIG_APP_PHONE"
       ]
     },
     {

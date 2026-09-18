@@ -67,26 +67,6 @@ config BT_CLASSIC
 config BT_HFP
     bool
 
-if BT_HFP
-
-config BT_HFP_DEMO_CONTACT_1_NAME
-    string "First demo contact name"
-    default ""
-
-config BT_HFP_DEMO_CONTACT_1_NUMBER
-    string "First demo contact number"
-    default ""
-
-config BT_HFP_DEMO_CONTACT_2_NAME
-    string "Second demo contact name"
-    default ""
-
-config BT_HFP_DEMO_CONTACT_2_NUMBER
-    string "Second demo contact number"
-    default ""
-
-endif
-
 config BT_HCI_AUDIO_PROBE
     bool "SiFli shared audio mailbox diagnostic"
     depends on (BT_FW_HCI_BRIDGE || BT_HFP) && PROMPT

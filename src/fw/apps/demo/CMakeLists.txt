@@ -2,9 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(shared)
-if(CONFIG_DEMO_APP_HFP_DEMO)
-  add_subdirectory(hfp_demo)
-endif()
 if(CONFIG_DEMO_APP_ACCEL_DEMO)
   add_subdirectory(accel_demo)
 endif()

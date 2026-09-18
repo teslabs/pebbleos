@@ -7,7 +7,10 @@
 #include "kernel/pbl_malloc.h"
 #include "process_management/pebble_process_md.h"
 #include "process_state/app_state/app_state.h"
-#include <pbl/services/bluetooth/hfp_demo.h>
+#include <pbl/services/bluetooth/hfp.h>
+#include <pbl/services/phone_call_contacts.h>
+#include <pbl/services/blob_db/api.h>
+#include <pbl/services/event_service.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,9 +29,10 @@ typedef struct {
   Window window;
   Layer canvas;
   AppTimer *timer;
-  HfpDemoStatus status;
-  HfpDemoContact contacts[HFP_DEMO_MAX_CONTACTS];
-  unsigned contact_count;
+  HfpStatus status;
+  PhoneContact contacts[PHONE_MAX_CONTACTS];
+  unsigned contact_count, contact_revision;
+  EventServiceInfo contacts_event;
   unsigned page;
   unsigned focused_key;
   unsigned focused_contact;
@@ -55,7 +59,7 @@ static void rounded(GContext *ctx, GRect rect, GColor color, int radius) {
   graphics_fill_round_rect(ctx, &rect, radius, GCornersAll);
 }
 
-static bool call_in_progress(const HfpDemoStatus *status) {
+static bool call_in_progress(const HfpStatus *status) {
   return status->call || status->incoming || status->call_setup;
 }
 
@@ -90,7 +94,7 @@ static void draw_connection(AppData *d, GContext *ctx) {
   graphics_context_set_stroke_width(ctx, 1);
   text(ctx, d->status.connected ? "Connecting..." : "Connect your phone", FONT_KEY_GOTHIC_24_BOLD,
        GRect(6, y + 40, size.w - 12, 32), GColorBlack, GTextAlignmentCenter);
-  text(ctx, "Choose Pebble HFP Demo\nin your phone's Bluetooth settings", FONT_KEY_GOTHIC_18,
+  text(ctx, "Pair with the companion app\nand enable phone calls", FONT_KEY_GOTHIC_18,
        GRect(13, y + 76, size.w - 26, 65), GColorDarkGray, GTextAlignmentCenter);
 }
 
@@ -226,10 +230,10 @@ static void draw(Layer *layer, GContext *ctx) {
 }
 
 static void dial(AppData *d, const char *number) {
-  hfp_demo_get_status(&d->status);
+  hfp_get_status(&d->status);
   if (!d->status.ready || d->status.busy || call_in_progress(&d->status))
     return;
-  if (hfp_demo_dial(number)) {
+  if (hfp_dial(number)) {
     d->dialed_here = true;
     if (number != d->number)
       snprintf(d->number, sizeof(d->number), "%s", number);
@@ -239,13 +243,13 @@ static void dial(AppData *d, const char *number) {
 }
 
 static void activate(AppData *d, unsigned target) {
-  hfp_demo_get_status(&d->status);
+  hfp_get_status(&d->status);
   if (!d->status.ready)
     return;
   d->notice = NULL;
   if (call_in_progress(&d->status)) {
     if (!d->status.busy)
-      hfp_demo_hangup();
+      hfp_hangup();
   } else if (d->page) {
     if (target < d->contact_count)
       dial(d, d->contacts[target].number);
@@ -372,9 +376,26 @@ static void touch(const TouchEvent *event, void *context) {
   layer_mark_dirty(&d->canvas);
 }
 
+static void refresh_contacts(AppData *d) {
+  memset(d->contacts, 0, sizeof(d->contacts));
+  d->contact_count = phone_call_contacts_get(d->contacts, PHONE_MAX_CONTACTS);
+  d->contact_revision = phone_call_contacts_test_revision();
+  if (d->focused_contact >= d->contact_count)
+    d->focused_contact = 0;
+  clamp_scroll(d);
+  d->touching = false;
+  layer_mark_dirty(&d->canvas);
+}
+
+static void contacts_changed(PebbleEvent *event, void *context) {
+  if (event->blob_db.db_id == BlobDBIdContacts || event->blob_db.db_id == BlobDBIdWatchAppPrefs)
+    refresh_contacts(context);
+}
+
 static void appear(Window *window) {
   AppData *d = window_get_user_data(window);
   d->touching = false;
+  refresh_contacts(d);
   touch_service_subscribe(touch, d);
 }
 static void disappear(Window *window) {
@@ -385,12 +406,12 @@ static void disappear(Window *window) {
 
 static void tick(void *context) {
   AppData *d = context;
-  HfpDemoStatus status;
-  HfpDemoContact contacts[HFP_DEMO_MAX_CONTACTS] = {};
-  hfp_demo_get_status(&status);
-  unsigned count = hfp_demo_get_contacts(contacts, HFP_DEMO_MAX_CONTACTS);
-  bool changed = memcmp(&status, &d->status, sizeof(status)) || count != d->contact_count ||
-                 memcmp(contacts, d->contacts, sizeof(contacts));
+  HfpStatus status;
+  hfp_get_status(&status);
+  unsigned revision = phone_call_contacts_test_revision();
+  if (revision != d->contact_revision)
+    refresh_contacts(d);
+  bool changed = memcmp(&status, &d->status, sizeof(status));
   if (changed) {
     if (status.errors != d->status.errors)
       d->notice = "Call unavailable";
@@ -400,10 +421,6 @@ static void tick(void *context) {
         (!call_in_progress(&status) && call_in_progress(&d->status)))
       d->dialed_here = false;
     d->status = status;
-    d->contact_count = count;
-    memcpy(d->contacts, contacts, sizeof(contacts));
-    if (d->focused_contact >= count)
-      d->focused_contact = 0;
     clamp_scroll(d);
     d->touching = false;
     layer_mark_dirty(&d->canvas);
@@ -415,8 +432,7 @@ static void prv_main(void) {
   AppData *d = app_malloc_check(sizeof(*d));
   memset(d, 0, sizeof(*d));
   app_state_set_user_data(d);
-  hfp_demo_get_status(&d->status);
-  d->contact_count = hfp_demo_get_contacts(d->contacts, HFP_DEMO_MAX_CONTACTS);
+  hfp_get_status(&d->status);
   window_init(&d->window, WINDOW_NAME("Phone"));
   window_set_user_data(&d->window, d);
   window_set_fullscreen(&d->window, true);
@@ -428,17 +444,24 @@ static void prv_main(void) {
   layer_add_child(&d->window.layer, &d->canvas);
   // Raw gestures own taps and paging; the system bridge must not also synthesize clicks.
   app_touch_navigation_enable(false);
+  d->contacts_event = (EventServiceInfo){
+    .type = PEBBLE_BLOBDB_EVENT,
+    .handler = contacts_changed,
+    .context = d,
+  };
+  event_service_client_subscribe(&d->contacts_event);
   app_window_stack_push(&d->window, true);
   d->timer = app_timer_register(250, tick, d);
   app_event_loop();
   app_timer_cancel(d->timer);
+  event_service_client_unsubscribe(&d->contacts_event);
   touch_service_unsubscribe();
   layer_deinit(&d->canvas);
   window_deinit(&d->window);
   app_free(d);
 }
 
-const PebbleProcessMd *hfp_demo_get_app_info(void) {
+const PebbleProcessMd *phone_get_app_info(void) {
   static const PebbleProcessMdSystem info = {.common.main_func = prv_main, .name = "Phone"};
   return (const PebbleProcessMd *)&info;
 }

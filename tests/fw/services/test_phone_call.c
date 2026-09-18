@@ -7,7 +7,7 @@
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/notifications/alerts.h"
 #include "pbl/services/phone_call.h"
-#include "pbl/services/bluetooth/hfp_demo.h"
+#include "pbl/services/bluetooth/hfp.h"
 #include "pbl/services/phone_call_util.h"
 #include "pbl/util/testing.h"
 
@@ -30,12 +30,12 @@ extern PBL_T_STATIC void prv_handle_ancs_disconnected_event(PebbleEvent *e, void
 static unsigned s_hfp_answer_count, s_hfp_hangup_count;
 static bool s_show_ongoing;
 
-bool hfp_demo_answer(void) {
+bool hfp_answer(void) {
   ++s_hfp_answer_count;
   return true;
 }
 
-bool hfp_demo_hangup(void) {
+bool hfp_hangup(void) {
   ++s_hfp_hangup_count;
   return true;
 }

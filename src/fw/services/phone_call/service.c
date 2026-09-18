@@ -3,7 +3,7 @@
 
 #include "pbl/services/phone_call.h"
 #ifdef CONFIG_BT_HFP
-#include "pbl/services/bluetooth/hfp_demo.h"
+#include "pbl/services/bluetooth/hfp.h"
 #endif
 
 #include "applib/event_service_client.h"
@@ -317,7 +317,7 @@ void phone_call_answer(void) {
 
 #ifdef CONFIG_BT_HFP
   if (s_call_source == PhoneCallSource_HFP) {
-    hfp_demo_answer();
+    hfp_answer();
     return;
   }
 #endif
@@ -338,7 +338,7 @@ void phone_call_decline(void) {
 
 #ifdef CONFIG_BT_HFP
   if (s_call_source == PhoneCallSource_HFP) {
-    hfp_demo_hangup();
+    hfp_hangup();
     return;
   }
 #endif
