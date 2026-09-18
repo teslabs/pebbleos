@@ -18,10 +18,11 @@ static inline void os_interrupt_enable(int mask) {
 #define os_interrupt_enter()
 #define os_interrupt_exit()
 
-#define os_interrupt_start(irq_number, priority, sub_priority) \
-  do {                                                         \
-    HAL_NVIC_SetPriority(irq_number, priority, sub_priority);  \
-    HAL_NVIC_EnableIRQ(irq_number);                            \
+#define os_interrupt_start(irq_number, priority, sub_priority)                        \
+  do {                                                                                \
+    /* All mailbox callbacks use kernel synchronization primitives. */                \
+    NVIC_SetPriority(irq_number, PBL_IRQ_PRIO_MAX_SYSCALL >> (8 - __NVIC_PRIO_BITS)); \
+    HAL_NVIC_EnableIRQ(irq_number);                                                   \
   } while (0)
 
 #define os_interrupt_stop(irq_number) HAL_NVIC_DisableIRQ(irq_number)
