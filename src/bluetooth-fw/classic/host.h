@@ -52,6 +52,8 @@ typedef struct {
   uint16_t handle, sco_handle, acl_mtu, acl_limit, acl_inflight, pending_opcode;
   uint8_t command_credit, startup, signal_id;
   uint8_t peer[6], key_peer[6], key[16];
+  char local_name[64];
+  bool name_dirty;
   uint8_t active_key[16];
   bool active_key_valid;
   bool key_valid, accepting, accepting_sco, stopping;
@@ -98,6 +100,7 @@ void bt_classic_init_managed(BtClassicHost *host, void (*command)(const uint8_t 
                              bool (*acl)(const uint8_t *, size_t, void *), uint16_t acl_mtu,
                              void *context);
 void bt_classic_reset(BtClassicHost *host);
+void bt_classic_set_local_name(BtClassicHost *host, const char *name);
 
 // Initiate HFP only for a peer authorized by the shared-bond policy.
 bool bt_classic_connect(BtClassicHost *host, const uint8_t peer[6]);

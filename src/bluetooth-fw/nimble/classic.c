@@ -4,6 +4,7 @@
 #include "nimble_store.h"
 #include <host/ble_sm.h>
 #include <host/ble_gap.h>
+#include <stdio.h>
 #include "../classic/service.h"
 #include "../hci_bridge/local_audio.h"
 #include <host/ble_hs.h>
@@ -12,6 +13,7 @@
 #include "ble_hs_priv.h"
 #include <nimble/nimble_port.h>
 #include <pbl/kernel/sem.h>
+#include <pbl/kernel/mutex.h>
 #include <pbl/kernel/sched.h>
 #include <system/passert.h>
 
@@ -19,6 +21,14 @@ static struct ble_npl_callout s_poll;
 static struct ble_npl_event s_wake, s_stop;
 static PBL_SEM_DEFINE(s_stopped, 0, 1);
 static bool s_running, s_stopping;
+static PBL_MUTEX_DEFINE(s_name_lock);
+static char s_local_name[sizeof(((BtClassicHost *)0)->local_name)] = "Pebble";
+
+void nimble_classic_set_local_name(const char *name) {
+  pbl_mutex_lock(&s_name_lock, PBL_FOREVER);
+  snprintf(s_local_name, sizeof(s_local_name), "%s", name);
+  pbl_mutex_unlock(&s_name_lock);
+}
 
 typedef struct {
   unsigned count;
@@ -128,8 +138,12 @@ static void poll(struct ble_npl_event *event) {
     return;
   BtClassicHost *host = hfp_service_host();
   uint32_t now = pbl_ticks_to_ms(pbl_uptime_ticks());
-  if (!s_stopping)
+  if (!s_stopping) {
+    pbl_mutex_lock(&s_name_lock, PBL_FOREVER);
+    bt_classic_set_local_name(host, s_local_name);
+    pbl_mutex_unlock(&s_name_lock);
     reconnect(now);
+  }
   hfp_service_poll(now);
   if (host->revoking)
     hci_local_audio_stop();

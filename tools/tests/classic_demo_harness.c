@@ -106,3 +106,7 @@ void demo_reconnect(unsigned now, int present) {
 unsigned demo_connecting(void) {
   return s_host.connecting;
 }
+
+void demo_set_local_name(const char *name) {
+  bt_classic_set_local_name(&s_host, name);
+}

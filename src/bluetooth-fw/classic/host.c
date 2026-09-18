@@ -36,6 +36,34 @@ static void command(BtClassicHost *s, uint16_t opcode, const void *data, unsigne
     memcpy(p + 4, data, length);
 }
 
+static void write_local_name(BtClassicHost *s) {
+  uint8_t data[248] = {0};
+  memcpy(data, s->local_name, strlen(s->local_name));
+  command(s, 0x0c13, data, sizeof(data));
+}
+
+static void write_eir(BtClassicHost *s) {
+  uint8_t data[241] = {0};
+  unsigned length = strlen(s->local_name);
+  data[1] = length + 1;
+  data[2] = 9;
+  memcpy(data + 3, s->local_name, length);
+  data[length + 3] = 3;
+  data[length + 4] = 3;
+  data[length + 5] = 0x1e;
+  data[length + 6] = 0x11;
+  command(s, 0x0c52, data, sizeof(data));
+}
+
+void bt_classic_set_local_name(BtClassicHost *s, const char *name) {
+  char bounded[sizeof(s->local_name)];
+  snprintf(bounded, sizeof(bounded), "%s", name);
+  if (strcmp(bounded, s->local_name)) {
+    snprintf(s->local_name, sizeof(s->local_name), "%s", bounded);
+    s->name_dirty = true;
+  }
+}
+
 static void startup(BtClassicHost *s) {
   uint8_t data[248] = {0};
   switch (s->startup++) {
@@ -57,8 +85,7 @@ static void startup(BtClassicHost *s) {
       command(s, 0x0c24, data, 3);
       break;
     case 4:
-      memcpy(data, "Pebble HFP Demo", 15);
-      command(s, 0x0c13, data, sizeof(data));
+      write_local_name(s);
       break;
     case 5:
       data[1] = 0x60;
@@ -80,14 +107,7 @@ static void startup(BtClassicHost *s) {
       command(s, 0x0c2f, data, 1);
       break;
     case 9:
-      data[1] = 16;
-      data[2] = 9;
-      memcpy(data + 3, "Pebble HFP Demo", 15);
-      data[18] = 3;
-      data[19] = 3;
-      data[20] = 0x1e;
-      data[21] = 0x11;
-      command(s, 0x0c52, data, 241);
+      write_eir(s);
       break;
     case 10:
       data[0] = 3;
@@ -109,6 +129,7 @@ void bt_classic_init(BtClassicHost *s, void (*send)(const uint8_t *, size_t, voi
     .send = send,
     .context = context,
     .command_credit = 1,
+    .local_name = "Pebble",
     .handle = BT_CLASSIC_NO_HANDLE,
     .sco_handle = BT_CLASSIC_NO_HANDLE
   };
@@ -124,6 +145,7 @@ void bt_classic_init_managed(BtClassicHost *s, void (*send)(const uint8_t *, siz
     .send_acl = acl,
     .context = context,
     .command_credit = 1,
+    .local_name = "Pebble",
     .startup = 2,
     .acl_mtu = acl_mtu > BT_CLASSIC_MTU + 4 ? BT_CLASSIC_MTU + 4 : acl_mtu,
     .handle = BT_CLASSIC_NO_HANDLE,
@@ -304,6 +326,11 @@ static bool bond_current(BtClassicHost *s) {
 }
 
 void bt_classic_poll(BtClassicHost *s, uint32_t now) {
+  if (s->status.available && !s->stopping && s->name_dirty && s->command_count <= 6) {
+    write_local_name(s);
+    write_eir(s);
+    s->name_dirty = false;
+  }
   s->now = now;
   if (!s->stopping && s->connect_stage != BtClassicConnectIdle) {
     if (s->status.ready) {

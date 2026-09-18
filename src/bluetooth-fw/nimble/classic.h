@@ -4,3 +4,4 @@
 void nimble_classic_init(void);
 void nimble_classic_start(void);
 void nimble_classic_stop(void);
+void nimble_classic_set_local_name(const char *name);

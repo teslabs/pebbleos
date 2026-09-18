@@ -85,11 +85,33 @@ class ClassicHostTest(unittest.TestCase):
         result = le(1021) + bytes([60]) + le(4, 7) if opcode == 0x1005 else b""
         self.event(0x0E, bytes([1]) + le(opcode) + b"\0" + result)
 
+    def test_name_changes_update_name_and_eir(self):
+        for requested in (b"Pebble test", b"x" * 100, b"Pebble test"):
+            self.lib.demo_set_local_name(requested)
+            name = requested[:63]
+            packet = self.pop()
+            self.assertEqual(packet[:4], b"\x01\x13\x0c\xf8")
+            self.assertEqual(packet[4:].rstrip(b"\0"), name)
+            self.complete(packet)
+            packet = self.pop()
+            self.assertEqual(packet[:5], b"\x01\x52\x0c\xf1\0")
+            self.assertEqual(packet[5:7], bytes([len(name) + 1, 9]))
+            self.assertEqual(packet[7 : 7 + len(name)], name)
+            self.assertEqual(packet[7 + len(name) : 11 + len(name)], b"\3\3\x1e\x11")
+            self.complete(packet)
+            self.lib.demo_set_local_name(requested)
+            self.assertFalse(self.pop())
+
     def boot(self):
         opcodes = []
         while packet := self.pop():
             self.assertEqual(packet[0], 1)
             opcodes.append(int.from_bytes(packet[1:3], "little"))
+            if opcodes[-1] == 0x0C13:
+                self.assertEqual(packet[4:].rstrip(b"\0"), b"Pebble")
+            elif opcodes[-1] == 0x0C52:
+                self.assertEqual(packet[5:13], b"\7\x09Pebble")
+                self.assertEqual(packet[13:17], b"\3\3\x1e\x11")
             self.complete(packet)
         expected = [
             0x0C03,
