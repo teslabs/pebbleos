@@ -9,9 +9,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef CONFIG_PROMPT
 static PBL_MUTEX_DEFINE(s_lock);
 static PhoneContact s_test_contacts[PHONE_MAX_CONTACTS];
 static unsigned s_test_count, s_test_revision;
+#endif
 
 static bool normalize_number(char output[33], const char *input) {
   unsigned length = 0, digits = 0;
@@ -33,6 +35,7 @@ static bool normalize_number(char output[33], const char *input) {
   return digits != 0;
 }
 
+#ifdef CONFIG_PROMPT
 bool phone_call_contacts_set_test(const char *name, const char *number) {
   PhoneContact contact = {};
   if (!name || !*name || strlen(name) >= sizeof(contact.name) ||
@@ -59,14 +62,22 @@ unsigned phone_call_contacts_test_revision(void) {
   pbl_mutex_unlock(&s_lock);
   return revision;
 }
+#else
+unsigned phone_call_contacts_test_revision(void) {
+  return 0;
+}
+#endif
 
 unsigned phone_call_contacts_get(PhoneContact *contacts, unsigned capacity) {
   if (!contacts || !capacity)
     return 0;
+  unsigned count = 0;
+#ifdef CONFIG_PROMPT
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
-  unsigned count = s_test_count < capacity ? s_test_count : capacity;
+  count = s_test_count < capacity ? s_test_count : capacity;
   memcpy(contacts, s_test_contacts, count * sizeof(*contacts));
   pbl_mutex_unlock(&s_lock);
+#endif
   SerializedSendTextPrefs *prefs = watch_app_prefs_get_send_text();
   if (!prefs)
     return count;

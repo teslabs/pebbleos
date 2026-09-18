@@ -119,6 +119,7 @@ bool hfp_hangup(void) {
   return request(2, NULL);
 }
 
+#ifdef CONFIG_PROMPT
 void command_bt_hfp_status(void) {
   HfpStatus status;
   hfp_get_status(&status);
@@ -182,3 +183,5 @@ void command_bt_hfp_answer(void) {
 void command_bt_hfp_hangup(void) {
   hfp_hangup();
 }
+
+#endif

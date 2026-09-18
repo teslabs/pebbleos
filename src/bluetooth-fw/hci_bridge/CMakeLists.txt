@@ -7,7 +7,7 @@ pbl_library_named(bt_driver)
 pbl_library_sources(${sources} init.c sf32lb52.c
   ${PBL_BASE}/third_party/nonfree/pebbleos-nonfree/sf32lb52/lcpu_52x.c
 )
-if(CONFIG_BT_HCI_AUDIO_PROBE)
+if(CONFIG_BT_HCI_AUDIO_PROBE OR CONFIG_BT_HCI_AUDIO_ADAPTER)
   pbl_library_sources(sf32lb52_audio_probe.c sifli_sco.c)
 endif()
 if(CONFIG_BT_HCI_AUDIO_ADAPTER)

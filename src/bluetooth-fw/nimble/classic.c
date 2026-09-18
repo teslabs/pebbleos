@@ -65,13 +65,16 @@ static void receive_event(const struct ble_hci_ev *event) {
   uint8_t packet[258] = {4};
   memcpy(packet + 1, event, event->length + 2);
   bt_classic_receive(hfp_service_host(), packet, event->length + 3);
+  hfp_service_wake();
 }
 
 static void receive_acl(const struct os_mbuf *om) {
   uint8_t packet[BT_CLASSIC_MTU + 9] = {2};
   unsigned length = OS_MBUF_PKTLEN(om);
-  if (length <= sizeof(packet) - 1 && !os_mbuf_copydata(om, 0, length, packet + 1))
+  if (length <= sizeof(packet) - 1 && !os_mbuf_copydata(om, 0, length, packet + 1)) {
     bt_classic_receive(hfp_service_host(), packet, length + 1);
+    hfp_service_wake();
+  }
 }
 
 static void reset(void) {
@@ -95,7 +98,8 @@ static void poll(struct ble_npl_event *event) {
     ble_hs_classic_reset();
     return;
   }
-  ble_npl_callout_reset(&s_poll, ble_npl_time_ms_to_ticks32(10));
+  bool pending = s_stopping || host->command_count || host->output_count || host->at_tx_length;
+  ble_npl_callout_reset(&s_poll, ble_npl_time_ms_to_ticks32(pending ? 10 : 1000));
 }
 
 static void stop(struct ble_npl_event *event) {

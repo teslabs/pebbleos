@@ -187,7 +187,7 @@ void hci_bridge_transport_init(void) {
 
   lcpu_custom_nvds_config();
   lcpu_power_on();
-#ifdef CONFIG_BT_HCI_AUDIO_PROBE
+#if defined(CONFIG_BT_HCI_AUDIO_PROBE) || defined(CONFIG_BT_HCI_AUDIO_ADAPTER)
   hci_bridge_audio_probe_init();
 #endif
 

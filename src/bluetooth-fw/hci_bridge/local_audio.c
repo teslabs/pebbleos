@@ -38,17 +38,19 @@ static bool s_flow_requested, s_flow_enabled, s_running, s_mic_owned;
 static uint32_t s_generation;
 static VoiceResampler s_resampler;
 static VoicePlayback s_playback;
-static unsigned s_playback_gain = 16;
+static unsigned s_playback_gain = 1;
 static int16_t s_mic_buffer[120];
 static MicPacket s_partial;
 static uint32_t s_rx_bytes, s_played_bytes, s_tx_packets, s_capture_drops, s_start_failures;
 static unsigned s_rx_peak, s_hw_error;
 static uint32_t s_quiet_bytes, s_bad_bytes;
+#ifdef CONFIG_PROMPT
 static TimerID s_pcm_timer;
 static uint32_t s_pcm_generation, s_pcm_remaining;
 static uint8_t s_sample[8192];
 static unsigned s_sample_length;
 static bool s_sample_armed;
+#endif
 
 static uint16_t prv_u16(const uint8_t *p) {
   return p[0] | (uint16_t)p[1] << 8;
@@ -86,11 +88,13 @@ static void prv_capture(int16_t *samples, size_t count, void *context) {
 
 // All microphone start/stop operations run on the same task as capture callbacks.
 static void prv_sync(void *context) {
+#ifdef CONFIG_PROMPT
   if (s_pcm_timer) {
     new_timer_stop(s_pcm_timer);
   }
   ++s_pcm_generation;
   s_pcm_remaining = 0;
+#endif
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
   s_running = false;
   uint32_t generation = s_generation;
@@ -189,6 +193,7 @@ bool hci_local_audio_receive(const uint8_t *p, size_t length) {
       s_rx_peak = MAX(s_rx_peak, peak);
       s_quiet_bytes += peak < 32 ? p[3] : 0;
       s_bad_bytes += p[2] & 0x30 ? p[3] : 0;
+#ifdef CONFIG_PROMPT
       if (s_sample_armed && (s_sample_length || (peak >= 128 && !(p[2] & 0x30)))) {
         if (length <= sizeof(s_sample) - s_sample_length) {
           memcpy(s_sample + s_sample_length, p, length);
@@ -198,13 +203,16 @@ bool hci_local_audio_receive(const uint8_t *p, size_t length) {
           s_sample_armed = false;
         }
       }
+#endif
       uint8_t playback[254];
       voice_playback_process(&s_playback, p + 4, playback, p[3], (p[2] >> 4) & 3);
       s_played_bytes += speaker_service_stream_write_owned(PebbleTask_BTHCI, playback, p[3]);
     }
   } else if (p[0] == 4 && length == (size_t)p[2] + 3) {
     if (p[1] == 0x10 && length == 4) {
+#ifdef CONFIG_PROMPT
       s_sample_armed = false;
+#endif
       s_hw_error = p[3];
       prv_retire();
       sync = true;
@@ -214,7 +222,9 @@ bool hci_local_audio_receive(const uint8_t *p, size_t length) {
       s_credits = s_limit;
       sync = true;
     } else if (p[1] == 5 && length == 7 && p[3] == 0 && prv_u16(p + 4) == s_handle) {
+#ifdef CONFIG_PROMPT
       s_sample_armed = false;
+#endif
       prv_retire();
       sync = true;
     } else if (p[1] == 0x13 && length >= 4 && length == 4u + 4u * p[3]) {
@@ -268,6 +278,7 @@ size_t hci_local_audio_transmit(uint8_t packet[64]) {
   return length;
 }
 
+#ifdef CONFIG_PROMPT
 void hci_local_audio_report(void) {
   char buffer[160];
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
@@ -413,3 +424,5 @@ static void prv_pcm_test(void *context) {
 void command_bt_audio_pcm_test(void) {
   PBL_ASSERTN(system_task_add_callback(prv_pcm_test, NULL));
 }
+
+#endif

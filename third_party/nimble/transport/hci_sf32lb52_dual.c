@@ -102,7 +102,7 @@ static void controller_packet(uint8_t *p, size_t length, void *context) {
 static void receive_task(void *context) {
   uint8_t buffer[256];
   for (;;) {
-    pbl_sem_take(&s_received, PBL_MSEC(5));
+    pbl_sem_take(&s_received, hci_bridge_audio_active() || s_count ? PBL_MSEC(5) : PBL_FOREVER);
     pbl_mutex_lock(&s_io, PBL_FOREVER);
     if (s_port == IPC_QUEUE_INVALID_HANDLE) {
       pbl_mutex_unlock(&s_io);
@@ -181,6 +181,8 @@ void ble_transport_ll_deinit(void) {
   pbl_mutex_lock(&s_io, PBL_FOREVER);
   const uint8_t reset[] = {1, 3, 12, 0};
   hci_local_audio_command(reset, sizeof(reset));
+  uint8_t response[8];
+  hci_bridge_audio_command(reset, sizeof(reset), response);
   NVIC_DisableIRQ(LCPU2HCPU_IRQn);
   ipc_queue_close(s_port);
   ipc_queue_deinit(s_port);

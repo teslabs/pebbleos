@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#ifdef CONFIG_PROMPT
 #include <console/prompt.h>
 #include <host/ble_hs.h>
 
@@ -75,4 +76,6 @@ void command_bt_dual_status(void) {
   prompt_command_continues_after_returning();
   ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &s_dual_status);
 }
+#endif
+
 #endif

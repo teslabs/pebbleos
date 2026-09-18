@@ -98,6 +98,14 @@ size_t hci_bridge_audio_completed(uint8_t packet[8]) {
   return length;
 }
 
+bool hci_bridge_audio_active(void) {
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  bool active = s_sco.active;
+  pbl_mutex_unlock(&s_lock);
+  return active;
+}
+
+#ifdef CONFIG_PROMPT
 static void prv_report_ring(const char *name, const SifliAudioRing *ring) {
   char buffer[128];
   prompt_send_response_fmt(
@@ -156,3 +164,5 @@ void command_bt_audio_probe(void) {
                            (unsigned long)AUDIO->state->diagnostic_signal_samples);
 #endif
 }
+
+#endif

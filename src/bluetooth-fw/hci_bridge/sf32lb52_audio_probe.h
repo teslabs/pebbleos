@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -12,3 +13,4 @@ void hci_bridge_audio_event(uint8_t *packet, size_t length);
 size_t hci_bridge_audio_receive(uint8_t packet[124]);
 void hci_bridge_audio_send(const uint8_t *packet, size_t length);
 size_t hci_bridge_audio_completed(uint8_t packet[8]);
+bool hci_bridge_audio_active(void);
