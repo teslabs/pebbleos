@@ -459,7 +459,8 @@ It does not provide a standalone embedded HFP host or concurrent Pebble BLE.
 ## Standalone embedded demo
 
 `CONFIG_BT_FW_CLASSIC_DEMO=y` replaces the desktop host with a small
-project-owned Apache-2.0 implementation in `src/bluetooth-fw/classic_demo`.
+project-owned Apache-2.0 implementation in `src/bluetooth-fw/classic`, with the standalone
+service adapter in `src/bluetooth-fw/classic_demo`.
 Its portable core takes complete H4 packets and an output callback. The
 existing SiFli transport and native-audio adapter remain below that boundary.
 It supports one incoming BR/EDR connection, Just Works pairing, basic L2CAP,
@@ -544,79 +545,242 @@ not dismiss its calls. Caller identification is not yet queried by this minimal
 host. Seven phone-service tests cover existing PP/ANCS behavior and the HFP
 answer, reject, end and disconnect paths.
 
-## Extending NimBLE
+## Dual-mode host direction
 
-Extending the existing Apache-2.0 NimBLE host is a first-class implementation
-option. It preserves Pebble's BLE integration, but requires more than
-adding HFP AT commands:
+The chosen architecture extends the existing NimBLE integration
+into one BLE/BR/EDR host. Keep ATT/GATT, SMP and the Pebble BLE services;
+add separate BR/EDR link management, L2CAP signaling, SDP, RFCOMM and HFP
+modules above a common controller core. The initial implementation has
+validated concurrent HFP signaling and GATT traffic; the acceptance gates
+below cover the remaining work before production use.
 
-| Existing area | Required addition |
-| --- | --- |
-| H4 framing | Packet type `0x03`, synchronous packet allocation and delivery |
-| HCI dispatcher | Classic connection, pairing and synchronous-link events |
-| Connections | BR/EDR link type, addresses, role and shared ACL accounting |
-| L2CAP | Classic signaling on CID `0x0001`, connection/configuration requests and dynamic channels |
-| Security | SSP/link keys and BR/EDR bonding, distinct from LE SMP |
-| Profiles | SDP server/client, RFCOMM and HFP HF state machines |
-| Audio | SCO pacing, codec negotiation, frame loss and shutdown |
+The implementation is selected by `CONFIG_BT_CLASSIC=y` alongside the normal
+`CONFIG_BT_FW_NIMBLE` backend. `CONFIG_BT_HFP` enables the shared phone service
+and demo app for either the NimBLE extension or the standalone experiment.
+The portable protocol files live in `src/bluetooth-fw/classic`; `service.c`
+adapts their state to Pebble phone events and the existing demo API.
 
-The current H4 parser has no SCO allocator. The L2CAP signaling dispatcher
-contains Classic response opcodes as no-ops; that is not an implementation
-of Classic channel setup. Controller command credits, event masks, resets
-and ACL credits must have one owner. Adding a second independent host on
-the same mailbox is insufficient.
+The NimBLE fork adds `BLE_CLASSIC` (off by default), a typed BR/EDR and SCO
+handle registry, separate/shared ACL accounting, Classic event dispatch and
+command-credit gating. It checks controller BR/EDR support before enabling
+Classic events. Existing LE connection, GATT and SMP implementations remain
+in place. The Classic adapter runs on the NimBLE event queue and submits
+commands through `ble_hs_hci_cmd_tx()`. Its managed protocol mode skips its
+own controller reset, event-mask setup and buffer discovery.
 
-After the controller audio experiment, compare the size of a focused
-NimBLE extension with a port of upstream Zephyr's Apache-2.0 host. Keep
-HFP and Classic protocol logic separate from Pebble UI and SiFli code in
-either case. No embedded host replacement has been selected by the
-desktop experiment.
+The initial SiFli dual-mode transport uses fixed H4 framing and a bounded
+pending packet queue instead of waiting for ACL mbufs on the receive task.
+Command responses bypass that queue and can use the returned command buffer
+when event pools are exhausted. Audio processing runs separately from host
+protocol work, through the existing native-to-HCI adapter. Exhausting the
+pending reliable-packet queue fails closed and captures a crash rather than
+silently dropping ACL data. This limit still needs sustained-load testing.
 
-### Proposed NimBLE implementation sequence
+The initial build is restricted to SiFli development configurations; the
+NimBLE hooks and Classic profiles contain no SiFli APIs. Another controller
+needs an HCI transport and synchronous-audio endpoint before enabling the
+option on that platform.
 
-Prefer extending the existing integration for the first embedded prototype,
-subject to the HCI audio gate. Put new Classic modules in project-owned
-Apache-2.0 code and keep the changes to the NimBLE submodule explicit and
-reviewable. Reusing Apache-2.0 protocol implementations is an option after
-checking the licenses of the particular files and their dependencies.
+Build without private contacts:
 
-1. Extend transport and host ownership together. Add SCO framing and a
-   separate bounded synchronous-data pool; do not consume ACL buffers for
-   voice. Teach startup to enable the required Classic events and initialize
-   both BR/EDR and LE buffer accounting. Keep one command scheduler and one
-   reset/recovery path. Validate fragmented and malformed H4 packets and
-   mixed Classic/LE completion events before adding profiles.
-2. Add BR/EDR connection records and handle-based ACL dispatch, then SSP,
-   encryption and link-key storage. Reuse the watch's pairing UI with
-   explicit user confirmation. Keep Classic keys separate from LE bonds;
-   cross-transport key derivation is outside the first prototype.
-3. Implement Classic L2CAP basic mode, signaling/configuration, SDP and
-   RFCOMM sufficient for an HFP HF. Support the phone's service discovery
-   and connection setup as well as reconnection. Test protocol state
-   machines against the desktop host before exercising phones.
-4. Implement the HFP service-level connection and mandatory call control,
-   starting with CVSD. Expose call state, answer/hang-up and audio-link
-   events to a Pebble call service; keep AT commands inside the profile.
-   Defer mSBC and optional HFP features until narrowband calls work.
-5. Connect SCO PCM to the audio service through bounded capture/playback
-   queues. CVSD uses 8 kHz speech; adapt the board's 16 kHz audio explicitly
-   and verify the actual controller payload format. Measure underflows,
-   overflows and drift while BLE traffic continues, then add echo control.
+```sh
+CCACHE_DISABLE=1 pbl configure -b build-obelix-dual --board obelix@pvt \
+  -DCONFIG_RELEASE=n -DCONFIG_BT_CLASSIC=y -DCONFIG_DEMO_APP_HFP_DEMO=y
+CCACHE_DISABLE=1 pbl build -b build-obelix-dual
+pbl flash -b build-obelix-dual --tty /dev/tty.wchusbserial5B7A1355001 --resources
+```
 
-The concrete integration points in the current checkout are
-`third_party/nimble/transport/hci_sf32lb52.c`, upstream
-`nimble/transport/common/hci_h4`, and the host's `ble_hs_startup.c`,
-`ble_hs_hci.c`, `ble_hs_hci_evt.c` and `ble_l2cap_sig.c`. In particular,
-startup currently installs an LE-oriented event mask and chooses a single
-ACL pool. Merely registering Classic event handlers would therefore leave
-both event delivery and dual-mode flow control incomplete.
+`bt dual status` reports NimBLE synchronization and simultaneous LE, BR/EDR,
+HFP and SCO state. The existing `bt hfp status` and `bt audio probe` commands
+provide profile and audio diagnostics. In dual-mode builds, pair over BLE:
+CTKD derives the Classic key from the authenticated Secure Connections bond.
+The bond stores the negotiated CTKD/CT2 flags alongside the LE keys, without
+changing its on-disk size. Classic key lookup uses that same record; deleting
+it revokes Classic access too. Separate Classic pairing is rejected in this
+mode. The standalone feasibility host retains its RAM-only pairing policy.
 
-This is a host-stack development project, not a small HFP feature patch.
-The first two steps provide an early decision point: retain the extension
-if BLE regression tests and resource measurements remain acceptable;
-otherwise evaluate an Apache-2.0 dual-mode host port using the same HCI
-transport and call-service boundary. Proving the SiFli audio path first
-avoids committing that effort before its main hardware dependency is known.
+Existing BLE-only bonds require one fresh BLE pairing: deriving a key locally
+without the phone negotiating CTKD would not establish a shared bond. The
+phone must provide its public identity address during pairing. Random-address
+LE-only peers remain usable for BLE but cannot supply a Classic identity.
+Both h6 and h7 derivation are implemented; the Pixel negotiated h7 (CT2).
+Only authenticated, 128-bit Secure Connections bonds authorize HFP. RFCOMM
+is blocked until Classic encryption is enabled and the controller reports a
+16-byte encryption key. A weaker repeat pairing cannot replace a shared bond.
+
+CoreApp's existing Android `createBond()` path can initiate this flow; the
+watch pairing service can also request LE security. Android handles HFP and
+call audio. Full companion-app integration remains a separate validation gate.
+The current test used nRF Connect to establish the GATT connection and request
+bonding, compared the numeric codes on both screens, then confirmed them.
+Android connected HFP automatically with no additional Classic pairing.
+
+### Initial integration validation
+
+On 2026-09-18, a non-release Obelix build completed NimBLE and Classic
+startup, then paired with a Pixel 8a and reached HFP ready with zero profile
+errors. With HFP still connected, nRF Connect opened a separate LE link,
+discovered the standard and Pebble GATT services, and read Battery Level.
+The watch reported `LE=1 BR=1 HFP=1 SCO=0 errors=0`; Android independently
+reported both BR/EDR and LE ACL links to the same controller address.
+That initial test validated concurrent HFP signaling and unencrypted GATT.
+A subsequent CTKD test completed one BLE numeric-comparison pairing, then
+reported `LE=1 BR=1 HFP=1 SCO=0 errors=0`, authenticated/encrypted BLE with
+`CTKD=1 CT2=1 key_size=16`, and encrypted Classic. It does not yet establish
+a full companion-app session or concurrent call audio.
+A watch-UI Bluetooth off/on cycle with an active LE connection also passed:
+the host disabled, links cleared and local audio remained stopped; startup
+then restored Classic scan mode 3 with zero profile errors. Full companion-app
+validation additionally requires successful LE bonding and Android
+companion-device association.
+
+The standalone HFP, BLE-only and dual-mode firmware configurations build.
+The portable profile suite runs in both standalone and managed modes,
+including ACL backpressure and shutdown during connection establishment.
+The actual NimBLE Classic extension is tested with OS/transport substitutes
+under address and undefined-behavior sanitizers: shared/separate buffers,
+mixed completions, excess completions, malformed input, disconnect/reset,
+handle reuse, LE-only capabilities and cross-transport handle collisions.
+The existing phone-service tests also pass.
+
+For a live session, use:
+
+```sh
+.venv/bin/python tools/hfp_demo.py \
+  --tty /dev/tty.wchusbserial5B7A1355001 --dual --monitor
+```
+
+### Options considered
+
+| Approach | Reuse | Main work and tradeoff |
+| --- | --- | --- |
+| Extend NimBLE into a dual-mode host (preferred) | Existing Pebble BLE integration, NPL port, GATT services and SMP; portable Classic modules | Extend common controller startup, command scheduling, typed connection dispatch and buffer accounting. Keep a small, explicit NimBLE patch set. Classic security and protocol coverage still need hardening. |
+| Keep two hosts behind an HCI broker | Both current hosts initially | The broker must coordinate resets, event masks, command responses, shared ACL credits and shutdown. Merely routing Classic events is insufficient. A transitional test harness is possible, but this duplicates host lifecycle state. |
+| Port Zephyr's combined host | Upstream BLE and Classic protocols, including RFCOMM/HFP | Port the host's kernel/workqueue/buffer/settings dependencies and implement a replacement Pebble BLE backend. Measure memory and revalidate all existing BLE services and bonding. Keep this as the fallback if the NimBLE extension proves too invasive. |
+
+The comparison is based on the checked-out NimBLE revision
+`9ed683d0f8e2c3976d3e113b1c3015777198b2d7` and SiFli SDK revision
+`bfee83c7adc0b19c2923f1788238def50f0a9dce`, plus the upstream Zephyr sources
+reviewed for this proposal.
+
+SiFli's upstream Zephyr driver is Apache-2.0, uses the controller mailbox,
+and recognizes Classic/SCO framing. The inspected driver still rejects SCO
+receive-buffer allocation, so its presence alone does not establish working
+HFP audio. Zephyr's host does provide Classic RFCOMM and HFP options, marked
+experimental in the inspected Kconfig. These are useful protocol and driver
+references, with our validated audio adapter remaining a separate concern.
+See the [upstream SiFli HCI driver](https://github.com/zephyrproject-rtos/zephyr/blob/main/drivers/bluetooth/hci/hci_sf32lb.c)
+and [Classic host configuration](https://github.com/zephyrproject-rtos/zephyr/blob/main/subsys/bluetooth/host/classic/Kconfig).
+
+The SDK's `middleware/bluetooth/zephyr_bt` also contains Classic sources and
+an RT-Thread compatibility layer. Its `sf_port/zbt_hci_sf.c` has a
+`BSP_BLE_SIBLES` coexistence path that forwards traffic to a separate BT
+stack using `hl_hci_*` helpers; definitions for those helpers were not found
+in the checked-out C sources. Its SCons host build substitutes
+`sf_port/zbt_hci.c` for upstream `hci_core.c`. Therefore we should not treat
+that vendor integration as a drop-in, vendor-neutral open host. Any reused
+code needs file-level license and dependency review; no vendor host library
+is part of this proposal.
+
+### Common controller ownership
+
+The desired module arrangement is:
+
+```text
+Pebble BLE services                  Phone service / audio endpoint
+        |                                      |
+NimBLE ATT/GATT/SMP                  HFP / RFCOMM / SDP / BR L2CAP
+        |                                      |
+        +---- one controller core / link registry ----+
+                             |
+                   standard HCI packet interface
+                             |
+            controller transport and SCO adaptation
+                 SiFli IPC now; UART/other later
+```
+
+NimBLE's `ble_hs_hci_cmd_tx()` already serializes synchronous command
+transactions. That is an extension point, not permission to call it from
+the HCI receive task: waiting there would block the acknowledgement needed
+to complete the command. Classic control work must run in the host execution
+context or use an asynchronous command interface. The common owner must also
+honor zero command credits, route Command Status versus Command Complete,
+and distinguish command acceptance from later connection completion.
+
+NimBLE's current `ble_hs_hci_avail_pkts` and connection completion handling
+assume LE traffic. Extend the accounting before allowing Classic ACL writes.
+Controllers may expose separate BR/EDR and LE pools or one shared pool;
+LE Read Buffer Size returning zero selects the shared-pool case. Track
+outstanding packets per typed connection and release credits exactly once
+on completion or disconnect. Never give both protocol paths the full count
+of a shared pool. These requirements follow the
+[HCI flow-control and buffer-size specification](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-60/out/en/host-controller-interface/host-controller-interface-functional-specification.html).
+
+| Resource | Sole owner | Required behavior |
+| --- | --- | --- |
+| Controller reset, startup and event masks | Common host core | One reset/start sequence; union of required events; capability checks before enabling Classic |
+| HCI command queue and credits | Common host core | Bounded queue, exact transaction ownership, timeout recovery for both transports |
+| Connection handles and ACL credits | Common host core | Explicit LE/BR/EDR/SCO type; mixed completion events; stale-handle protection |
+| LE connections, SMP and GATT | NimBLE BLE modules | Preserve existing Pebble services and LE bonding |
+| BR/EDR links and SSP | Classic modules | Separate link keys, encryption state and pairing policy |
+| SCO packets and deadlines | Audio endpoint plus HCI adapter | Separate bounded audio buffers; control traffic and BLE allocation stalls must not block audio |
+| Radio disable and recovery | Common host lifecycle | Close both link types, stop scanning/advertising, stop microphone/speaker, cancel queued work |
+| Caller UI and contact lookup | Pebble phone service/app | Host-independent events and actions; no controller access from the UI |
+
+The SiFli-specific mailbox ABI, codec conversion and synthetic synchronous
+credits stay below standard HCI. The portable host must not select that ABI
+or infer handle types from vendor-specific numeric ranges. A future controller
+with standard HCI SCO should use the same profile and audio interfaces.
+
+### Implementation and acceptance sequence
+
+The main integration points are
+`third_party/nimble/transport/hci_sf32lb52.c`, NimBLE
+`nimble/transport/common/hci_h4`, and the host files `ble_hs_startup.c`,
+`ble_hs_hci.c` and `ble_hs_hci_evt.c`. Keep additions in project-owned
+Apache-2.0 modules and the NimBLE changes small enough to review separately.
+
+1. **Shared controller core and NimBLE hooks.** Move the demo's reset,
+   event-mask and buffer discovery out of its Classic state machine. Add
+   explicit Classic hooks to the NimBLE fork for startup, event dispatch,
+   ACL submission/completion and reset. Keep Classic disabled by default
+   and compile it out on LE-only controllers. Tests must cover command
+   credits reaching zero, mixed completion events, separate/shared ACL
+   pools, backpressure, disconnect with packets outstanding, malformed
+   events and handle reuse after reset.
+2. **Concurrent BLE plus Classic signaling on Obelix.** Retain the normal
+   NimBLE BLE backend and turn HFP into an optional capability rather than
+   an alternative `BT_FW` choice. First demonstrate a normal Pebble BLE
+   connection remaining active while the same phone establishes BR/EDR,
+   completes SDP/RFCOMM and reaches HFP ready. Verify Bluetooth off/on and
+   controller recovery affect both transports coherently. This is the
+   first integration gate before expanding the profile implementation.
+3. **Concurrent calling and BLE traffic.** Route CVSD through the existing
+   audio endpoint while running notifications, GATT operations and normal
+   app traffic. Verify incoming/outgoing calls, answer/reject, disconnect,
+   audio starvation counters, peak queue occupancy and memory use. Exercise
+   RX pool exhaustion while an HCI command is outstanding. Hardware evidence
+   of simultaneous links is required; sequential BLE and Classic tests do
+   not pass this gate.
+4. **Service and security hardening.** Replace the demo facade with an
+   event-driven HFP service, and move contacts into an app-owned model.
+   Persist BR/EDR keys separately from LE bonds; connect pairing policy to
+   the normal UI. Keep stateless pairing as an explicit development mode.
+   Correlate HFP and ANCS/PP calls for the same phone to avoid duplicate
+   popups and duplicated answer/hangup commands. Add caller identification,
+   reconnection and call-control error handling. Do not enable cross-transport
+   key derivation as a shortcut to sharing identity.
+5. **Portability and release gate.** Run the common controller tests against
+   simulated standard HCI controllers with both buffer layouts, and exercise
+   a second controller transport when hardware is available. Measure flash,
+   RAM, latency and power with BLE-only and dual-mode configurations. Keep
+   the standalone experiment usable until the integrated path passes these
+   checks.
+
+If the first integration gate requires replacing most of NimBLE's connection
+or scheduling internals, revisit the Zephyr-host option before growing a
+large private fork. The decision should follow the size of the reviewed
+patch set and measured behavior, rather than the existence of an HFP sample.
 
 ## Remaining acceptance gates
 

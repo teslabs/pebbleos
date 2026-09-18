@@ -19,11 +19,13 @@ def le(*values):
 
 
 class ClassicHostTest(unittest.TestCase):
+    managed = False
+
     @classmethod
     def setUpClass(cls):
         cls.directory = tempfile.TemporaryDirectory()
         library = Path(cls.directory.name) / "classic.so"
-        sources = ROOT / "src/bluetooth-fw/classic_demo"
+        sources = ROOT / "src/bluetooth-fw/classic"
         subprocess.run(
             [
                 "cc",
@@ -34,10 +36,12 @@ class ClassicHostTest(unittest.TestCase):
                 "-Wextra",
                 "-Wno-unused-parameter",
                 "-Werror",
-                "-I" + str(ROOT / "include"),
                 "-I" + str(sources),
                 str(Path(__file__).with_name("classic_demo_harness.c")),
-                *(str(sources / f) for f in ("host.c", "profile.c", "sdp.c")),
+                *(
+                    str(sources / f)
+                    for f in ("host.c", "l2cap.c", "profile.c", "sdp.c")
+                ),
                 "-o",
                 str(library),
             ],
@@ -52,7 +56,10 @@ class ClassicHostTest(unittest.TestCase):
 
     def setUp(self):
         self.now = 0
-        self.lib.demo_init()
+        if self.managed:
+            self.lib.demo_init_managed()
+        else:
+            self.lib.demo_init()
         self.boot()
 
     def tick(self):
@@ -83,22 +90,22 @@ class ClassicHostTest(unittest.TestCase):
             self.assertEqual(packet[0], 1)
             opcodes.append(int.from_bytes(packet[1:3], "little"))
             self.complete(packet)
-        self.assertEqual(
-            opcodes,
-            [
-                0x0C03,
-                0x0C01,
-                0x0C56,
-                0x0C24,
-                0x0C13,
-                0x0C18,
-                0x0C26,
-                0x1005,
-                0x0C2F,
-                0x0C52,
-                0x0C1A,
-            ],
-        )
+        expected = [
+            0x0C03,
+            0x0C01,
+            0x0C56,
+            0x0C24,
+            0x0C13,
+            0x0C18,
+            0x0C26,
+            0x1005,
+            0x0C2F,
+            0x0C52,
+            0x0C1A,
+        ]
+        if self.managed:
+            expected = [op for op in expected if op not in (0x0C03, 0x0C01, 0x1005)]
+        self.assertEqual(opcodes, expected)
         self.assertEqual(self.lib.demo_flags(), 1)
 
     def connect(self):
@@ -218,7 +225,10 @@ class ClassicHostTest(unittest.TestCase):
         packet = self.pop()
         self.assertEqual(packet[1:3], le(0x040B))
         self.assertEqual(packet[10:], key)
-        self.lib.demo_init()
+        if self.managed:
+            self.lib.demo_init_managed()
+        else:
+            self.lib.demo_init()
         self.boot()
         self.event(0x17, self.peer)
         self.assertEqual(self.pop()[1:3], le(0x040C))
@@ -315,5 +325,124 @@ class ClassicHostTest(unittest.TestCase):
         self.ready()
 
 
+class ManagedClassicHostTest(ClassicHostTest):
+    managed = True
+
+    def test_shutdown_does_not_reenable_scan(self):
+        self.ready()
+        self.lib.demo_stop()
+        commands = []
+        while packet := self.pop():
+            commands.append(packet)
+            self.complete(packet)
+        self.assertEqual([p[1:3] for p in commands], [le(0x0C1A), le(0x0406)])
+        self.assertEqual(commands[0][4:], b"\0")
+        self.assertFalse(self.lib.demo_stopped())
+        self.event(5, b"\0" + le(1) + b"\x13")
+        packet = self.pop()
+        self.assertEqual(packet[1:3], le(0x0C1A))
+        self.assertEqual(packet[4:], b"\0")
+        self.complete(packet)
+        self.assertTrue(self.lib.demo_stopped())
+        self.assertFalse(self.lib.demo_dial(b"123"))
+
+    def test_shutdown_rejects_a_queued_connection_request(self):
+        peer = bytes.fromhex("112233445566")
+        packet = bytes([4, 4, 10]) + peer + bytes([8, 4, 0x20, 1])
+        # Do not poll: the accept command has not reached the shared host yet.
+        self.lib.demo_receive(packet, len(packet))
+        self.lib.demo_stop()
+        commands = []
+        while packet := self.pop():
+            commands.append(int.from_bytes(packet[1:3], "little"))
+            self.complete(packet)
+        self.assertEqual(commands, [0x0C1A, 0x040A])
+        self.assertTrue(self.lib.demo_stopped())
+
+    def test_shutdown_waits_for_accepted_connection_to_finish(self):
+        peer = bytes.fromhex("112233445566")
+        self.event(4, peer + bytes([8, 4, 0x20, 1]))
+        self.assertEqual(self.pop()[1:3], le(0x0409))
+        self.event(0x0F, bytes([0, 1]) + le(0x0409))
+        self.lib.demo_stop()
+        self.complete(self.pop())
+        self.assertFalse(self.lib.demo_stopped())
+        self.event(3, b"\0" + le(1) + peer + b"\1\0")
+        commands = []
+        while packet := self.pop():
+            commands.append(int.from_bytes(packet[1:3], "little"))
+            self.complete(packet)
+        self.assertIn(0x0406, commands)
+        self.event(5, b"\0" + le(1) + b"\x13")
+        self.complete(self.pop())
+        self.assertTrue(self.lib.demo_stopped())
+
+    def test_shutdown_rejects_new_connections(self):
+        self.lib.demo_stop()
+        self.complete(self.pop())
+        peer = bytes.fromhex("112233445566")
+        self.event(4, peer + bytes([8, 4, 0x20, 1]))
+        packet = self.pop()
+        self.assertEqual(packet[1:3], le(0x040A))
+        self.complete(packet)
+        self.assertTrue(self.lib.demo_stopped())
+
+    def test_acl_backpressure_preserves_signaling(self):
+        self.connect()
+        self.lib.demo_acl_ready(0)
+        self.l2cap(1, b"\2\1" + le(4, 3, 0x80))
+        for _ in range(5):
+            self.assertEqual(self.pop(), b"")
+        self.lib.demo_acl_ready(1)
+        responses = self.drain()
+        self.assertEqual(len(responses), 2)
+        self.assertEqual(responses[0], (1, b"\3\1" + le(8, 0x40, 0x80, 0, 0)))
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class SharedBondTest(ClassicHostTest):
+    managed = True
+
+    def test_shared_link_key_lookup(self):
+        self.lib.demo_shared_bond(1)
+        peer = bytes.fromhex("112233445566")
+        self.event(0x17, peer)
+        p = self.pop()
+        self.assertEqual(p, b"\1" + le(0x040B) + b"\x16" + peer + b"\xa5" * 16)
+        self.complete(p)
+        self.lib.demo_shared_bond(0)
+        self.event(0x17, peer)
+        self.assertEqual(self.pop(), b"\1" + le(0x040C) + b"\6" + peer)
+
+    def test_separate_pairing_rejected(self):
+        self.lib.demo_shared_bond(1)
+        peer = bytes.fromhex("112233445566")
+        self.event(0x31, peer)
+        p = self.pop()
+        self.assertEqual(p, b"\1" + le(0x0434) + b"\7" + peer + b"\x18")
+        self.complete(p)
+        # A native key notification cannot replace the shared key.
+        self.event(0x18, peer + b"\x42" * 16 + b"\5")
+        self.event(0x17, peer)
+        self.assertEqual(self.pop()[-16:], b"\xa5" * 16)
+
+    def test_rfcomm_blocked_without_encryption(self):
+        self.connect()
+        self.lib.demo_shared_bond(1)
+        self.l2cap(1, b"\2\1" + le(4, 3, 0x80))
+        self.assertEqual(self.drain(), [(1, b"\3\1" + le(8, 0, 0x80, 3, 0))])
+        self.event(8, b"\0" + le(1) + b"\1")
+        self.assertEqual(self.lib.demo_encrypted(), 1)
+        self.channel(3)
+
+    def test_forgetting_bond_disconnects_classic(self):
+        self.connect()
+        self.lib.demo_shared_bond(1)
+        self.event(8, b"\0" + le(1) + b"\1")
+        self.lib.demo_shared_bond(0)
+        p = self.pop()
+        self.assertEqual(p, b"\1" + le(0x0406) + b"\3" + le(1) + b"\x13")
+        self.assertEqual(self.lib.demo_encrypted(), 0)

@@ -142,6 +142,13 @@ static void prv_retire(void) {
   pbl_msgq_purge(&s_capture);
 }
 
+void hci_local_audio_stop(void) {
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  prv_retire();
+  pbl_mutex_unlock(&s_lock);
+  PBL_ASSERTN(system_task_add_callback(prv_sync, NULL));
+}
+
 void hci_local_audio_command(const uint8_t *p, size_t length) {
   if (length < 4 || p[0] != 1) {
     return;

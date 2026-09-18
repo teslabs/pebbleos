@@ -35,6 +35,7 @@ config BT_FW_HCI_BRIDGE
 
 config BT_FW_CLASSIC_DEMO
     bool "Embedded Classic HFP demo (development only)"
+    select BT_HFP
     depends on SOC_SF32LB52 && PROMPT && !RELEASE && MIC && SERVICE_SPEAKER
     select HAL_SIFLI_IPC_QUEUE
     select HAL_SIFLI_LCPU
@@ -49,7 +50,24 @@ config BT_FW_CLASSIC_DEMO
 
 endchoice
 
-if BT_FW_CLASSIC_DEMO
+config BT_CLASSIC
+    bool "NimBLE Classic HFP extension (experimental)"
+    depends on BT_FW_NIMBLE && SOC_SF32LB52 && PROMPT && !RELEASE && MIC && SERVICE_SPEAKER
+    select BT_HFP
+    select BT_HCI_AUDIO_PROBE
+    select BT_HCI_AUDIO_ADAPTER
+    select BT_HCI_LOCAL_AUDIO
+    select BT_HCI_SOFTWARE_CVSD
+    help
+      Run the project-owned Classic profiles with NimBLE BLE services.
+      NimBLE owns controller startup, HCI commands and ACL credits.
+      Supports one phone and CVSD audio. Pair over BLE using Secure
+      Connections; CTKD shares the persistent bond with Classic.
+
+config BT_HFP
+    bool
+
+if BT_HFP
 
 config BT_HFP_DEMO_CONTACT_1_NAME
     string "First demo contact name"
@@ -71,7 +89,7 @@ endif
 
 config BT_HCI_AUDIO_PROBE
     bool "SiFli shared audio mailbox diagnostic"
-    depends on (BT_FW_HCI_BRIDGE || BT_FW_CLASSIC_DEMO) && PROMPT
+    depends on (BT_FW_HCI_BRIDGE || BT_HFP) && PROMPT
     help
       Initialize the controller's shared audio rings and count mailbox 6
       notifications. The 'bt audio probe' command reports ring metadata;
@@ -92,7 +110,7 @@ config BT_HCI_LOCAL_AUDIO
       Route HCI SCO PCM through the watch audio services. The external
       host keeps call control and must enable SCO flow control without
       transmitting audio (--watch-audio in tools/hfp_probe.py).
-      No acoustic echo cancellation or BLE coexistence is provided yet.
+      No acoustic echo cancellation is provided.
 
 config BT_HCI_SOFTWARE_CVSD
     bool "Experimental project-owned software CVSD codec"

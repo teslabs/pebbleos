@@ -27,6 +27,11 @@ def main():
         action="store_true",
         help="Poll host and audio metadata every 5 seconds",
     )
+    parser.add_argument(
+        "--dual",
+        action="store_true",
+        help="Also report simultaneous NimBLE BLE and Classic links",
+    )
     parser.add_argument("--launch", action="store_true", help="Open the Phone demo app")
     args = parser.parse_args()
     if bool(args.contact_name) != bool(args.contact_number):
@@ -61,7 +66,10 @@ def main():
             if args.launch:
                 prompt.command_and_response("app launch -194", timeout=5)
             while True:
-                for command in ("bt hfp status", "bt audio probe"):
+                commands = ["bt hfp status", "bt audio probe"]
+                if args.dual:
+                    commands.insert(0, "bt dual status")
+                for command in commands:
                     for line in prompt.command_and_response(command, timeout=5):
                         print(line, flush=True)
                 if not args.monitor:

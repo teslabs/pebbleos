@@ -247,6 +247,9 @@ extern void command_ble_rediscover(void);
 extern void command_ble_logging_set_level(const char *level);
 extern void command_ble_logging_get_level(void);
 extern void command_ble_host_reset(void);
+#ifdef CONFIG_BT_CLASSIC
+extern void command_bt_dual_status(void);
+#endif
 #ifdef CONFIG_BT_CONTROLLER_PROBE
 extern void command_bt_controller_probe(void);
 #endif
@@ -259,7 +262,7 @@ extern void command_bt_audio_pcm_test(void);
 extern void command_bt_audio_capture(void);
 extern void command_bt_audio_dump(void);
 extern void command_bt_audio_gain(const char *);
-#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+#ifdef CONFIG_BT_HFP
 extern void command_bt_hfp_status(void);
 extern void command_bt_hfp_contact(const char *, const char *);
 extern void command_bt_hfp_contacts(void);
@@ -489,6 +492,9 @@ static const Command s_prompt_commands[] = {
   {"ble set log level", command_ble_logging_set_level, 1},
   {"ble get log level", command_ble_logging_get_level, 0},
   {"ble host reset", command_ble_host_reset, 0},
+#ifdef CONFIG_BT_CLASSIC
+  {"bt dual status", command_bt_dual_status, 0},
+#endif
 #ifdef CONFIG_BT_CONTROLLER_PROBE
   {"bt controller probe", command_bt_controller_probe, 0},
 #endif
@@ -501,7 +507,7 @@ static const Command s_prompt_commands[] = {
   {"bt audio capture", command_bt_audio_capture, 0},
   {"bt audio dump", command_bt_audio_dump, 0},
   {"bt audio gain", command_bt_audio_gain, 1},
-#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+#ifdef CONFIG_BT_HFP
   {"bt hfp status", command_bt_hfp_status, 0},
   {"bt hfp contacts", command_bt_hfp_contacts, 0},
   {"bt hfp contact", command_bt_hfp_contact, 2},

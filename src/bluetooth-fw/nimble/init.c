@@ -21,6 +21,9 @@
 #include <system/passert.h>
 
 #include "nimble_store.h"
+#ifdef CONFIG_BT_CLASSIC
+#include "classic.h"
+#endif
 
 PBL_LOG_MODULE_DEFINE(bt, CONFIG_BT_LOG_LEVEL);
 
@@ -55,6 +58,9 @@ static DriverState s_driver_state = DriverStateStopped;
 
 static void prv_sync_cb(void) {
   PBL_LOG_DBG("NimBLE host synchronized");
+#ifdef CONFIG_BT_CLASSIC
+  nimble_classic_start();
+#endif
   pbl_sem_give(&s_host_started);
   bt_driver_handle_host_resynced();
 }
@@ -90,6 +96,9 @@ void bt_driver_init(void) {
 
   nimble_port_init();
   nimble_store_init();
+#ifdef CONFIG_BT_CLASSIC
+  nimble_classic_init();
+#endif
 
   struct pbl_thread_attr host_attr = {
     .name = "NimbleHost",
@@ -172,6 +181,9 @@ bool bt_driver_start(BTDriverConfig *config) {
   return true;
 
 err:
+#ifdef CONFIG_BT_CLASSIC
+  nimble_classic_stop();
+#endif
   s_driver_state = DriverStateStopping;
   (void)(pbl_sem_take(&s_host_stopped, PBL_NO_WAIT) == 0);
   rc = ble_hs_stop(&s_listener, prv_ble_hs_stop_cb, NULL);
@@ -194,6 +206,9 @@ err:
 
 void bt_driver_stop(void) {
   bool f_rc;
+#ifdef CONFIG_BT_CLASSIC
+  nimble_classic_stop();
+#endif
 
   s_driver_state = DriverStateStopping;
   (void)(pbl_sem_take(&s_host_stopped, PBL_NO_WAIT) == 0);

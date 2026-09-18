@@ -129,7 +129,7 @@ pbl_clar_test(test_phone_pp
 )
 
 pbl_clar_test(test_phone_call
-  DEFINES CONFIG_BT_FW_CLASSIC_DEMO
+  DEFINES CONFIG_BT_HFP
   SOURCES
     src/fw/services/phone_call/service.c
 )

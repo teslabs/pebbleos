@@ -61,8 +61,13 @@ if(CONFIG_SOC_NRF52)
   list(APPEND defines FREERTOS=1 PEBBLEOS NRF52_SERIES NIMBLE_CFG_CONTROLLER=1)
   pbl_compile_definitions(NIMBLE_CFG_CONTROLLER=1)
 elseif(CONFIG_SOC_SF32LB52)
+  if(CONFIG_BT_CLASSIC)
+    list(APPEND sources transport/hci_sf32lb52_dual.c)
+    pbl_compile_definitions(MYNEWT_VAL_BLE_CLASSIC=1 MYNEWT_VAL_BLE_TRANSPORT_EVT_SIZE=257)
+  else()
+    list(APPEND sources transport/hci_sf32lb52.c)
+  endif()
   list(APPEND sources
-    transport/hci_sf32lb52.c
     ../nonfree/pebbleos-nonfree/sf32lb52/lcpu_52x.c
   )
   list(PREPEND includes port/include/sf32lb52)

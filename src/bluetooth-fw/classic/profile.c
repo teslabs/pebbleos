@@ -1,6 +1,6 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
-#include "host.h"
+#include "internal.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -15,7 +15,7 @@ static uint8_t fcs(const uint8_t *p, unsigned n) {
   return 0xff - crc;
 }
 
-static void frame(ClassicDemoHost *s, unsigned dlci, unsigned control, bool response,
+static void frame(BtClassicHost *s, unsigned dlci, unsigned control, bool response,
                   const uint8_t *data, unsigned length, unsigned credits) {
   uint8_t p[140];
   if (length > 127 || !s->rfcomm_cid)
@@ -30,10 +30,10 @@ static void frame(ClassicDemoHost *s, unsigned dlci, unsigned control, bool resp
     memcpy(p + offset, data, length);
   offset += length;
   p[offset++] = fcs(p, (control & ~0x10) == 0xef ? 2 : 3);
-  classic_demo_l2cap_send(s, s->rfcomm_cid, p, offset);
+  bt_classic_l2cap_send(s, s->rfcomm_cid, p, offset);
 }
 
-static void mcc(ClassicDemoHost *s, uint8_t type, const uint8_t *data, unsigned length) {
+static void mcc(BtClassicHost *s, uint8_t type, const uint8_t *data, unsigned length) {
   uint8_t p[32] = {type, (length << 1) | 1};
   if (length > sizeof(p) - 2)
     return;
@@ -41,7 +41,7 @@ static void mcc(ClassicDemoHost *s, uint8_t type, const uint8_t *data, unsigned 
   frame(s, 0, 0xef, false, p, length + 2, 0);
 }
 
-static void at_command(ClassicDemoHost *s, const char *text) {
+static void at_command(BtClassicHost *s, const char *text) {
   unsigned length = strlen(text);
   if (!s->rfcomm_open || s->at_pending || length >= sizeof(s->at_tx))
     return;
@@ -52,7 +52,7 @@ static void at_command(ClassicDemoHost *s, const char *text) {
   s->profile_deadline = s->now + 10000;
 }
 
-static void slc_next(ClassicDemoHost *s) {
+static void slc_next(BtClassicHost *s) {
   static const char *const commands[] = {
     "AT+BRSF=0\r", "AT+CIND=?\r", "AT+CIND?\r", "AT+CMER=3,0,0,1\r"
   };
@@ -64,7 +64,7 @@ static void slc_next(ClassicDemoHost *s) {
   }
 }
 
-static void indicator(ClassicDemoHost *s, unsigned index, unsigned value) {
+static void indicator(BtClassicHost *s, unsigned index, unsigned value) {
   if (index == s->indicator_call && value <= 1)
     s->status.call = value;
   if (index == s->indicator_setup && value <= 3) {
@@ -73,7 +73,7 @@ static void indicator(ClassicDemoHost *s, unsigned index, unsigned value) {
   }
 }
 
-static void line(ClassicDemoHost *s, const char *text) {
+static void line(BtClassicHost *s, const char *text) {
   if (!strcmp(text, "OK")) {
     if (!s->at_pending)
       return;
@@ -82,7 +82,7 @@ static void line(ClassicDemoHost *s, const char *text) {
       slc_next(s);
   } else if (!strcmp(text, "ERROR") || !strncmp(text, "+CME ERROR", 10)) {
     s->at_pending = s->status.busy = false;
-    classic_demo_error(s, "Phone rejected command");
+    bt_classic_error(s, "Phone rejected command");
   } else if (!strcmp(text, "RING"))
     s->status.incoming = true;
   else if (!strncmp(text, "+CIEV:", 6)) {
@@ -122,7 +122,7 @@ static void line(ClassicDemoHost *s, const char *text) {
   }
 }
 
-void classic_demo_profile_reset(ClassicDemoHost *s) {
+void bt_classic_profile_reset(BtClassicHost *s) {
   s->rfcomm_cid = s->rfcomm_mtu = s->rfcomm_credits = 0;
   s->dlci = s->rx_credits = s->slc_step = 0;
   s->rfcomm_open = s->credit_mode = s->modem_ready = s->at_pending = false;
@@ -131,13 +131,13 @@ void classic_demo_profile_reset(ClassicDemoHost *s) {
   s->indicator_call = s->indicator_setup = 0;
 }
 
-void classic_demo_profile_poll(ClassicDemoHost *s) {
+void bt_classic_profile_poll(BtClassicHost *s) {
   if (!s->rfcomm_open)
     return;
   if (s->at_pending && (int32_t)(s->now - s->profile_deadline) >= 0) {
     s->at_pending = s->status.busy = false;
     s->at_tx_length = 0;
-    classic_demo_error(s, "Phone command timed out");
+    bt_classic_error(s, "Phone command timed out");
   }
   if (s->at_tx_length && (!s->credit_mode || s->rfcomm_credits)) {
     unsigned length = s->at_tx_length;
@@ -151,7 +151,7 @@ void classic_demo_profile_poll(ClassicDemoHost *s) {
   }
 }
 
-void classic_demo_rfcomm(ClassicDemoHost *s, ClassicDemoChannel *ch, const uint8_t *p, size_t n) {
+void bt_classic_rfcomm(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *p, size_t n) {
   if (n < 4 || !(p[0] & 1))
     return;
   unsigned dlci = p[0] >> 2, control = p[1] & ~0x10, length = p[2] >> 1, offset = 3;
@@ -163,7 +163,7 @@ void classic_demo_rfcomm(ClassicDemoHost *s, ClassicDemoChannel *ch, const uint8
   }
   bool credit = control == 0xef && dlci && s->credit_mode && (p[1] & 0x10);
   if (n != offset + length + 1 + credit || p[n - 1] != fcs(p, control == 0xef ? 2 : offset)) {
-    classic_demo_error(s, "Invalid RFCOMM frame");
+    bt_classic_error(s, "Invalid RFCOMM frame");
     return;
   }
   if (s->rfcomm_cid && ch->remote != s->rfcomm_cid)
@@ -185,7 +185,7 @@ void classic_demo_rfcomm(ClassicDemoHost *s, ClassicDemoChannel *ch, const uint8
   if (control == 0x43) {
     frame(s, dlci, 0x73, true, NULL, 0, 0);
     if (!dlci || dlci == s->dlci)
-      classic_demo_profile_reset(s);
+      bt_classic_profile_reset(s);
     return;
   }
   if (control != 0xef)
@@ -246,7 +246,7 @@ void classic_demo_rfcomm(ClassicDemoHost *s, ClassicDemoChannel *ch, const uint8
   }
   if (length && s->credit_mode) {
     if (!s->rx_credits) {
-      classic_demo_error(s, "RFCOMM peer exceeded credits");
+      bt_classic_error(s, "RFCOMM peer exceeded credits");
       return;
     }
     --s->rx_credits;
@@ -263,7 +263,7 @@ void classic_demo_rfcomm(ClassicDemoHost *s, ClassicDemoChannel *ch, const uint8
       s->at_line[s->at_line_length++] = c;
     else {
       s->at_line_length = 0;
-      classic_demo_error(s, "HFP response too long");
+      bt_classic_error(s, "HFP response too long");
     }
   }
   if (s->credit_mode && s->rx_credits <= 3) {
@@ -272,12 +272,12 @@ void classic_demo_rfcomm(ClassicDemoHost *s, ClassicDemoChannel *ch, const uint8
   }
 }
 
-bool classic_demo_valid_number(const char *number) {
+bool bt_classic_valid_number(const char *number) {
   if (!number || !*number)
     return false;
   unsigned digits = 0;
   for (unsigned i = 0; number[i]; ++i) {
-    if (i >= CLASSIC_DEMO_NUMBER_SIZE - 1)
+    if (i >= BT_CLASSIC_NUMBER_SIZE - 1)
       return false;
     char c = number[i];
     if (c >= '0' && c <= '9')
@@ -288,9 +288,9 @@ bool classic_demo_valid_number(const char *number) {
   return digits != 0;
 }
 
-bool classic_demo_dial(ClassicDemoHost *s, const char *number) {
+bool bt_classic_dial(BtClassicHost *s, const char *number) {
   if (!s->status.ready || s->at_pending || s->status.call || s->status.call_setup ||
-      s->status.incoming || !classic_demo_valid_number(number))
+      s->status.incoming || !bt_classic_valid_number(number))
     return false;
   char command[40];
   snprintf(command, sizeof(command), "ATD%s;\r", number);
@@ -299,14 +299,14 @@ bool classic_demo_dial(ClassicDemoHost *s, const char *number) {
   return true;
 }
 
-bool classic_demo_answer(ClassicDemoHost *s) {
+bool bt_classic_answer(BtClassicHost *s) {
   if (!s->status.ready || s->at_pending || !s->status.incoming)
     return false;
   at_command(s, "ATA\r");
   return true;
 }
 
-bool classic_demo_hangup(ClassicDemoHost *s) {
+bool bt_classic_hangup(BtClassicHost *s) {
   if (!s->status.ready || s->at_pending ||
       !(s->status.call || s->status.call_setup || s->status.incoming))
     return false;

@@ -1,6 +1,6 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
-#include "host.h"
+#include "internal.h"
 
 #include <string.h>
 
@@ -100,25 +100,25 @@ static const struct {
   {0x0311, 3, {9, 0, 0}},
 };
 
-static void respond(ClassicDemoHost *s, ClassicDemoChannel *ch, uint8_t type, const uint8_t *id,
+static void respond(BtClassicHost *s, BtClassicChannel *ch, uint8_t type, const uint8_t *id,
                     const uint8_t *data, unsigned n) {
-  uint8_t p[CLASSIC_DEMO_MTU];
+  uint8_t p[BT_CLASSIC_MTU];
   if (n + 5 > sizeof(p) || n + 5 > ch->mtu)
     return;
   p[0] = type;
   memcpy(p + 1, id, 2);
   put16(p + 3, n);
   memcpy(p + 5, data, n);
-  classic_demo_l2cap_send(s, ch->remote, p, n + 5);
+  bt_classic_l2cap_send(s, ch->remote, p, n + 5);
 }
 
-static void error(ClassicDemoHost *s, ClassicDemoChannel *ch, const uint8_t *id, unsigned code) {
+static void error(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *id, unsigned code) {
   uint8_t p[2];
   put16(p, code);
   respond(s, ch, 1, id, p, 2);
 }
 
-void classic_demo_sdp(ClassicDemoHost *s, ClassicDemoChannel *ch, const uint8_t *p, size_t n) {
+void bt_classic_sdp(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *p, size_t n) {
   if (n < 5 || be16(p + 3) != n - 5)
     return;
   uint8_t type = p[0], id[2] = {p[1], p[2]};
@@ -209,7 +209,7 @@ void classic_demo_sdp(ClassicDemoHost *s, ClassicDemoChannel *ch, const uint8_t 
   unsigned chunk = size - offset;
   if (chunk > maximum)
     chunk = maximum;
-  unsigned mtu = ch->mtu < CLASSIC_DEMO_MTU ? ch->mtu : CLASSIC_DEMO_MTU;
+  unsigned mtu = ch->mtu < BT_CLASSIC_MTU ? ch->mtu : BT_CLASSIC_MTU;
   if (chunk > mtu - 10)
     chunk = mtu - 10;
   put16(result, chunk);

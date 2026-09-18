@@ -3,30 +3,30 @@
 #include "host.h"
 #include <string.h>
 
-static ClassicDemoHost s_host;
-static ClassicDemoPacket s_output[64];
+static BtClassicHost s_host;
+static BtClassicPacket s_output[64];
 static unsigned s_read, s_write;
 static void send(const uint8_t *p, size_t n, void *context) {
   if (n > sizeof(s_output[0].data) || s_write - s_read >= 64)
     __builtin_trap();
-  ClassicDemoPacket *out = &s_output[s_write++ % 64];
+  BtClassicPacket *out = &s_output[s_write++ % 64];
   memcpy(out->data, p, n);
   out->length = n;
 }
 void demo_init(void) {
   s_read = s_write = 0;
-  classic_demo_init(&s_host, send, NULL);
+  bt_classic_init(&s_host, send, NULL);
 }
 void demo_tick(unsigned now) {
-  classic_demo_poll(&s_host, now);
+  bt_classic_poll(&s_host, now);
 }
 void demo_receive(const uint8_t *p, unsigned n) {
-  classic_demo_receive(&s_host, p, n);
+  bt_classic_receive(&s_host, p, n);
 }
 unsigned demo_pop(uint8_t *p) {
   if (s_read == s_write)
     return 0;
-  ClassicDemoPacket *out = &s_output[s_read++ % 64];
+  BtClassicPacket *out = &s_output[s_read++ % 64];
   memcpy(p, out->data, out->length);
   return out->length;
 }
@@ -41,11 +41,49 @@ const char *demo_detail(void) {
   return s_host.status.detail;
 }
 int demo_dial(const char *number) {
-  return classic_demo_dial(&s_host, number);
+  return bt_classic_dial(&s_host, number);
 }
 int demo_answer(void) {
-  return classic_demo_answer(&s_host);
+  return bt_classic_answer(&s_host);
 }
 int demo_hangup(void) {
-  return classic_demo_hangup(&s_host);
+  return bt_classic_hangup(&s_host);
+}
+static bool s_acl_ready;
+static bool send_acl(const uint8_t *p, size_t n, void *context) {
+  if (!s_acl_ready)
+    return false;
+  send(p, n, context);
+  return true;
+}
+void demo_init_managed(void) {
+  s_read = s_write = 0;
+  s_acl_ready = true;
+  bt_classic_init_managed(&s_host, send, send_acl, 676, NULL);
+}
+void demo_acl_ready(int ready) {
+  s_acl_ready = ready;
+}
+void demo_stop(void) {
+  bt_classic_stop(&s_host);
+}
+int demo_stopped(void) {
+  return bt_classic_stopped(&s_host);
+}
+
+static bool s_bond_present;
+static bool shared_key(const uint8_t peer[6], uint8_t key[16], void *context) {
+  const uint8_t expected[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
+  if (!s_bond_present || memcmp(peer, expected, 6))
+    return false;
+  if (key)
+    memset(key, 0xa5, 16);
+  return true;
+}
+void demo_shared_bond(int present) {
+  s_host.get_link_key = shared_key;
+  s_bond_present = present;
+}
+unsigned demo_encrypted(void) {
+  return s_host.encrypted;
 }

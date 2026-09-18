@@ -2,7 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "pbl/services/phone_call.h"
-#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+#ifdef CONFIG_BT_HFP
 #include "pbl/services/bluetooth/hfp_demo.h"
 #endif
 
@@ -315,7 +315,7 @@ void phone_call_service_init() {
 void phone_call_answer(void) {
   PBL_LOG_DBG("Call accepted");
 
-#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+#ifdef CONFIG_BT_HFP
   if (s_call_source == PhoneCallSource_HFP) {
     hfp_demo_answer();
     return;
@@ -336,7 +336,7 @@ void phone_call_answer(void) {
 void phone_call_decline(void) {
   PBL_LOG_DBG("Call declined");
 
-#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+#ifdef CONFIG_BT_HFP
   if (s_call_source == PhoneCallSource_HFP) {
     hfp_demo_hangup();
     return;
