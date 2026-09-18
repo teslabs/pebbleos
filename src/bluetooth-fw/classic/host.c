@@ -137,6 +137,8 @@ void bt_classic_reset(BtClassicHost *s) {
 static void disconnect(BtClassicHost *s) {
   s->handle = s->sco_handle = BT_CLASSIC_NO_HANDLE;
   s->accepting = s->accepting_sco = s->encrypted = s->revoking = false;
+  s->active_key_valid = false;
+  memset(s->active_key, 0, sizeof(s->active_key));
   s->acl_inflight = s->receive_length = s->receive_needed = 0;
   s->output_count = s->output_head = 0;
   memset(s->channels, 0, sizeof(s->channels));
@@ -198,10 +200,17 @@ bool bt_classic_stopped(const BtClassicHost *s) {
          s->sco_handle == BT_CLASSIC_NO_HANDLE && !s->command_count && !s->pending_opcode;
 }
 
+static bool bond_current(BtClassicHost *s) {
+  uint8_t key[16];
+  bool current = s->active_key_valid && s->get_link_key(s->peer, key, s->context) &&
+                 !memcmp(key, s->active_key, sizeof(key));
+  memset(key, 0, sizeof(key));
+  return current;
+}
+
 void bt_classic_poll(BtClassicHost *s, uint32_t now) {
   s->now = now;
-  if (s->get_link_key && s->encrypted && !s->revoking && !s->stopping &&
-      !s->get_link_key(s->peer, NULL, s->context)) {
+  if (s->get_link_key && s->encrypted && !s->revoking && !s->stopping && !bond_current(s)) {
     bt_classic_disconnect_peer(s);
   }
   if (s->pending_opcode && (int32_t)(now - s->command_deadline) >= 0) {
@@ -314,9 +323,14 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
       command(s, 0x0c1a, data, 1);
       if (s->stopping) {
         disconnect_link(s, s->handle);
-      } else if (s->get_link_key && s->get_link_key(s->peer, NULL, s->context)) {
-        put16(data, s->handle);
-        command(s, 0x0411, data, 2);
+      } else if (s->get_link_key) {
+        s->active_key_valid = s->get_link_key(s->peer, s->active_key, s->context);
+        if (s->active_key_valid) {
+          put16(data, s->handle);
+          command(s, 0x0411, data, 2);
+        } else {
+          bt_classic_disconnect_peer(s);
+        }
       }
     } else
       bt_classic_error(s, "Phone connection failed");
@@ -332,22 +346,22 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
     if (!p[0]) {
       s->sco_handle = u16(p + 1);
       s->status.audio = true;
-      if (s->stopping)
+      if (s->stopping || s->revoking)
         disconnect_link(s, s->sco_handle);
     } else
       bt_classic_error(s, "Call audio connection failed");
   } else if (event == 0x06 && n == 3 && u16(p + 1) == s->handle && s->get_link_key) {
-    if (p[0]) {
-      disconnect_link(s, s->handle);
+    if (p[0] || s->revoking || !bond_current(s)) {
+      bt_classic_disconnect_peer(s);
     } else {
       put16(data, s->handle);
       data[2] = 1;
       command(s, 0x0413, data, 3);
     }
   } else if (event == 0x08 && n == 4 && u16(p + 1) == s->handle && s->get_link_key) {
-    s->encrypted = !p[0] && p[3] && s->get_link_key(s->peer, NULL, s->context);
+    s->encrypted = !s->revoking && !p[0] && p[3] && bond_current(s);
     if (!s->encrypted)
-      disconnect_link(s, s->handle);
+      bt_classic_disconnect_peer(s);
   } else if (event == 0x31 && n == 6) {
     memcpy(data, p, 6);
     if (s->get_link_key) {

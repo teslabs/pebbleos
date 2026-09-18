@@ -469,8 +469,9 @@ class SharedBondTest(ClassicHostTest):
         self.assertEqual(self.pop()[-16:], b"\xa5" * 16)
 
     def test_rfcomm_blocked_without_encryption(self):
-        self.connect()
         self.lib.demo_shared_bond(1)
+        self.connect()
+        self.drain()
         self.l2cap(1, b"\2\1" + le(4, 3, 0x80))
         self.assertEqual(self.drain(), [(1, b"\3\1" + le(8, 0, 0x80, 3, 0))])
         self.event(8, b"\0" + le(1) + b"\1")
@@ -478,10 +479,34 @@ class SharedBondTest(ClassicHostTest):
         self.channel(3)
 
     def test_forgetting_bond_disconnects_classic(self):
-        self.connect()
         self.lib.demo_shared_bond(1)
+        self.connect()
+        self.drain()
         self.event(8, b"\0" + le(1) + b"\1")
         self.lib.demo_shared_bond(0)
         p = self.pop()
         self.assertEqual(p, b"\1" + le(0x0406) + b"\3" + le(1) + b"\x13")
+        self.assertEqual(self.lib.demo_encrypted(), 0)
+
+    def test_replacing_bond_disconnects_old_encrypted_link(self):
+        self.lib.demo_shared_bond(1)
+        self.connect()
+        self.drain()
+        self.event(8, b"\0" + le(1) + b"\1")
+        self.assertEqual(self.lib.demo_encrypted(), 1)
+        self.lib.demo_replace_bond()
+        p = self.pop()
+        self.assertEqual(p, b"\1" + le(0x0406) + b"\3" + le(1) + b"\x13")
+        self.assertEqual(self.lib.demo_encrypted(), 0)
+        self.complete(p)
+        self.event(8, b"\0" + le(1) + b"\1")
+        self.assertEqual(self.lib.demo_encrypted(), 0)
+
+    def test_replacing_bond_during_authentication_rejects_link(self):
+        self.lib.demo_shared_bond(1)
+        self.connect()
+        self.drain()
+        self.lib.demo_replace_bond()
+        self.event(6, b"\0" + le(1))
+        self.assertEqual(self.pop(), b"\1" + le(0x0406) + b"\3" + le(1) + b"\x13")
         self.assertEqual(self.lib.demo_encrypted(), 0)

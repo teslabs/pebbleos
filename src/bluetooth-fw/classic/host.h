@@ -40,6 +40,8 @@ typedef struct {
   uint16_t handle, sco_handle, acl_mtu, acl_limit, acl_inflight, pending_opcode;
   uint8_t command_credit, startup, signal_id;
   uint8_t peer[6], key_peer[6], key[16];
+  uint8_t active_key[16];
+  bool active_key_valid;
   bool key_valid, accepting, accepting_sco, stopping;
   struct {
     uint16_t length;

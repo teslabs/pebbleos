@@ -72,17 +72,22 @@ int demo_stopped(void) {
 }
 
 static bool s_bond_present;
+static uint8_t s_bond_value = 0xa5;
 static bool shared_key(const uint8_t peer[6], uint8_t key[16], void *context) {
   const uint8_t expected[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
   if (!s_bond_present || memcmp(peer, expected, 6))
     return false;
   if (key)
-    memset(key, 0xa5, 16);
+    memset(key, s_bond_value, 16);
   return true;
 }
 void demo_shared_bond(int present) {
   s_host.get_link_key = shared_key;
   s_bond_present = present;
+  s_bond_value = 0xa5;
+}
+void demo_replace_bond(void) {
+  s_bond_value = 0x42;
 }
 unsigned demo_encrypted(void) {
   return s_host.encrypted;
