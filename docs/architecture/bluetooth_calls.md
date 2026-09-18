@@ -4,8 +4,9 @@
 
 Obelix is the first target for a watch acting as a Bluetooth Hands-Free (HF)
 device. The phone is the Audio Gateway (AG) and places the cellular call.
-The eventual feature needs call control, simultaneous microphone/speaker
-audio, and coexistence with Pebble's BLE phone connection.
+The integrated feature combines call control, simultaneous microphone/speaker
+audio, and Pebble's BLE phone connection. It is opt-in while the remaining
+release acceptance gates below are completed.
 
 All new host/profile code must be Apache-2.0 or implemented in this project.
 Do not integrate BTstack or SiFli's proprietary Bluetooth host libraries.
@@ -577,8 +578,9 @@ protocol work, through the existing native-to-HCI adapter. Exhausting the
 pending reliable-packet queue fails closed and captures a crash rather than
 silently dropping ACL data. This limit still needs sustained-load testing.
 
-The initial build is restricted to SiFli development configurations; the
-NimBLE hooks and Classic profiles contain no SiFli APIs. Another controller
+The first transport is SiFli-specific; the NimBLE hooks and Classic profiles
+contain no SiFli APIs. Both development and console-free release configurations
+are supported. Another controller
 needs an HCI transport and synchronous-audio endpoint before enabling the
 option on that platform.
 
@@ -763,14 +765,15 @@ Apache-2.0 modules and the NimBLE changes small enough to review separately.
    RX pool exhaustion while an HCI command is outstanding. Hardware evidence
    of simultaneous links is required; sequential BLE and Classic tests do
    not pass this gate.
-4. **Service and security hardening.** Replace the demo facade with an
-   event-driven HFP service, and move contacts into an app-owned model.
-   Persist BR/EDR keys separately from LE bonds; connect pairing policy to
-   the normal UI. Keep stateless pairing as an explicit development mode.
-   Correlate HFP and ANCS/PP calls for the same phone to avoid duplicate
-   popups and duplicated answer/hangup commands. Add caller identification,
-   reconnection and call-control error handling. Do not enable cross-transport
-   key derivation as a shortcut to sharing identity.
+4. **Service and security hardening.** The Phone system app uses an internal
+   HFP service API and existing companion-synced contact favorites. LE Secure
+   Connections pairing negotiates CTKD and stores one shared bonding record;
+   Classic requires an authenticated 128-bit derived key and encryption.
+   Stateless Classic pairing remains confined to the standalone development
+   backend. HFP owns the call lifecycle when companion notifications race,
+   while PP/ANCS can supply caller identity. Protocol timeout, malformed-line,
+   and queue-exhaustion handling have regression coverage. Automatic reconnect,
+   broader caller identification, and multi-call handling remain open.
 5. **Portability and release gate.** Run the common controller tests against
    simulated standard HCI controllers with both buffer layouts, and exercise
    a second controller transport when hardware is available. Measure flash,
@@ -783,31 +786,64 @@ or scheduling internals, revisit the Zephyr-host option before growing a
 large private fork. The decision should follow the size of the reviewed
 patch set and measured behavior, rather than the existence of an HFP sample.
 
-## Remaining acceptance gates
+## Release acceptance status
 
-1. Pair a phone; complete SDP, RFCOMM and the HFP service-level connection.
-   Passed with an iPhone on 2026-09-18; Android remains untested.
-2. Establish SCO/eSCO and observe bidirectional voice payloads over HCI.
-   Confirm uplink reception at the peer, not merely successful writes.
-   Passed with CVSD and a user-confirmed audible tone on 2026-09-18.
-3. Exercise Obelix's microphone and speaker simultaneously. The board
-   configures 16 kHz audio on separate DMA channels. Basic two-way speech
-   passed on 2026-09-18; quality, latency and long-term stability remain open.
-4. Validate the embedded demo host and app-originated calls on hardware,
-   then integrate production call state, deduplicating HFP versus PP/ANCS
-   events for the same phone. The embedded host has completed iPhone HFP
-   sessions and the app has initiated calls; incoming-call popup behavior
-   and broader interoperability remain to be tested.
-5. Bound audio queues, handle clock drift and packet loss, and add acoustic
-   echo cancellation with the actual playback reference.
-6. Demonstrate incoming/outgoing calls, mute/volume, clean disconnects,
-   reconnection, and a ten-minute call with concurrent Pebble BLE traffic
-   on Android and iPhone. Measure CPU, RAM, latency and battery current.
+Validated on Obelix and Pixel 8a:
 
-The tested SiFli controller uses native shared-memory audio. Its adapter
-keeps this detail below HCI, preserving packet status, handles, codec format
-and pacing. Other controllers can provide standard SCO directly through the
-same audio boundary. Vendor voice APIs do not belong in the call service.
+- Authenticated BLE Secure Connections pairing negotiates CT2 and supplies
+  the Classic link key through CTKD, without a second pairing prompt.
+- Both encrypted links reconnect with the same stored bond after flashing.
+  Reconnection has been initiated manually; automatic reconnect is still open.
+- A local Android Telecom incoming call can be answered and hung up from the
+  watch. A three-minute run retained encrypted BLE and HFP links and moved
+  bidirectional SCO audio. Android reported Bluetooth SCO for both audio
+  directions and no playback underruns. BLE was connected through nRF Connect;
+  this does not establish full CoreApp traffic coexistence.
+- Audio notifications exposed a semaphore wait-queue race: opening the SCO
+  mailbox changed the shared IRQ priority above the kernel mask. The SiFli
+  IPC port now consistently uses a kernel-safe interrupt priority. The
+  three-minute call above passed with the normal watchdog restored.
+- The default software playback gain is unity. The earlier 16x setting
+  clipped the test tone heavily; unity did not clip it. Acoustic loudness,
+  voice quality and echo still require measurement.
+- Two cycles of incoming, rejected and outgoing local Telecom calls passed,
+  including watch answer/hangup and audio teardown. These short transitions
+  complement the longer active-call tests; they do not replace soak testing.
+- The Phone app is a system app (`APP_PHONE`), with companion favorites and
+  explicitly temporary console contacts. No personal contacts are compiled
+  into firmware. Routine bonding logs no longer emit key material.
+- Host regression tests cover shared command/ACL ownership, CTKD vectors and
+  negotiation, security gating, malformed responses, timeout recovery, and
+  bounded output. Phone-service tests cover notification ordering; contact
+  tests cover normalization, capacity, duplicate numbers and invalid addresses.
+
+A console-free release build can be checked independently of the debug
+firmware used for flashing and diagnostics:
+
+```sh
+pbl configure -b build-obelix-hfp-release --board obelix@pvt \
+  -DCONFIG_RELEASE=y -DCONFIG_PROMPT=n -DCONFIG_BT_CLASSIC=y \
+  -DCONFIG_APP_PHONE=y
+pbl build -b build-obelix-hfp-release
+```
+
+Keep the hardware debug build at `CONFIG_RELEASE=n`; deep sleep powers down
+the debug UART. Building the release configuration is not evidence of release
+readiness. Before enabling calling by default, complete these gates:
+
+1. Full CoreApp setup and sustained notification/GATT traffic during calls,
+   on Android and iPhone, including deleting and re-establishing the shared bond.
+2. Automatic reconnect, caller identification, volume/mute synchronization,
+   audio transfer, and call waiting/multiple-call behavior.
+3. Measured speaker/microphone latency, packet-loss recovery and clock drift;
+   acoustic echo cancellation using the actual playback reference.
+4. Repeated incoming/outgoing/rejected calls, radio disable during calls,
+   controller faults, and long-duration stress with no resource leaks or resets.
+5. Release-mode power/current and CPU measurements, Bluetooth conformance and
+   interoperability tests, and a second standard-HCI controller port.
+
+The SiFli shared-memory audio adapter remains below HCI. Other controllers
+can deliver standard SCO packets to the same portable host/audio boundary.
 
 ## Local Android call testing
 
@@ -849,3 +885,18 @@ long-duration coexistence testing. Android can establish SCO while ringing;
 missing-packet indications before answer must be distinguished from loss
 while active. Check that both logged audio routes use Bluetooth SCO before
 interpreting microphone RMS as watch capture.
+
+With both encrypted links connected, the repeatable hardware check runs
+incoming, rejected, and local outgoing calls, then verifies audio teardown:
+
+Set the watch speaker volume to a comfortable level under Settings > Sounds &
+Haptics before running audible tests. The runner preserves that setting.
+
+```sh
+python tools/hfp_smoke.py --tty WATCH_SERIAL_PORT --android-serial ANDROID_SERIAL \
+  --device WATCH_BLUETOOTH_ADDRESS --duration 60 --repeat 3
+```
+
+`--scenario incoming|reject|outgoing` selects one scenario. The runner checks
+both encrypted links throughout active calls and stops its local test call
+on failure. It refuses to begin while the watch already reports a call.
