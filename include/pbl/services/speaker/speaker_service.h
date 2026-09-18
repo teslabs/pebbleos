@@ -86,6 +86,12 @@ void speaker_service_register_finish(PebbleTask task);
 //! @return true if stream opened, false if blocked by higher priority
 bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt);
 
+//! Assign ownership atomically, so services cannot write into a preempting stream.
+bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
+                                       PebbleTask owner);
+uint32_t speaker_service_stream_write_owned(PebbleTask owner, const void *data, uint32_t num_bytes);
+void speaker_service_stream_close_owned(PebbleTask owner);
+
 //! Write PCM data to the active stream.
 //! @param data Source buffer
 //! @param num_bytes Number of bytes to write

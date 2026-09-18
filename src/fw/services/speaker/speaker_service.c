@@ -702,6 +702,11 @@ alloc_fail:
 }
 
 bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
+  return speaker_service_stream_open_owned(pri, vol, fmt, PebbleTask_Unknown);
+}
+
+bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
+                                       PebbleTask owner) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (!s_state.initialized) {
@@ -730,6 +735,7 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
   s_state.priority = pri;
   s_state.volume = vol;
   s_state.pcm_format = fmt;
+  s_state.owner_task = owner;
   s_state.prev_samples[0] = 0;
   s_state.prev_samples[1] = 0;
 
@@ -740,9 +746,14 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
 }
 
 uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {
+  return speaker_service_stream_write_owned(PebbleTask_Unknown, data, num_bytes);
+}
+
+uint32_t speaker_service_stream_write_owned(PebbleTask owner, const void *data, uint32_t num_bytes) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
-  if (s_state.state == SpeakerStateIdle || s_state.source_type != SpeakerSourceStream) {
+  if (s_state.state == SpeakerStateIdle || s_state.source_type != SpeakerSourceStream ||
+      (owner != PebbleTask_Unknown && owner != s_state.owner_task)) {
     pbl_mutex_unlock(&s_lock);
     return 0;
   }
@@ -753,9 +764,14 @@ uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {
 }
 
 void speaker_service_stream_close(void) {
+  speaker_service_stream_close_owned(PebbleTask_Unknown);
+}
+
+void speaker_service_stream_close_owned(PebbleTask owner) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
-  if (s_state.source_type != SpeakerSourceStream) {
+  if (s_state.source_type != SpeakerSourceStream ||
+      (owner != PebbleTask_Unknown && owner != s_state.owner_task)) {
     pbl_mutex_unlock(&s_lock);
     return;
   }
@@ -881,11 +897,23 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
   return false;
 }
 
+bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
+                                       PebbleTask owner) {
+  return false;
+}
+
+uint32_t speaker_service_stream_write_owned(PebbleTask owner, const void *data, uint32_t num_bytes) {
+  return 0;
+}
+
 uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {
   return 0;
 }
 
 void speaker_service_stream_close(void) {
+}
+
+void speaker_service_stream_close_owned(PebbleTask owner) {
 }
 void speaker_service_stop(void) {
 }

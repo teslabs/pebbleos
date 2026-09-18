@@ -148,3 +148,21 @@ void test_speaker_service__same_priority_cannot_preempt_while_playing(void) {
 
   cl_assert(!speaker_service_play_tone(2000, 25, 0, 0, SpeakerPriorityApp, 80));
 }
+
+void test_speaker_service__owned_stream_cannot_write_or_stop_a_preempting_stream(void) {
+  const int16_t samples[] = {100, -100};
+  cl_assert(speaker_service_stream_open_owned(SpeakerPriorityNotification, 30,
+                                              SpeakerPcmFormat_8kHz_16bit, PebbleTask_BTHCI));
+  cl_assert_equal_i(speaker_service_stream_write_owned(PebbleTask_BTHCI, samples, sizeof(samples)),
+                    sizeof(samples));
+  cl_assert(speaker_service_stream_open_owned(SpeakerPriorityCritical, 30,
+                                              SpeakerPcmFormat_8kHz_16bit, PebbleTask_KernelMain));
+  cl_assert_equal_i(speaker_service_stream_write_owned(PebbleTask_BTHCI, samples, sizeof(samples)),
+                    0);
+  speaker_service_stop_for_task(PebbleTask_BTHCI);
+  speaker_service_stream_close_owned(PebbleTask_BTHCI);
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStatePlaying);
+  cl_assert_equal_i(
+      speaker_service_stream_write_owned(PebbleTask_KernelMain, samples, sizeof(samples)),
+      sizeof(samples));
+}
