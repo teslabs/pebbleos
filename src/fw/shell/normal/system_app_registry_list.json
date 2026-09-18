@@ -24,6 +24,14 @@
   ],
   "system_apps": [
     {
+      "id": -194,
+      "enum": "HFP_DEMO",
+      "md_fn": "hfp_demo_get_app_info",
+      "ifdefs": [
+        "CONFIG_DEMO_APP_HFP_DEMO"
+      ]
+    },
+    {
       "id": -69,
       "enum": "TICTOC",
       "md_fn": "tictoc_get_app_info"

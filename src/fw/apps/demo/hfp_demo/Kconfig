@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+config DEMO_APP_HFP_DEMO
+    bool "HFP call demo"
+    depends on BT_FW_CLASSIC_DEMO
+    default y

@@ -3,6 +3,8 @@
 
 menu "Demo"
 
+rsource "hfp_demo/Kconfig"
+
 rsource "accel_demo/Kconfig"
 rsource "action_menu/Kconfig"
 rsource "activity_demo/Kconfig"

@@ -456,6 +456,94 @@ validation, but has not been established as the cause of these underruns.
 This stage has no acoustic echo cancellation or clock-drift compensation.
 It does not provide a standalone embedded HFP host or concurrent Pebble BLE.
 
+## Standalone embedded demo
+
+`CONFIG_BT_FW_CLASSIC_DEMO=y` replaces the desktop host with a small
+project-owned Apache-2.0 implementation in `src/bluetooth-fw/classic_demo`.
+Its portable core takes complete H4 packets and an output callback. The
+existing SiFli transport and native-audio adapter remain below that boundary.
+It supports one incoming BR/EDR connection, Just Works pairing, basic L2CAP,
+an HFP SDP service on RFCOMM channel 1, credit-based RFCOMM, the mandatory
+HFP service-level exchange, CVSD audio, dialing, answering and hanging up.
+The phone initiates the connection from its Bluetooth settings.
+
+This deliberately small host is separate from NimBLE. It does not yet
+implement concurrent BLE, outgoing device discovery, multipoint, phonebook
+download, three-way calls, codec negotiation or production reconnection.
+One pairing key is kept in RAM for reconnects during the same boot. After
+a restart, forget the watch in the phone's Bluetooth settings and pair again.
+No vendor host stack is linked; the existing controller firmware stays below
+HCI as in the earlier experiment.
+
+Build and flash with the existing SDK tools:
+
+```sh
+CCACHE_DISABLE=1 pbl configure -b build-obelix-embedded-hfp \
+  --board obelix@pvt -DCONFIG_RELEASE=n -DCONFIG_BT_FW_CLASSIC_DEMO=y
+CCACHE_DISABLE=1 pbl build -b build-obelix-embedded-hfp
+sftool -c SF32LB52 -p /dev/tty.wchusbserial5B7A1355001 \
+  write_flash build-obelix-embedded-hfp/pebbleos.hex
+```
+
+Pair with **Pebble HFP Demo** from the phone, then open **Phone** in the
+watch launcher. Until HFP is ready, the app shows a Bluetooth connection
+screen. Once connected, swipe horizontally between **Dialer** and **Contacts**,
+or tap their tabs. Holding Select switches pages without touch.
+
+The dialer has a 3-column number pad, a red **×** beside the number, a `+` key,
+and a green **Call** button. Tap digits to append them; Up/Down moves focus
+and Select activates the focused key. The × clears the number. Only Call
+starts dialing. During a call, the app offers a red **End call** button.
+Saved contacts appear by name on the call screen, with the number as a fallback.
+The app can close while a call continues.
+
+**Contacts** shows names and numbers in a vertically scrollable list.
+Selecting a contact dials it when the phone is ready. Up to eight contacts
+can be configured for the current boot; configuring an existing name updates
+its number without adding a duplicate. Optional build settings
+`CONFIG_BT_HFP_DEMO_CONTACT_1_NAME` / `_NUMBER` and
+`CONFIG_BT_HFP_DEMO_CONTACT_2_NAME` / `_NUMBER` seed two contacts at boot.
+They default to empty; personal contacts belong in local build configuration.
+Console changes last until reboot:
+
+```sh
+.venv/bin/python tools/hfp_demo.py \
+  --tty /dev/tty.wchusbserial5B7A1355001 \
+  --contact-name Test --contact-number YOUR_NUMBER --launch
+```
+
+Contact names may contain spaces; quote them in the shell, for example
+`--contact-name "Test Contact"`. Names must fit in 23 UTF-8 bytes. The helper
+encodes the name for the console transport. Numbers support up to 32 dial
+characters with an optional leading `+`. Select the
+contact's row on the **Contacts** page to call it. This helper only configures the watch;
+it does not dial or supply a Bluetooth host. `--monitor` polls host and audio
+metadata. Close it before using another serial tool. Calls do not require a
+USB cable or a running desktop process. Console commands are `bt hfp status`,
+`bt hfp contact NAME NUMBER`, `bt hfp contacts`, `bt hfp dial NUMBER`, `bt hfp answer` and
+`bt hfp hangup`.
+
+The initial embedded build uses 229,216 bytes of the 305 KB RAM region and
+1,983,808 bytes of flash. Nine portable-host tests exercise startup, SDP
+decoding/continuations, ACL fragmentation, RFCOMM framing, split AT responses,
+call control, number validation, timeouts and RAM-only key lifecycle using
+Bumble's independent packet encoders. A 100,000-input address/undefined-behavior
+sanitizer run found no parser faults. Obelix booted this host, completed all
+controller initialization commands, and reported discoverable with zero
+host errors. A subsequent phone session reached HFP ready with zero host errors and
+completed a CVSD audio link: 4,568 received packets and 274,080 PCM bytes,
+with no microphone queue drops or speaker write drops. Hardware framebuffer
+captures verified the connection screen and dialer. Live incoming-call popup
+behavior and longer touch interaction sessions remain to be checked.
+
+Incoming HFP calls use the existing system phone popup even when the app is
+closed. Its sidebar answers/rejects through the embedded HFP host; call start,
+end and Bluetooth disconnection update that same popup. HFP does not depend
+on a Pebble mobile-app session or ANCS, and unrelated BLE disconnections do
+not dismiss its calls. Caller identification is not yet queried by this minimal
+host. Seven phone-service tests cover existing PP/ANCS behavior and the HFP
+answer, reject, end and disconnect paths.
+
 ## Extending NimBLE
 
 Extending the existing Apache-2.0 NimBLE host is a first-class implementation
@@ -540,8 +628,11 @@ avoids committing that effort before its main hardware dependency is known.
 3. Exercise Obelix's microphone and speaker simultaneously. The board
    configures 16 kHz audio on separate DMA channels. Basic two-way speech
    passed on 2026-09-18; quality, latency and long-term stability remain open.
-4. Implement the embedded host and integrate call state, deduplicating
-   HFP versus PP/ANCS events for the same phone.
+4. Validate the embedded demo host and app-originated calls on hardware,
+   then integrate production call state, deduplicating HFP versus PP/ANCS
+   events for the same phone. The embedded host has completed iPhone HFP
+   sessions and the app has initiated calls; incoming-call popup behavior
+   and broader interoperability remain to be tested.
 5. Bound audio queues, handle clock drift and packet loss, and add acoustic
    echo cancellation with the actual playback reference.
 6. Demonstrate incoming/outgoing calls, mute/volume, clean disconnects,
