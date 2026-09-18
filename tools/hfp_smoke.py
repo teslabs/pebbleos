@@ -32,6 +32,11 @@ def main():
     parser.add_argument(
         "--scenario", choices=("all", "incoming", "reject", "outgoing"), default="all"
     )
+    parser.add_argument(
+        "--companion-ping",
+        action="store_true",
+        help="Send Pebble protocol pings during calls; verify reception in companion logs",
+    )
     args = parser.parse_args()
     if not 1 <= args.duration <= 240 or not 1 <= args.repeat <= 10:
         parser.error("Duration must be 1..240 seconds and repeat must be 1..10")
@@ -140,7 +145,11 @@ def main():
                     )
                     before_audio = audio_counters(command("bt audio probe"))
                     deadline = time.monotonic() + args.duration
+                    next_ping = 0
                     while time.monotonic() < deadline:
+                        if args.companion_ping and time.monotonic() >= next_ping:
+                            command("ping")
+                            next_ping = time.monotonic() + 5
                         state = status()
                         if not state.get("call") or not state.get("audio"):
                             raise RuntimeError(f"Call/audio stopped: {state}")

@@ -613,10 +613,20 @@ is blocked until Classic encryption is enabled and the controller reports a
 
 CoreApp's existing Android `createBond()` path can initiate this flow; the
 watch pairing service can also request LE security. Android handles HFP and
-call audio. Full companion-app integration remains a separate validation gate.
-The current test used nRF Connect to establish the GATT connection and request
-bonding, compared the numeric codes on both screens, then confirmed them.
-Android connected HFP automatically with no additional Classic pairing.
+call audio. Initial pairing tests used nRF Connect to establish GATT and
+request bonding, compared the numeric codes on both screens, then confirmed
+them. Android connected HFP automatically with no additional Classic pairing.
+
+On 2026-09-19, the installed CoreApp connected through reverse PPOG V2 using
+that shared bond, exchanged watch protocol and blob-database traffic, and
+reconnected after a firmware restart while HFP also recovered automatically.
+nRF Connect was stopped for this check. No CoreApp source changes were needed.
+This validates an existing-bond Android session; full first-time CoreApp setup,
+notification load and iPhone interoperability remain separate release gates.
+
+Classic uses the normal watch name, including subsequent name changes. The
+NimBLE adapter copies changes to the host task, which updates the controller
+local name and extended inquiry response through standard HCI commands.
 
 ### Reconnection and bond lifecycle
 
@@ -859,6 +869,15 @@ Validated on Obelix and Pixel 8a:
   negotiation, security gating, malformed responses, timeout recovery, and
   bounded output. Phone-service tests cover notification ordering; contact
   tests cover normalization, capacity, duplicate numbers and invalid addresses.
+- CoreApp connected using the existing shared bond without source changes,
+  exchanged reverse PPOG V2 traffic and restored its session after flashing.
+  HFP remained available alongside the companion connection. Two cycles of
+  incoming, rejected and outgoing local Telecom calls passed with CoreApp
+  connected, including four one-minute active audio intervals at 30% watch
+  volume. CoreApp and HFP also recovered after Bluetooth off/on. During a
+  subsequent local call, CoreApp logs confirmed reception of periodic Pebble
+  protocol pings. These are coexistence smoke checks, not a notification-load
+  soak.
 
 A console-free release build can be checked independently of the debug
 firmware used for flashing and diagnostics:
@@ -874,8 +893,9 @@ Keep the hardware debug build at `CONFIG_RELEASE=n`; deep sleep powers down
 the debug UART. Building the release configuration is not evidence of release
 readiness. Before enabling calling by default, complete these gates:
 
-1. Full CoreApp setup and sustained notification/GATT traffic during calls,
+1. First-time CoreApp setup and sustained notification/GATT load during calls,
    on Android and iPhone, including deleting and re-establishing the shared bond.
+   Existing-bond Android connection and firmware-restart recovery have passed.
 2. Reconnect and caller-identification interoperability on iPhone, volume/mute synchronization,
    audio transfer, and call waiting/multiple-call behavior.
 3. Measured speaker/microphone latency, packet-loss recovery and clock drift;
@@ -939,6 +959,12 @@ Haptics before running audible tests. The runner preserves that setting.
 python tools/hfp_smoke.py --tty WATCH_SERIAL_PORT --android-serial ANDROID_SERIAL \
   --device WATCH_BLUETOOTH_ADDRESS --duration 60 --repeat 3
 ```
+
+For a CoreApp coexistence check, add `--companion-ping` to send a Pebble
+protocol ping every five seconds during active audio. Verify reception in
+CoreApp's `PebbleProtocolRunner` logs for the watch address; generating pings
+alone does not verify their delivery. This option does not send notifications
+or messages to another person.
 
 `--scenario incoming|reject|outgoing` selects one scenario. The runner checks
 both encrypted links throughout active calls and stops its local test call
