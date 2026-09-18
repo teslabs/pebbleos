@@ -20,7 +20,7 @@ static bool frame(BtClassicHost *s, unsigned dlci, unsigned control, bool respon
   uint8_t p[140];
   if (length > 127 || !s->rfcomm_cid)
     return false;
-  p[0] = (dlci << 2) | (response ? 3 : 1);
+  p[0] = (dlci << 2) | ((response != s->rfcomm_initiator) ? 3 : 1);
   p[1] = control | (credits ? 0x10 : 0);
   p[2] = (length << 1) | 1;
   unsigned offset = 3;
@@ -61,6 +61,25 @@ static void slc_next(BtClassicHost *s) {
   else {
     s->status.ready = true;
     snprintf(s->status.detail, sizeof(s->status.detail), "Ready to call");
+  }
+}
+
+void bt_classic_channel_ready(BtClassicHost *s, BtClassicChannel *ch) {
+  if (s->revoking)
+    return;
+  if (ch->psm == 1 && ch->outgoing && s->connect_stage == BtClassicConnectSdp) {
+    bt_classic_sdp_start(s, ch);
+  } else if (ch->psm == 3) {
+    if (ch->outgoing && s->connect_stage == BtClassicConnectRfcomm) {
+      s->rfcomm_initiator = true;
+      s->rfcomm_cid = ch->remote;
+      s->dlci = s->server_channel << 1;
+      s->connect_stage = BtClassicConnectMux;
+      frame(s, 0, 0x3f, false, NULL, 0, 0);
+    } else if (!ch->outgoing && s->connect_stage != BtClassicConnectIdle) {
+      // The phone won the race while our SDP discovery was in progress.
+      s->connect_stage = BtClassicConnectSlc;
+    }
   }
 }
 
@@ -133,6 +152,7 @@ void bt_classic_profile_reset(BtClassicHost *s) {
   s->rfcomm_cid = s->rfcomm_mtu = s->rfcomm_credits = 0;
   s->dlci = s->rx_credits = s->slc_step = 0;
   s->rfcomm_open = s->credit_mode = s->modem_ready = s->at_pending = false;
+  s->rfcomm_initiator = false;
   s->at_discard = false;
   s->status.ready = s->status.busy = false;
   s->status.call = s->status.incoming = false;
@@ -183,6 +203,27 @@ void bt_classic_rfcomm(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *p,
   if (s->rfcomm_cid && ch->remote != s->rfcomm_cid)
     return;
   s->rfcomm_cid = ch->remote;
+  if (control == 0x63 && s->rfcomm_initiator) { // UA.
+    if (!dlci && s->connect_stage == BtClassicConnectMux) {
+      unsigned mtu = ch->mtu > 132 ? 127 : ch->mtu - 5;
+      uint8_t pn[] = {s->dlci, 0xf0, 7, 0, mtu, 0, 0, 7};
+      s->rfcomm_mtu = mtu;
+      s->rx_credits = 7;
+      s->connect_stage = BtClassicConnectPn;
+      mcc(s, 0x83, pn, sizeof(pn));
+    } else if (dlci == s->dlci && s->connect_stage == BtClassicConnectDlc) {
+      s->connect_stage = BtClassicConnectSlc;
+      s->rfcomm_open = true;
+      uint8_t modem[] = {(dlci << 2) | 3, 0x8d};
+      mcc(s, 0xe3, modem, sizeof(modem));
+      slc_next(s);
+    }
+    return;
+  }
+  if (control == 0x0f && s->rfcomm_initiator) { // DM.
+    bt_classic_disconnect_peer(s);
+    return;
+  }
   if (control == 0x2f) {
     if (dlci == 0 || (dlci == s->dlci && s->rfcomm_mtu)) {
       if (!frame(s, dlci, 0x73, true, NULL, 0, 0))
@@ -199,8 +240,10 @@ void bt_classic_rfcomm(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *p,
   }
   if (control == 0x43) {
     frame(s, dlci, 0x73, true, NULL, 0, 0);
-    if (!dlci || dlci == s->dlci)
+    if (!dlci || dlci == s->dlci) {
+      s->reconnect_suppressed |= s->status.ready;
       bt_classic_profile_reset(s);
+    }
     return;
   }
   if (control != 0xef)
@@ -213,6 +256,20 @@ void bt_classic_rfcomm(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *p,
     if (!(m[1] & 1) || count + 2 != length)
       return;
     if (!(m[0] & 2)) {
+      const uint8_t *value = m + 2;
+      if (m[0] == 0x81 && count == 8 && s->connect_stage == BtClassicConnectPn &&
+          value[0] == s->dlci) {
+        unsigned mtu = value[4] | (unsigned)value[5] << 8;
+        if (!mtu || mtu > s->rfcomm_mtu || (value[1] != 0xe0 && value[1] != 0)) {
+          bt_classic_disconnect_peer(s);
+          return;
+        }
+        s->rfcomm_mtu = mtu;
+        s->credit_mode = value[1] == 0xe0;
+        s->rfcomm_credits = s->credit_mode ? value[7] & 7 : 0;
+        s->connect_stage = BtClassicConnectDlc;
+        frame(s, s->dlci, 0x3f, false, NULL, 0, 0);
+      }
       if ((m[0] & 0xfc) == 0xe0)
         s->modem_ready = true;
       return;

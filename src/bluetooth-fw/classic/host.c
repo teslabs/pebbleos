@@ -13,6 +13,8 @@ static void put16(uint8_t *p, unsigned n) {
   p[1] = n >> 8;
 }
 
+static bool bond_current(BtClassicHost *s);
+
 void bt_classic_error(BtClassicHost *s, const char *reason) {
   ++s->status.errors;
   snprintf(s->status.detail, sizeof(s->status.detail), "%s", reason);
@@ -137,6 +139,8 @@ void bt_classic_reset(BtClassicHost *s) {
 static void disconnect(BtClassicHost *s) {
   s->handle = s->sco_handle = BT_CLASSIC_NO_HANDLE;
   s->accepting = s->accepting_sco = s->encrypted = s->revoking = false;
+  s->connecting = s->canceling = false;
+  s->connect_stage = BtClassicConnectIdle;
   s->active_key_valid = false;
   memset(s->active_key, 0, sizeof(s->active_key));
   s->acl_inflight = s->receive_length = s->receive_needed = 0;
@@ -145,7 +149,7 @@ static void disconnect(BtClassicHost *s) {
   bt_classic_profile_reset(s);
   s->status.connected = s->status.audio = s->status.call = s->status.incoming = false;
   s->status.call_setup = 0;
-  snprintf(s->status.detail, sizeof(s->status.detail), "Disconnected; reconnect from phone");
+  snprintf(s->status.detail, sizeof(s->status.detail), "Phone disconnected");
   const uint8_t scan = s->stopping ? 0 : 3;
   command(s, 0x0c1a, &scan, 1);
 }
@@ -158,10 +162,90 @@ static void disconnect_link(BtClassicHost *s, uint16_t handle) {
   command(s, 0x0406, data, sizeof(data));
 }
 
+bool bt_classic_connect(BtClassicHost *s, const uint8_t peer[6]) {
+  if (!s->status.available || s->stopping || s->connecting || s->accepting ||
+      s->handle != BT_CLASSIC_NO_HANDLE || !s->get_link_key ||
+      !s->get_link_key(peer, NULL, s->context) || s->command_count == 8)
+    return false;
+  uint8_t data[13] = {0};
+  memcpy(data, peer, 6);
+  put16(data + 6, 0xcc18); // DM/DH 1, 3 and 5 slot ACL packets.
+  data[8] = 2;             // R2 page scan repetition, no cached clock offset.
+  data[12] = 1;            // Allow role switch.
+  memcpy(s->peer, peer, 6);
+  s->active_key_valid = s->get_link_key(peer, s->active_key, s->context);
+  if (!s->active_key_valid)
+    return false;
+  s->connecting = true;
+  s->canceling = s->revoking = false;
+  s->connect_stage = BtClassicConnectSecurity;
+  s->connect_deadline = s->now + 30000;
+  command(s, 0x0405, data, sizeof(data));
+  snprintf(s->status.detail, sizeof(s->status.detail), "Connecting calls");
+  return true;
+}
+
+void bt_classic_cancel_connect(BtClassicHost *s) {
+  if (s->connecting && !s->canceling) {
+    s->canceling = true;
+    command(s, 0x0408, s->peer, sizeof(s->peer));
+  }
+}
+
+void bt_classic_reconnect(BtClassicHost *s, const uint8_t *peer, uint32_t now) {
+  if (!peer) {
+    s->reconnect_valid = s->reconnect_suppressed = false;
+    bt_classic_cancel_connect(s);
+    return;
+  }
+  if (!s->reconnect_valid || memcmp(s->reconnect_peer, peer, 6)) {
+    memcpy(s->reconnect_peer, peer, 6);
+    s->reconnect_valid = true;
+    s->reconnect_busy = s->reconnect_suppressed = false;
+    s->reconnect_delay = 2000;
+    s->reconnect_at = now + 2000;
+  }
+  if (s->stopping || !s->status.available || s->reconnect_suppressed)
+    return;
+  bool busy = s->connecting || s->accepting || s->handle != BT_CLASSIC_NO_HANDLE;
+  if (s->encrypted && !s->status.ready && !s->rfcomm_cid &&
+      s->connect_stage == BtClassicConnectIdle && !memcmp(peer, s->peer, 6) &&
+      (int32_t)(now - s->reconnect_at) >= 0) {
+    bool rfcomm_pending = false;
+    for (unsigned i = 0; i < 4; ++i)
+      rfcomm_pending |= s->channels[i].local && s->channels[i].psm == 3;
+    if (!rfcomm_pending) {
+      s->connect_stage = BtClassicConnectSdp;
+      s->connect_deadline = now + 30000;
+      s->sdp_length = s->sdp_rounds = 0;
+      if (!bt_classic_l2cap_connect(s, 1))
+        bt_classic_disconnect_peer(s);
+    }
+  }
+  if (s->status.ready)
+    s->reconnect_delay = 2000;
+  if (busy) {
+    s->reconnect_busy = true;
+    return;
+  }
+  if (s->reconnect_busy) {
+    s->reconnect_busy = false;
+    s->reconnect_at = now + s->reconnect_delay;
+    if (s->reconnect_delay < 60000)
+      s->reconnect_delay = s->reconnect_delay > 30000 ? 60000 : s->reconnect_delay * 2;
+  }
+  if ((int32_t)(now - s->reconnect_at) >= 0) {
+    s->now = now;
+    if (bt_classic_connect(s, peer))
+      s->reconnect_busy = true;
+  }
+}
+
 void bt_classic_disconnect_peer(BtClassicHost *s) {
   if (s->revoking)
     return;
   s->revoking = true;
+  s->connect_stage = BtClassicConnectIdle;
   s->encrypted = false;
   bt_classic_profile_reset(s);
   s->output_count = 0;
@@ -171,9 +255,11 @@ void bt_classic_disconnect_peer(BtClassicHost *s) {
 
 void bt_classic_stop(BtClassicHost *s) {
   bool cancel_accept = false;
+  bool cancel_create = false;
   for (unsigned i = 0; i < s->command_count; ++i) {
     unsigned opcode = u16(s->commands[(s->command_head + i) % 8].data + 1);
     cancel_accept |= opcode == 0x0409;
+    cancel_create |= opcode == 0x0405;
     if (opcode == 0x0429)
       s->accepting_sco = false;
   }
@@ -182,8 +268,16 @@ void bt_classic_stop(BtClassicHost *s) {
   s->status.available = false;
   bt_classic_profile_reset(s);
   s->command_count = s->output_count = 0;
+  s->command_head = 0;
+  s->connect_stage = BtClassicConnectIdle;
+  if (cancel_create)
+    s->connecting = false;
   const uint8_t scan = 0;
   command(s, 0x0c1a, &scan, 1);
+  if (s->connecting) {
+    s->canceling = false;
+    bt_classic_cancel_connect(s);
+  }
   if (cancel_accept) {
     uint8_t data[7];
     memcpy(data, s->peer, 6);
@@ -196,8 +290,9 @@ void bt_classic_stop(BtClassicHost *s) {
 }
 
 bool bt_classic_stopped(const BtClassicHost *s) {
-  return s->stopping && !s->accepting && !s->accepting_sco && s->handle == BT_CLASSIC_NO_HANDLE &&
-         s->sco_handle == BT_CLASSIC_NO_HANDLE && !s->command_count && !s->pending_opcode;
+  return s->stopping && !s->connecting && !s->accepting && !s->accepting_sco &&
+         s->handle == BT_CLASSIC_NO_HANDLE && s->sco_handle == BT_CLASSIC_NO_HANDLE &&
+         !s->command_count && !s->pending_opcode;
 }
 
 static bool bond_current(BtClassicHost *s) {
@@ -210,6 +305,15 @@ static bool bond_current(BtClassicHost *s) {
 
 void bt_classic_poll(BtClassicHost *s, uint32_t now) {
   s->now = now;
+  if (!s->stopping && s->connect_stage != BtClassicConnectIdle) {
+    if (s->status.ready) {
+      s->connect_stage = BtClassicConnectIdle;
+    } else if ((int32_t)(now - s->connect_deadline) >= 0 ||
+               (s->get_link_key && !s->get_link_key(s->peer, NULL, s->context))) {
+      bt_classic_cancel_connect(s);
+      bt_classic_disconnect_peer(s);
+    }
+  }
   if (s->get_link_key && s->encrypted && !s->revoking && !s->stopping && !bond_current(s)) {
     bt_classic_disconnect_peer(s);
   }
@@ -264,6 +368,10 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
       return;
     s->pending_opcode = 0;
     if (status) {
+      if (opcode == 0x0405) {
+        s->connecting = s->canceling = false;
+        s->connect_stage = BtClassicConnectIdle;
+      }
       if (opcode == 0x0409)
         s->accepting = false;
       if (opcode == 0x0429)
@@ -288,11 +396,13 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
   } else if (event == 0x04 && n == 10) {
     if (p[9] == 1) {
       memcpy(data, p, 6);
-      if (s->stopping || s->handle != BT_CLASSIC_NO_HANDLE || s->accepting) {
+      if (s->stopping || s->handle != BT_CLASSIC_NO_HANDLE || s->accepting || s->connecting) {
         data[6] = 0x0d;
         command(s, 0x040a, data, 7);
       } else {
         memcpy(s->peer, p, 6);
+        s->active_key_valid =
+            s->get_link_key && s->get_link_key(s->peer, s->active_key, s->context);
         s->accepting = true;
         data[6] = 1;
         command(s, 0x0409, data, 7);
@@ -312,7 +422,11 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
       data[6] = 0x0d;
       command(s, 0x042a, data, 7);
     }
-  } else if (event == 3 && n == 11 && p[9] == 1) {
+  } else if (event == 3 && n == 11 && (p[9] == 1 || p[0])) {
+    if (memcmp(s->peer, p + 3, 6))
+      return;
+    bool canceled = s->canceling;
+    s->connecting = s->canceling = false;
     s->accepting = false;
     if (!p[0]) {
       s->handle = u16(p + 1);
@@ -321,23 +435,28 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
       snprintf(s->status.detail, sizeof(s->status.detail), "Phone connected; starting HFP");
       data[0] = 0;
       command(s, 0x0c1a, data, 1);
-      if (s->stopping) {
+      if (s->stopping || canceled || s->revoking) {
         disconnect_link(s, s->handle);
       } else if (s->get_link_key) {
-        s->active_key_valid = s->get_link_key(s->peer, s->active_key, s->context);
-        if (s->active_key_valid) {
+        if (bond_current(s)) {
           put16(data, s->handle);
           command(s, 0x0411, data, 2);
         } else {
           bt_classic_disconnect_peer(s);
         }
       }
-    } else
-      bt_classic_error(s, "Phone connection failed");
+    } else {
+      s->connect_stage = BtClassicConnectIdle;
+      s->revoking = false;
+      if (!canceled)
+        snprintf(s->status.detail, sizeof(s->status.detail), "Phone unavailable; retrying later");
+    }
   } else if (event == 5 && n == 4 && !p[0]) {
-    if (u16(p + 1) == s->handle)
+    if (u16(p + 1) == s->handle) {
+      if (s->status.ready && p[3] == 0x13)
+        s->reconnect_suppressed = true;
       disconnect(s);
-    else if (u16(p + 1) == s->sco_handle) {
+    } else if (u16(p + 1) == s->sco_handle) {
       s->status.audio = false;
       s->sco_handle = BT_CLASSIC_NO_HANDLE;
     }
@@ -362,6 +481,12 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
     s->encrypted = !s->revoking && !p[0] && p[3] && bond_current(s);
     if (!s->encrypted)
       bt_classic_disconnect_peer(s);
+    else if (s->connect_stage == BtClassicConnectSecurity) {
+      s->connect_stage = BtClassicConnectSdp;
+      s->sdp_length = s->sdp_rounds = 0;
+      if (!bt_classic_l2cap_connect(s, 1))
+        bt_classic_disconnect_peer(s);
+    }
   } else if (event == 0x31 && n == 6) {
     memcpy(data, p, 6);
     if (s->get_link_key) {
@@ -380,6 +505,9 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
     memcpy(data, p, 6);
     if (s->get_link_key) {
       bool found = s->get_link_key(p, data + 6, s->context);
+      if (found && !memcmp(p, s->peer, 6) && s->active_key_valid &&
+          memcmp(data + 6, s->active_key, sizeof(s->active_key)))
+        found = false;
       command(s, found ? 0x040b : 0x040c, data, found ? 22 : 6);
     } else if (s->key_valid && !memcmp(p, s->key_peer, 6)) {
       memcpy(data + 6, s->key, 16);

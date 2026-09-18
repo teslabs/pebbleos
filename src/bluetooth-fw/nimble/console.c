@@ -64,9 +64,19 @@ static void report_dual_status(struct ble_npl_event *event) {
   if (ble_hs_is_enabled() && ble_hs_synced()) {
     uint8_t scan = 0xff;
     int rc = ble_hs_hci_cmd_tx(0x0c19, NULL, 0, &scan, sizeof(scan));
-    snprintf(line, sizeof(line), "Classic scan=%u status=%d encrypted=%u", scan, rc,
-             hfp_service_host()->encrypted);
+    BtClassicHost *host = hfp_service_host();
+    snprintf(line, sizeof(line),
+             "Classic scan=%u status=%d encrypted=%u initiating=%u stage=%u rfcomm_initiator=%u",
+             scan, rc, host->encrypted, host->connecting, host->connect_stage,
+             host->rfcomm_initiator);
     prompt_send_response(line);
+    if (host->handle != BT_CLASSIC_NO_HANDLE) {
+      uint8_t handle[] = {host->handle & 0xff, host->handle >> 8};
+      uint8_t role[3] = {0, 0, 0xff};
+      rc = ble_hs_hci_cmd_tx(0x0809, handle, sizeof(handle), role, sizeof(role));
+      snprintf(line, sizeof(line), "Classic role=%u status=%d", role[2], rc);
+      prompt_send_response(line);
+    }
   }
   prompt_command_finish();
 }

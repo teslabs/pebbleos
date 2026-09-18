@@ -58,6 +58,50 @@ static BtClassicChannel *find_channel(BtClassicHost *s, uint16_t cid) {
   return NULL;
 }
 
+static uint8_t next_id(BtClassicHost *s) {
+  if (!++s->signal_id)
+    ++s->signal_id;
+  return s->signal_id;
+}
+
+static void configure(BtClassicHost *s, BtClassicChannel *ch) {
+  uint8_t data[8] = {0};
+  put16(data, ch->remote);
+  data[4] = 1;
+  data[5] = 2;
+  put16(data + 6, BT_CLASSIC_MTU);
+  ch->config_id = next_id(s);
+  signal_send(s, 4, ch->config_id, data, sizeof(data));
+}
+
+bool bt_classic_l2cap_connect(BtClassicHost *s, uint16_t psm) {
+  for (unsigned i = 0; i < 4; ++i) {
+    BtClassicChannel *ch = &s->channels[i];
+    if (ch->local)
+      continue;
+    *ch = (BtClassicChannel){
+      .local = 0x40 + i,
+      .psm = psm,
+      .mtu = 672,
+      .outgoing = true,
+      .connect_id = next_id(s)
+    };
+    uint8_t data[4];
+    put16(data, psm);
+    put16(data + 2, ch->local);
+    signal_send(s, 2, ch->connect_id, data, sizeof(data));
+    return !s->revoking;
+  }
+  return false;
+}
+
+static void channel_ready(BtClassicHost *s, BtClassicChannel *ch) {
+  if (!ch->ready && ch->configured && ch->peer_configured) {
+    ch->ready = true;
+    bt_classic_channel_ready(s, ch);
+  }
+}
+
 static void signaling(BtClassicHost *s, const uint8_t *p, unsigned size) {
   while (size >= 4) {
     unsigned n = u16(p + 2);
@@ -74,6 +118,8 @@ static void signaling(BtClassicHost *s, const uint8_t *p, unsigned size) {
       for (unsigned i = 0; i < 4; ++i) {
         if (s->channels[i].local && s->channels[i].remote == remote)
           duplicate = true;
+        if (psm == 3 && s->channels[i].local && s->channels[i].psm == 3)
+          duplicate = true;
         if (!ch && !s->channels[i].local)
           ch = &s->channels[i];
       }
@@ -88,16 +134,26 @@ static void signaling(BtClassicHost *s, const uint8_t *p, unsigned size) {
       put16(response + 2, remote);
       put16(response + 4, result);
       signal_send(s, 3, id, response, 8);
-      if (!result) {
-        put16(response, remote);
-        put16(response + 2, 0);
-        response[4] = 1;
-        response[5] = 2;
-        put16(response + 6, BT_CLASSIC_MTU);
-        if (!++s->signal_id)
-          ++s->signal_id;
-        ch->config_id = s->signal_id;
-        signal_send(s, 4, ch->config_id, response, 8);
+      if (!result)
+        configure(s, ch);
+    } else if (code == 3 && n == 8) {
+      BtClassicChannel *ch = find_channel(s, u16(p + 2));
+      if (ch && ch->outgoing && id == ch->connect_id && !ch->remote) {
+        unsigned result = u16(p + 4);
+        if (result == 1) {
+          // Pending: the overall connection deadline also bounds ERTX.
+        } else if (result || u16(p) < 0x40) {
+          bt_classic_disconnect_peer(s);
+        } else {
+          for (unsigned i = 0; i < 4; ++i) {
+            if (&s->channels[i] != ch && s->channels[i].remote == u16(p)) {
+              bt_classic_disconnect_peer(s);
+              return;
+            }
+          }
+          ch->remote = u16(p);
+          configure(s, ch);
+        }
       }
     } else if (code == 4 && n >= 4) {
       BtClassicChannel *ch = find_channel(s, u16(p));
@@ -123,17 +179,25 @@ static void signaling(BtClassicHost *s, const uint8_t *p, unsigned size) {
         put16(response + 4, result);
         signal_send(s, 5, id, response, 6);
         ch->peer_configured = result == 0;
+        channel_ready(s, ch);
       }
     } else if (code == 5 && n >= 6) {
       BtClassicChannel *ch = find_channel(s, u16(p));
-      if (ch && id == ch->config_id && u16(p + 2) == 0)
+      if (ch && id == ch->config_id && u16(p + 2) == 0) {
         ch->configured = u16(p + 4) == 0;
+        if (ch->outgoing && !ch->configured)
+          bt_classic_disconnect_peer(s);
+        else
+          channel_ready(s, ch);
+      }
     } else if (code == 6 && n == 4) {
       BtClassicChannel *ch = find_channel(s, u16(p));
       if (ch && ch->remote == u16(p + 2)) {
         signal_send(s, 7, id, p, 4);
-        if (ch->psm == 3)
+        if (ch->psm == 3) {
+          s->reconnect_suppressed |= s->status.ready;
           bt_classic_profile_reset(s);
+        }
         *ch = (BtClassicChannel){0};
       }
     } else if (code == 8) {

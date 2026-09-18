@@ -118,7 +118,112 @@ static void error(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *id, uns
   respond(s, ch, 1, id, p, 2);
 }
 
+static unsigned short_uuid(const Element *e) {
+  static const uint8_t base[] = {0, 0, 0x10, 0, 0x80, 0, 0, 0x80, 0x5f, 0x9b, 0x34, 0xfb};
+  if (e->type != 3)
+    return 0;
+  if (e->length == 2)
+    return be16(e->p);
+  if (e->length == 4 && !e->p[0] && !e->p[1])
+    return be16(e->p + 2);
+  if (e->length == 16 && !e->p[0] && !e->p[1] && !memcmp(e->p + 4, base, sizeof(base)))
+    return be16(e->p + 2);
+  return 0;
+}
+
+static bool take(Element *sequence, Element *child) {
+  if (sequence->type != 6 || !element(sequence->p, sequence->length, child))
+    return false;
+  sequence->p += child->total;
+  sequence->length -= child->total;
+  return true;
+}
+
+static unsigned server_channel(const uint8_t *p, unsigned n) {
+  Element records, record;
+  if (!element(p, n, &records) || records.type != 6 || records.total != n)
+    return 0;
+  while (records.length) {
+    if (!take(&records, &record) || record.type != 6)
+      return 0;
+    while (record.length) {
+      Element id, value, protocol, uuid, channel;
+      if (!take(&record, &id) || id.type != 1 || id.length != 2 || !take(&record, &value))
+        return 0;
+      if (be16(id.p) != 4)
+        continue;
+      if (value.type != 6 || !take(&value, &protocol) || !take(&protocol, &uuid) ||
+          short_uuid(&uuid) != 0x0100 || !take(&value, &protocol) || !take(&protocol, &uuid) ||
+          short_uuid(&uuid) != 3 || !take(&protocol, &channel) || channel.type != 1 ||
+          channel.length != 1 || !channel.p[0] || channel.p[0] > 30)
+        return 0;
+      return channel.p[0];
+    }
+  }
+  return 0;
+}
+
+static void client_request(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *continuation,
+                           unsigned length) {
+  if (length > 16 || ++s->sdp_rounds > 8 || ch->mtu < 48) {
+    bt_classic_disconnect_peer(s);
+    return;
+  }
+  uint8_t p[34] = {6, 0, 0, 0, 0, 0x35, 3, 0x19, 0x11, 0x1f, 0, 0, 0x35, 3, 9, 0, 4, 0};
+  put16(p + 1, ++s->sdp_transaction);
+  put16(p + 3, 13 + length);
+  unsigned limit = sizeof(s->sdp_response) - s->sdp_length;
+  if (limit > ch->mtu - 8u)
+    limit = ch->mtu - 8;
+  if (limit < 7) {
+    bt_classic_disconnect_peer(s);
+    return;
+  }
+  put16(p + 10, limit);
+  p[17] = length;
+  if (length)
+    memcpy(p + 18, continuation, length);
+  bt_classic_l2cap_send(s, ch->remote, p, 18 + length);
+}
+
+void bt_classic_sdp_start(BtClassicHost *s, BtClassicChannel *ch) {
+  client_request(s, ch, NULL, 0);
+}
+
+static void client_response(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *p, size_t n) {
+  if (s->connect_stage != BtClassicConnectSdp || n < 5 || be16(p + 1) != s->sdp_transaction)
+    return;
+  if (p[0] != 7 || n < 8 || be16(p + 3) != n - 5)
+    goto failed;
+  unsigned length = be16(p + 5);
+  if (length > n - 8 || length > sizeof(s->sdp_response) - s->sdp_length)
+    goto failed;
+  unsigned continuation = p[7 + length];
+  if (continuation > 16 || n != 8u + length + continuation || (!length && continuation))
+    goto failed;
+  memcpy(s->sdp_response + s->sdp_length, p + 7, length);
+  s->sdp_length += length;
+  if (continuation) {
+    client_request(s, ch, p + 8 + length, continuation);
+    return;
+  }
+  s->server_channel = server_channel(s->sdp_response, s->sdp_length);
+  if (!s->server_channel)
+    goto failed;
+  s->connect_stage = BtClassicConnectRfcomm;
+  if (!bt_classic_l2cap_connect(s, 3))
+    goto failed;
+  return;
+failed:
+  bt_classic_error(s, "Phone HFP discovery failed");
+  bt_classic_disconnect_peer(s);
+}
+
 void bt_classic_sdp(BtClassicHost *s, BtClassicChannel *ch, const uint8_t *p, size_t n) {
+  if (ch->outgoing) {
+    client_response(s, ch, p, n);
+    return;
+  }
   if (n < 5 || be16(p + 3) != n - 5)
     return;
   uint8_t type = p[0], id[2] = {p[1], p[2]};

@@ -18,14 +18,25 @@ typedef struct {
 
 typedef struct {
   uint16_t local, remote, psm, mtu;
-  bool configured, peer_configured;
-  uint8_t config_id;
+  bool configured, peer_configured, outgoing, ready;
+  uint8_t config_id, connect_id;
 } BtClassicChannel;
 
 typedef struct {
   uint16_t length;
   uint8_t data[BT_CLASSIC_MTU + 9];
 } BtClassicPacket;
+
+typedef enum {
+  BtClassicConnectIdle,
+  BtClassicConnectSecurity,
+  BtClassicConnectSdp,
+  BtClassicConnectRfcomm,
+  BtClassicConnectMux,
+  BtClassicConnectPn,
+  BtClassicConnectDlc,
+  BtClassicConnectSlc,
+} BtClassicConnectStage;
 
 typedef struct {
   // All operations run on one host task. The callback copies complete H4 packets.
@@ -43,6 +54,15 @@ typedef struct {
   uint8_t active_key[16];
   bool active_key_valid;
   bool key_valid, accepting, accepting_sco, stopping;
+  bool connecting, canceling, rfcomm_initiator;
+  BtClassicConnectStage connect_stage;
+  uint32_t connect_deadline;
+  uint16_t sdp_transaction, sdp_length;
+  uint8_t server_channel, sdp_rounds;
+  uint8_t sdp_response[512];
+  uint8_t reconnect_peer[6];
+  bool reconnect_valid, reconnect_busy, reconnect_suppressed;
+  uint32_t reconnect_at, reconnect_delay;
   struct {
     uint16_t length;
     uint8_t data[259];
@@ -77,6 +97,12 @@ void bt_classic_init_managed(BtClassicHost *host, void (*command)(const uint8_t 
                              bool (*acl)(const uint8_t *, size_t, void *), uint16_t acl_mtu,
                              void *context);
 void bt_classic_reset(BtClassicHost *host);
+
+// Initiate HFP only for a peer authorized by the shared-bond policy.
+bool bt_classic_connect(BtClassicHost *host, const uint8_t peer[6]);
+void bt_classic_cancel_connect(BtClassicHost *host);
+// Pass the authenticated LE peer, or NULL when no eligible peer is connected.
+void bt_classic_reconnect(BtClassicHost *host, const uint8_t *peer, uint32_t milliseconds);
 
 void bt_classic_stop(BtClassicHost *host);
 bool bt_classic_stopped(const BtClassicHost *host);

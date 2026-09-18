@@ -618,6 +618,36 @@ The current test used nRF Connect to establish the GATT connection and request
 bonding, compared the numeric codes on both screens, then confirmed them.
 Android connected HFP automatically with no additional Classic pairing.
 
+### Reconnection and bond lifecycle
+
+The NimBLE adapter selects the single authenticated, encrypted BLE peer with a
+valid CTKD bond. The portable Classic host initiates the ACL link, authenticates
+it, discovers the phone's HFP Audio Gateway service through SDP, and opens
+RFCOMM and the HFP service-level connection. It can also start discovery on an
+existing encrypted ACL link. No controller-specific connection API is used.
+
+The initial delay is two seconds; failed attempts back off to at most one per
+minute. Connection setup has a 30-second deadline, and Bluetooth shutdown
+cancels pending paging before stopping the host. Losing the eligible BLE peer
+cancels paging but does not interrupt an already-established call. An explicit
+phone-side profile disconnect suppresses retries until a new eligible BLE
+session. Multiple eligible phones do not trigger an arbitrary choice.
+
+SDP discovery accepts continuation fragments within a 512-byte buffer and eight
+transactions. It validates the protocol descriptors and RFCOMM server channel.
+The original phone-initiated RFCOMM path remains supported.
+
+Classic authorization snapshots the shared key at connection initiation and
+checks it during authentication and while encrypted. Deleting or replacing the
+bond revokes the old session; late encryption events cannot revive it.
+
+On 2026-09-19, Obelix and Pixel 8a passed BLE-triggered HFP reconnection after a
+firmware restart and Bluetooth off/on. Diagnostics confirmed watch-initiated
+RFCOMM and encryption on both links. Forgetting the Pixel in watch settings
+disconnected both transports. Fresh BLE numeric comparison negotiated CT2 and
+restored encrypted HFP automatically without a second pairing prompt. These
+tests used nRF Connect, not a full CoreApp session.
+
 ### Initial integration validation
 
 On 2026-09-18, a non-release Obelix build completed NimBLE and Classic
@@ -772,8 +802,9 @@ Apache-2.0 modules and the NimBLE changes small enough to review separately.
    Stateless Classic pairing remains confined to the standalone development
    backend. HFP owns the call lifecycle when companion notifications race,
    while PP/ANCS can supply caller identity. Protocol timeout, malformed-line,
-   and queue-exhaustion handling have regression coverage. Automatic reconnect,
-   broader caller identification, and multi-call handling remain open.
+   and queue-exhaustion handling have regression coverage. BLE-triggered
+   reconnect and shared-bond revocation are implemented and hardware tested.
+   Broader caller identification and multi-call handling remain open.
 5. **Portability and release gate.** Run the common controller tests against
    simulated standard HCI controllers with both buffer layouts, and exercise
    a second controller transport when hardware is available. Measure flash,
@@ -793,7 +824,8 @@ Validated on Obelix and Pixel 8a:
 - Authenticated BLE Secure Connections pairing negotiates CT2 and supplies
   the Classic link key through CTKD, without a second pairing prompt.
 - Both encrypted links reconnect with the same stored bond after flashing.
-  Reconnection has been initiated manually; automatic reconnect is still open.
+  Connecting BLE automatically restores HFP, including after Bluetooth off/on.
+  Watch-side bond deletion and a fresh BLE pairing also passed on the Pixel.
 - A local Android Telecom incoming call can be answered and hung up from the
   watch. A three-minute run retained encrypted BLE and HFP links and moved
   bidirectional SCO audio. Android reported Bluetooth SCO for both audio
@@ -809,6 +841,9 @@ Validated on Obelix and Pixel 8a:
 - Two cycles of incoming, rejected and outgoing local Telecom calls passed,
   including watch answer/hangup and audio teardown. These short transitions
   complement the longer active-call tests; they do not replace soak testing.
+- The reconnect build passed incoming/rejected/outgoing calls with audio-aware
+  checks. One earlier incoming call produced only missing SCO payloads; repeats
+  passed, but that intermittent failure remains part of the audio-quality gate.
 - The Phone app is a system app (`APP_PHONE`), with companion favorites and
   explicitly temporary console contacts. No personal contacts are compiled
   into firmware. Routine bonding logs no longer emit key material.
@@ -833,7 +868,7 @@ readiness. Before enabling calling by default, complete these gates:
 
 1. Full CoreApp setup and sustained notification/GATT traffic during calls,
    on Android and iPhone, including deleting and re-establishing the shared bond.
-2. Automatic reconnect, caller identification, volume/mute synchronization,
+2. Reconnect interoperability on iPhone, caller identification, volume/mute synchronization,
    audio transfer, and call waiting/multiple-call behavior.
 3. Measured speaker/microphone latency, packet-loss recovery and clock drift;
    acoustic echo cancellation using the actual playback reference.
@@ -900,3 +935,5 @@ python tools/hfp_smoke.py --tty WATCH_SERIAL_PORT --android-serial ANDROID_SERIA
 `--scenario incoming|reject|outgoing` selects one scenario. The runner checks
 both encrypted links throughout active calls and stops its local test call
 on failure. It refuses to begin while the watch already reports a call.
+Active calls must consume transmit packets and receive a majority of valid SCO
+payloads; an audio connection containing only missing packets fails the test.

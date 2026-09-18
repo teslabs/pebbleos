@@ -510,3 +510,235 @@ class SharedBondTest(ClassicHostTest):
         self.event(6, b"\0" + le(1))
         self.assertEqual(self.pop(), b"\1" + le(0x0406) + b"\3" + le(1) + b"\x13")
         self.assertEqual(self.lib.demo_encrypted(), 0)
+
+
+class ReconnectTest(ClassicHostTest):
+    managed = True
+
+    def start_outgoing(self):
+        self.peer = bytes.fromhex("112233445566")
+        self.lib.demo_shared_bond(1)
+        self.assertTrue(self.lib.demo_connect())
+        self.assertFalse(self.lib.demo_connect())
+        p = self.pop()
+        self.assertEqual(p[1:3], le(0x0405))
+        self.assertEqual(p[4:10], self.peer)
+        self.event(0x0F, b"\0\1" + le(0x0405))
+        self.event(3, b"\0" + le(1) + self.peer + b"\1\0")
+        self.drain()
+        self.event(6, b"\0" + le(1))
+        self.drain()
+        self.event(8, b"\0" + le(1) + b"\1")
+        return self.drain()[0][1]
+
+    def accept_channel(self, request, local, remote, psm):
+        self.assertEqual(request[0], 2)
+        self.assertEqual(request[4:], le(psm, local))
+        self.l2cap(1, bytes([3, request[1]]) + le(8, remote, local, 0, 0))
+        config = self.drain()[0][1]
+        self.assertEqual(config[0], 4)
+        self.l2cap(1, bytes([5, config[1]]) + le(6, local, 0, 0))
+        self.l2cap(1, b"\4\x70" + le(8, local, 0) + b"\1\2" + le(672))
+        return self.drain()
+
+    def discovery(self):
+        response = self.accept_channel(self.start_outgoing(), 0x40, 0x80, 1)
+        return sdp.SDP_PDU.from_bytes(response[-1][1])
+
+    def service_record(self, channel=7):
+        seq = sdp.DataElement.sequence
+        uuid = lambda value: sdp.DataElement.uuid(core.UUID.from_16_bits(value))
+        return bytes(
+            seq(
+                [
+                    seq(
+                        [
+                            sdp.DataElement.unsigned_integer_16(4),
+                            seq(
+                                [
+                                    seq([uuid(0x100)]),
+                                    seq(
+                                        [
+                                            uuid(3),
+                                            sdp.DataElement.unsigned_integer_8(channel),
+                                        ]
+                                    ),
+                                ]
+                            ),
+                        ]
+                    )
+                ]
+            )
+        )
+
+    def sdp_response(self, request, data, continuation=b"\0"):
+        self.l2cap(
+            0x40,
+            bytes(
+                sdp.SDP_ServiceSearchAttributeResponse(
+                    transaction_id=request.transaction_id,
+                    attribute_lists=data,
+                    continuation_state=continuation,
+                )
+            ),
+        )
+        return self.drain()
+
+    def outgoing_ready(self):
+        request = self.discovery()
+        self.assertIn("111F", str(request.service_search_pattern).upper())
+        packets = self.sdp_response(request, self.service_record())
+        packets = self.accept_channel(packets[0][1], 0x41, 0x81, 3)
+        frame = rfcomm.RFCOMM_Frame.from_bytes(packets[-1][1])
+        self.assertEqual(
+            (frame.type, frame.c_r, frame.dlci), (rfcomm.FrameType.SABM, 1, 0)
+        )
+        self.l2cap(0x41, bytes(rfcomm.RFCOMM_Frame.ua(1, 0)))
+        frame = rfcomm.RFCOMM_Frame.from_bytes(self.drain()[0][1])
+        self.assertEqual(frame.information[:3], b"\x83\x11\x0e")
+        pn = bytes([14, 0xE0, 7, 0, 127, 0, 0, 7])
+        mcc = rfcomm.RFCOMM_Frame.make_mcc(rfcomm.MccType.PN, 0, pn)
+        self.l2cap(0x41, bytes(rfcomm.RFCOMM_Frame.uih(0, 0, mcc)))
+        frame = rfcomm.RFCOMM_Frame.from_bytes(self.drain()[0][1])
+        self.assertEqual(
+            (frame.type, frame.c_r, frame.dlci), (rfcomm.FrameType.SABM, 1, 14)
+        )
+        self.l2cap(0x41, bytes(rfcomm.RFCOMM_Frame.ua(1, 14)))
+        frames = [rfcomm.RFCOMM_Frame.from_bytes(data) for _, data in self.drain()]
+        self.assertEqual(frames[-1].information, b"AT+BRSF=0\r")
+        for response, expected in [
+            (b"\r\n+BRSF: 512\r\nOK\r\n", b"AT+CIND=?\r"),
+            (b'\r\n+CIND: ("call",(0,1)),("callsetup",(0-3))\r\nOK\r\n', b"AT+CIND?\r"),
+            (b"\r\n+CIND: 0,0\r\nOK\r\n", b"AT+CMER=3,0,0,1\r"),
+            (b"\r\nOK\r\n", None),
+        ]:
+            self.l2cap(0x41, bytes(rfcomm.RFCOMM_Frame.uih(0, 14, response)))
+            frames = [rfcomm.RFCOMM_Frame.from_bytes(data) for _, data in self.drain()]
+            at = [f.information for f in frames if f.dlci == 14 and not f.p_f]
+            self.assertEqual(at, [expected] if expected else [])
+        self.assertTrue(self.lib.demo_flags() & 4)
+
+    def test_watch_initiates_complete_hfp_session(self):
+        self.outgoing_ready()
+        self.assertEqual(self.lib.demo_errors(), 0)
+
+    def test_sdp_client_reassembles_continuation(self):
+        request = self.discovery()
+        record = self.service_record()
+        packets = self.sdp_response(request, record[:10], b"\2ab")
+        next_request = sdp.SDP_PDU.from_bytes(packets[0][1])
+        self.assertEqual(next_request.continuation_state, b"\2ab")
+        self.assertNotEqual(next_request.transaction_id, request.transaction_id)
+        self.assertEqual(self.sdp_response(request, record[10:]), [])
+        packets = self.sdp_response(next_request, record[10:])
+        self.assertEqual(packets[0][1][4:], le(3, 0x41))
+
+    def test_invalid_server_channel_disconnects(self):
+        request = self.discovery()
+        self.sdp_response(request, self.service_record(31))
+        self.assertFalse(self.lib.demo_encrypted())
+        self.assertFalse(self.lib.demo_flags() & 4)
+
+    def test_stop_cancels_pending_page_before_stopped(self):
+        self.lib.demo_shared_bond(1)
+        self.assertTrue(self.lib.demo_connect())
+        p = self.pop()
+        self.event(0x0F, b"\0\1" + p[1:3])
+        self.lib.demo_stop()
+        commands = []
+        while p := self.pop():
+            commands.append(int.from_bytes(p[1:3], "little"))
+            self.complete(p)
+        self.assertIn(0x0408, commands)
+        self.assertFalse(self.lib.demo_stopped())
+        self.event(3, b"\2" + le(0) + bytes.fromhex("112233445566") + b"\0\0")
+        self.assertTrue(self.lib.demo_stopped())
+
+    def test_stop_before_create_was_sent_needs_no_cancel(self):
+        self.lib.demo_shared_bond(1)
+        self.assertTrue(self.lib.demo_connect())
+        self.lib.demo_stop()
+        p = self.pop()
+        self.assertEqual(p[1:3], le(0x0C1A))
+        self.complete(p)
+        self.assertEqual(self.pop(), b"")
+        self.assertTrue(self.lib.demo_stopped())
+
+    def test_reconnect_waits_and_backs_off_after_failure(self):
+        self.lib.demo_shared_bond(1)
+        self.lib.demo_reconnect(100, 1)
+        self.lib.demo_reconnect(2099, 1)
+        self.assertEqual(self.pop(), b"")
+        self.lib.demo_reconnect(2100, 1)
+        p = self.pop()
+        self.assertEqual(p[1:3], le(0x0405))
+        self.event(0x0F, b"\0\1" + p[1:3])
+        self.event(3, b"\4" + le(0) + bytes.fromhex("112233445566") + b"\0\0")
+        self.lib.demo_reconnect(2200, 1)
+        self.lib.demo_reconnect(4199, 1)
+        self.assertEqual(self.pop(), b"")
+        self.lib.demo_reconnect(4200, 1)
+        self.assertEqual(self.pop()[1:3], le(0x0405))
+
+    def test_intentional_phone_disconnect_waits_for_new_ble_session(self):
+        self.outgoing_ready()
+        self.lib.demo_reconnect(self.now, 1)
+        self.event(5, b"\0" + le(1) + b"\x13")
+        self.drain()
+        self.lib.demo_reconnect(self.now + 60001, 1)
+        self.assertEqual(self.pop(), b"")
+        self.lib.demo_reconnect(self.now + 60002, 0)
+        self.lib.demo_reconnect(self.now + 60003, 1)
+        self.lib.demo_reconnect(self.now + 62003, 1)
+        self.assertEqual(self.pop()[1:3], le(0x0405))
+
+    def test_profile_starts_on_existing_encrypted_acl(self):
+        self.lib.demo_shared_bond(1)
+        self.connect()
+        self.drain()
+        self.event(8, b"\0" + le(1) + b"\1")
+        self.lib.demo_reconnect(self.now, 1)
+        self.assertEqual(self.drain(), [])
+        self.lib.demo_reconnect(self.now + 2000, 1)
+        self.tick()
+        request = self.drain()[0][1]
+        self.assertEqual(request[4:], le(1, 0x40))
+
+    def test_discovery_timeout_disconnects(self):
+        self.discovery()
+        self.now += 30001
+        self.tick()
+        self.assertEqual(self.pop()[1:3], le(0x0406))
+        self.assertFalse(self.lib.demo_encrypted())
+
+    def test_sdp_continuations_are_bounded(self):
+        request = self.discovery()
+        for _ in range(7):
+            packets = self.sdp_response(request, b"x", b"\1a")
+            request = sdp.SDP_PDU.from_bytes(packets[0][1])
+        self.sdp_response(request, b"x", b"\1a")
+        self.assertFalse(self.lib.demo_encrypted())
+
+    def test_bond_replaced_during_page_is_not_used_on_same_attempt(self):
+        self.peer = bytes.fromhex("112233445566")
+        self.lib.demo_shared_bond(1)
+        self.assertTrue(self.lib.demo_connect())
+        p = self.pop()
+        self.event(0x0F, b"\0\1" + p[1:3])
+        self.lib.demo_replace_bond()
+        self.event(0x17, self.peer)
+        p = self.pop()
+        self.assertEqual(p[1:3], le(0x040C))
+        self.complete(p)
+        self.event(3, b"\0" + le(1) + self.peer + b"\1\0")
+        self.complete(self.pop())
+        self.assertEqual(self.pop()[1:3], le(0x0406))
+
+    def test_ble_loss_cancels_page(self):
+        self.lib.demo_shared_bond(1)
+        self.lib.demo_reconnect(100, 1)
+        self.lib.demo_reconnect(2100, 1)
+        p = self.pop()
+        self.event(0x0F, b"\0\1" + p[1:3])
+        self.lib.demo_reconnect(2200, 0)
+        self.assertEqual(self.pop()[1:3], le(0x0408))

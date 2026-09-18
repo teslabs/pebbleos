@@ -92,3 +92,14 @@ void demo_replace_bond(void) {
 unsigned demo_encrypted(void) {
   return s_host.encrypted;
 }
+int demo_connect(void) {
+  const uint8_t peer[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
+  return bt_classic_connect(&s_host, peer);
+}
+void demo_reconnect(unsigned now, int present) {
+  const uint8_t peer[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
+  bt_classic_reconnect(&s_host, present ? peer : NULL, now);
+}
+unsigned demo_connecting(void) {
+  return s_host.connecting;
+}

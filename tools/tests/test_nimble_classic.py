@@ -45,6 +45,7 @@ class NimbleClassicTest(unittest.TestCase):
                 "handle dispatch",
                 "LE-only controller",
                 "cross-transport handle collision",
+                "failed connection has undefined link type",
             )
             for index, case in enumerate(cases):
                 with self.subTest(case=case):

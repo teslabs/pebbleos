@@ -106,6 +106,12 @@ def main():
         def idle(state):
             return not (state.get("call") or state.get("setup") or state.get("audio"))
 
+        def audio_counters(lines):
+            for line in lines:
+                if line.startswith("adapter rx="):
+                    return fields(line)
+            raise RuntimeError("Missing SCO audio counters")
+
         initial = status()
         initial_errors = initial.get("errors")
         if not idle(initial):
@@ -132,14 +138,24 @@ def main():
                         lambda state: state.get("call") and state.get("audio"),
                         "active audio",
                     )
+                    before_audio = audio_counters(command("bt audio probe"))
                     deadline = time.monotonic() + args.duration
                     while time.monotonic() < deadline:
                         state = status()
                         if not state.get("call") or not state.get("audio"):
                             raise RuntimeError(f"Call/audio stopped: {state}")
                         time.sleep(min(1, max(0, deadline - time.monotonic())))
-                    for line in command("bt audio probe"):
+                    audio = command("bt audio probe")
+                    for line in audio:
                         print(line, flush=True)
+                    after_audio = audio_counters(audio)
+                    received = after_audio["rx"] - before_audio["rx"]
+                    bad = after_audio["bad"] - before_audio["bad"]
+                    consumed = after_audio["consumed"] - before_audio["consumed"]
+                    if received <= 0 or bad * 2 >= received or consumed <= 0:
+                        raise RuntimeError(
+                            f"SCO audio failed: received={received} bad={bad} sent={consumed}"
+                        )
                 command("bt hfp hangup")
                 wait_for(idle, "call and audio teardown")
                 android("hangup")

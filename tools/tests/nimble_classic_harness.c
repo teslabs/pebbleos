@@ -177,6 +177,15 @@ int main(int argc, char **argv) {
       assert(resets == 1);
       break;
     }
+    case 9: {
+      // Link_Type is undefined on a failed/canceled connection completion.
+      unsigned before = events;
+      struct ble_hci_ev ev = {.opcode = 3, .length = 11, .data = {2}};
+      assert(ble_hs_classic_event(&ev));
+      assert(events == before + 1 && !resets);
+      assert(!ble_hs_classic_acl_tx(&packet));
+      break;
+    }
     default:
       abort();
   }

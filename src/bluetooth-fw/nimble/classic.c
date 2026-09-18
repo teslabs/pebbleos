@@ -3,6 +3,7 @@
 #include "classic.h"
 #include "nimble_store.h"
 #include <host/ble_sm.h>
+#include <host/ble_gap.h>
 #include "../classic/service.h"
 #include "../hci_bridge/local_audio.h"
 #include <host/ble_hs.h>
@@ -18,6 +19,39 @@ static struct ble_npl_callout s_poll;
 static struct ble_npl_event s_wake, s_stop;
 static PBL_SEM_DEFINE(s_stopped, 0, 1);
 static bool s_running, s_stopping;
+
+typedef struct {
+  unsigned count;
+  uint16_t handles[MYNEWT_VAL(BLE_MAX_CONNECTIONS)];
+} Connections;
+
+static int collect_connection(uint16_t handle, void *context) {
+  Connections *connections = context;
+  if (connections->count < MYNEWT_VAL(BLE_MAX_CONNECTIONS))
+    connections->handles[connections->count++] = handle;
+  return 0;
+}
+
+static void reconnect(uint32_t now) {
+  Connections connections = {0};
+  ble_gap_conn_foreach_handle(collect_connection, &connections);
+  BtClassicHost *host = hfp_service_host();
+  uint8_t peer[6];
+  unsigned eligible = 0;
+  for (unsigned i = 0; i < connections.count; ++i) {
+    struct ble_gap_conn_desc desc;
+    if (!ble_gap_conn_find(connections.handles[i], &desc) && desc.sec_state.encrypted &&
+        desc.sec_state.bonded && desc.sec_state.authenticated &&
+        (desc.peer_id_addr.type == BLE_ADDR_PUBLIC ||
+         desc.peer_id_addr.type == BLE_ADDR_PUBLIC_ID) &&
+        nimble_store_get_classic_key(desc.peer_id_addr.val, NULL, NULL)) {
+      memcpy(peer, desc.peer_id_addr.val, sizeof(peer));
+      ++eligible;
+    }
+  }
+  // Do not choose arbitrarily between multiple bonded phones.
+  bt_classic_reconnect(host, eligible == 1 ? peer : NULL, now);
+}
 
 static void send_command(const uint8_t *p, size_t length, void *context) {
   uint16_t opcode = p[1] | (uint16_t)p[2] << 8;
@@ -93,7 +127,12 @@ static void poll(struct ble_npl_event *event) {
   if (!s_running)
     return;
   BtClassicHost *host = hfp_service_host();
-  hfp_service_poll(pbl_ticks_to_ms(pbl_uptime_ticks()));
+  uint32_t now = pbl_ticks_to_ms(pbl_uptime_ticks());
+  if (!s_stopping)
+    reconnect(now);
+  hfp_service_poll(now);
+  if (host->revoking)
+    hci_local_audio_stop();
   if (s_stopping && bt_classic_stopped(host)) {
     ble_hs_classic_reset();
     return;
