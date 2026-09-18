@@ -2,6 +2,9 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "pbl/services/phone_call.h"
+#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+#include "pbl/services/bluetooth/hfp_demo.h"
+#endif
 
 #include "applib/event_service_client.h"
 #include "comm/ble/kernel_le_client/ancs/ancs.h"
@@ -87,8 +90,8 @@ static void prv_cancel_call_watchdog(void) {
 }
 
 static bool prv_should_show_ongoing_call_ui(void) {
-  // We only want to show the ongoing call UI on Android
-  return (s_call_source == PhoneCallSource_PP);
+  // Both PP and HFP report the full call lifecycle.
+  return (s_call_source == PhoneCallSource_PP) || (s_call_source == PhoneCallSource_HFP);
 }
 
 // hangup != decline. Decline == reject incoming call, Hangup == stop in progress call
@@ -119,7 +122,8 @@ static void prv_handle_incoming_call(const PebblePhoneEvent *event) {
 
   // If we're not on iOS9+, we need to be connected to the mobile app since it tells us when
   // the phone has stopped ringing
-  if ((event->source != PhoneCallSource_ANCS) && !s_mobile_app_is_connected) {
+  if ((event->source != PhoneCallSource_ANCS) && (event->source != PhoneCallSource_HFP) &&
+      !s_mobile_app_is_connected) {
     PBL_LOG_DBG("Ignoring incoming call. Mobile app is not connected. Call source: %d ",
                 event->source);
     return;
@@ -213,6 +217,12 @@ PBL_T_STATIC void prv_handle_phone_event(PebbleEvent *e, void *context) {
     return;
   }
 
+  if (s_call_in_progress &&
+      ((event.source == PhoneCallSource_HFP) != (s_call_source == PhoneCallSource_HFP))) {
+    phone_call_util_destroy_caller(event.caller);
+    return;
+  }
+
   if (!(event.type == PhoneEventType_Incoming && new_timer_scheduled(s_call_watchdog, NULL))) {
     // Be careful not to spam the logs with the new iOS polling implementation
     PBL_LOG_DBG("PebblePhoneEvent: %d, Call in progress: %s, Connected: %s", event.type,
@@ -260,7 +270,8 @@ PBL_T_STATIC void prv_handle_mobile_app_event(PebbleEvent *e, void *context) {
   }
 
   s_mobile_app_is_connected = e->bluetooth.comm_session_event.is_open;
-  if (!s_mobile_app_is_connected && (s_call_source != PhoneCallSource_ANCS)) {
+  if (!s_mobile_app_is_connected && (s_call_source != PhoneCallSource_ANCS) &&
+      (s_call_source != PhoneCallSource_HFP)) {
     prv_handle_call_end(true /* disconnected */);
   }
 }
@@ -304,6 +315,13 @@ void phone_call_service_init() {
 void phone_call_answer(void) {
   PBL_LOG_DBG("Call accepted");
 
+#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+  if (s_call_source == PhoneCallSource_HFP) {
+    hfp_demo_answer();
+    return;
+  }
+#endif
+
   if (prv_call_is_ancs()) {
     ancs_perform_action(s_call_identifier, ActionIDPositive);
 
@@ -317,6 +335,13 @@ void phone_call_answer(void) {
 
 void phone_call_decline(void) {
   PBL_LOG_DBG("Call declined");
+
+#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+  if (s_call_source == PhoneCallSource_HFP) {
+    hfp_demo_hangup();
+    return;
+  }
+#endif
 
   if (prv_call_is_ancs()) {
     ancs_perform_action(s_call_identifier, ActionIDNegative);

@@ -33,11 +33,45 @@ config BT_FW_HCI_BRIDGE
       For Classic/SCO feasibility experiments; the watch's BLE services
       are unavailable in this build. PULSE carries an H4 stream.
 
+config BT_FW_CLASSIC_DEMO
+    bool "Embedded Classic HFP demo (development only)"
+    depends on SOC_SF32LB52 && PROMPT && !RELEASE && MIC && SERVICE_SPEAKER
+    select HAL_SIFLI_IPC_QUEUE
+    select HAL_SIFLI_LCPU
+    select BT_HCI_AUDIO_PROBE
+    select BT_HCI_AUDIO_ADAPTER
+    select BT_HCI_LOCAL_AUDIO
+    select BT_HCI_SOFTWARE_CVSD
+    help
+      Minimal project-owned Classic host for one phone and CVSD calls.
+      Pairing keys and contact edits live only in RAM. No BLE services,
+      phonebook synchronization, multipoint or acoustic echo cancellation.
+
 endchoice
+
+if BT_FW_CLASSIC_DEMO
+
+config BT_HFP_DEMO_CONTACT_1_NAME
+    string "First demo contact name"
+    default ""
+
+config BT_HFP_DEMO_CONTACT_1_NUMBER
+    string "First demo contact number"
+    default ""
+
+config BT_HFP_DEMO_CONTACT_2_NAME
+    string "Second demo contact name"
+    default ""
+
+config BT_HFP_DEMO_CONTACT_2_NUMBER
+    string "Second demo contact number"
+    default ""
+
+endif
 
 config BT_HCI_AUDIO_PROBE
     bool "SiFli shared audio mailbox diagnostic"
-    depends on BT_FW_HCI_BRIDGE && PROMPT
+    depends on (BT_FW_HCI_BRIDGE || BT_FW_CLASSIC_DEMO) && PROMPT
     help
       Initialize the controller's shared audio rings and count mailbox 6
       notifications. The 'bt audio probe' command reports ring metadata;
@@ -52,7 +86,7 @@ config BT_HCI_AUDIO_ADAPTER
       connection setup. This is a transport experiment, not watch calling.
 
 config BT_HCI_LOCAL_AUDIO
-    bool "Watch microphone and speaker for the external HFP experiment"
+    bool "Watch microphone and speaker for the HFP experiment"
     depends on BT_HCI_AUDIO_ADAPTER && MIC && SERVICE_SPEAKER
     help
       Route HCI SCO PCM through the watch audio services. The external

@@ -756,6 +756,8 @@ static const char *prv_get_app_id(const char *number, PhoneCallSource source) {
 
   // Select appropriate app id
   switch (source) {
+    case PhoneCallSource_HFP:
+      return NULL;
     case PhoneCallSource_PP:
       // We require the this to be a valid number when coming from PP
       if (prv_is_string_a_phone_number(number)) {

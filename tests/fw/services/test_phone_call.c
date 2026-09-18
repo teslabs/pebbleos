@@ -7,6 +7,7 @@
 #include "pbl/services/comm_session/session.h"
 #include "pbl/services/notifications/alerts.h"
 #include "pbl/services/phone_call.h"
+#include "pbl/services/bluetooth/hfp_demo.h"
 #include "pbl/services/phone_call_util.h"
 #include "pbl/util/testing.h"
 
@@ -25,6 +26,19 @@ extern PBL_T_STATIC void prv_handle_ancs_disconnected_event(PebbleEvent *e, void
 #include "stubs_phone_call_util.h"
 #include "stubs_session.h"
 #include "stubs_system_task.h"
+
+static unsigned s_hfp_answer_count, s_hfp_hangup_count;
+static bool s_show_ongoing;
+
+bool hfp_demo_answer(void) {
+  ++s_hfp_answer_count;
+  return true;
+}
+
+bool hfp_demo_hangup(void) {
+  ++s_hfp_hangup_count;
+  return true;
+}
 
 bool alerts_should_notify_for_type(AlertType type) {
   return true;
@@ -53,6 +67,7 @@ static PhoneEventType s_last_phone_ui_event;
 void phone_ui_handle_incoming_call(PebblePhoneCaller *caller, bool show_ongoing_call_ui,
                                    PhoneCallSource source) {
   s_last_phone_ui_event = PhoneEventType_Incoming;
+  s_show_ongoing = show_ongoing_call_ui;
 }
 
 void phone_ui_handle_outgoing_call(PebblePhoneCaller *caller) {
@@ -149,6 +164,9 @@ static void prv_ancs_disconnect(void) {
 ///////////////////////////////////////////////////////////
 
 void test_phone_call__initialize(void) {
+  s_hfp_answer_count = s_hfp_hangup_count = 0;
+  s_show_ongoing = false;
+  prv_put_phone_event(PhoneEventType_End, PhoneCallSource_HFP, 0);
   // fake_comm_session_init();
   phone_call_service_init();
   prv_call_end();
@@ -267,4 +285,40 @@ void test_phone_call__ancs_hide(void) {
 
   prv_call_hide(ANCS_CALL_UID);
   ASSERT_LAST_EVENT(PhoneEventType_Hide);
+}
+
+
+void test_phone_call__hfp_without_mobile_app(void) {
+  prv_put_incoming_call_event(PhoneCallSource_HFP, false);
+  ASSERT_LAST_EVENT(PhoneEventType_Incoming);
+  cl_assert(s_show_ongoing);
+
+  prv_put_comm_session_event(false);
+  prv_ancs_disconnect();
+  prv_put_phone_event(PhoneEventType_End, PhoneCallSource_PP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_Invalid);
+
+  phone_call_answer();
+  cl_assert_equal_i(s_hfp_answer_count, 1);
+  prv_put_phone_event(PhoneEventType_Start, PhoneCallSource_HFP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_Start);
+
+  phone_call_decline();
+  cl_assert_equal_i(s_hfp_hangup_count, 1);
+  prv_put_phone_event(PhoneEventType_End, PhoneCallSource_HFP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_End);
+}
+
+void test_phone_call__hfp_reject_and_disconnect(void) {
+  prv_put_incoming_call_event(PhoneCallSource_HFP, false);
+  ASSERT_LAST_EVENT(PhoneEventType_Incoming);
+  phone_call_decline();
+  cl_assert_equal_i(s_hfp_hangup_count, 1);
+  prv_put_phone_event(PhoneEventType_Disconnect, PhoneCallSource_HFP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_End);
+
+  prv_put_incoming_call_event(PhoneCallSource_HFP, false);
+  ASSERT_LAST_EVENT(PhoneEventType_Incoming);
+  prv_put_phone_event(PhoneEventType_End, PhoneCallSource_HFP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_End);
 }

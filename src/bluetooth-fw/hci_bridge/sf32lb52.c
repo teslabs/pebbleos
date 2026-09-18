@@ -17,10 +17,18 @@
 #include <pbl/kernel/sem.h>
 #include <pbl/kernel/thread.h>
 #include <system/passert.h>
+#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+#include "../classic_demo/service.h"
+#include <pbl/kernel/sched.h>
+#endif
 
 static ipc_queue_handle_t s_port = IPC_QUEUE_INVALID_HANDLE;
 static PBL_SEM_DEFINE(s_received, 0, 1);
+#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+PBL_THREAD_STACK_DEFINE(s_stack, 8192);
+#else
 PBL_THREAD_STACK_DEFINE(s_stack, 4096);
+#endif
 
 extern uint8_t lcpu_power_on(void);
 extern void lcpu_custom_nvds_config(void);
@@ -104,7 +112,13 @@ void hci_bridge_transport_write(const uint8_t *data, size_t length) {
 
 static void prv_receive_task(void *context) {
   uint8_t buffer[256];
+#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+  classic_demo_service_init();
+#endif
   while (true) {
+#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+    classic_demo_service_poll(pbl_ticks_to_ms(pbl_uptime_ticks()));
+#endif
 #ifdef CONFIG_BT_HCI_AUDIO_ADAPTER
     pbl_sem_take(&s_received, PBL_MSEC(10));
     H4Packet packet;
@@ -178,7 +192,7 @@ void hci_bridge_transport_init(void) {
 #endif
 
   struct pbl_thread_attr attr = {
-    .name = "ExternalHCI",
+    .name = "ClassicHCI",
     .entry = prv_receive_task,
     .prio = PBL_PRIO_IDLE + 3,
     .privileged = true,

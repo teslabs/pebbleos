@@ -259,6 +259,14 @@ extern void command_bt_audio_pcm_test(void);
 extern void command_bt_audio_capture(void);
 extern void command_bt_audio_dump(void);
 extern void command_bt_audio_gain(const char *);
+#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+extern void command_bt_hfp_status(void);
+extern void command_bt_hfp_contact(const char *, const char *);
+extern void command_bt_hfp_contacts(void);
+extern void command_bt_hfp_dial(const char *);
+extern void command_bt_hfp_answer(void);
+extern void command_bt_hfp_hangup(void);
+#endif
 #endif
 
 extern void command_audit_delay_us(void);
@@ -493,6 +501,14 @@ static const Command s_prompt_commands[] = {
   {"bt audio capture", command_bt_audio_capture, 0},
   {"bt audio dump", command_bt_audio_dump, 0},
   {"bt audio gain", command_bt_audio_gain, 1},
+#ifdef CONFIG_BT_FW_CLASSIC_DEMO
+  {"bt hfp status", command_bt_hfp_status, 0},
+  {"bt hfp contacts", command_bt_hfp_contacts, 0},
+  {"bt hfp contact", command_bt_hfp_contact, 2},
+  {"bt hfp dial", command_bt_hfp_dial, 1},
+  {"bt hfp answer", command_bt_hfp_answer, 0},
+  {"bt hfp hangup", command_bt_hfp_hangup, 0},
+#endif
 #endif
 
   /*
