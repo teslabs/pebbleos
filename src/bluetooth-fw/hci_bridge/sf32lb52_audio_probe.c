@@ -105,6 +105,38 @@ bool hci_bridge_audio_active(void) {
   return active;
 }
 
+void hci_bridge_audio_pump(bool (*receive)(const uint8_t *, size_t),
+                           size_t (*transmit)(uint8_t *)) {
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  if (!s_sco.active) {
+    pbl_mutex_unlock(&s_lock);
+    return;
+  }
+  // Waking the LCPU incurs a fixed delay; share it across the bounded batch.
+  HAL_HPAON_WakeCore(CORE_ID_LCPU);
+  __DMB();
+  uint8_t packet[124];
+  size_t length = sifli_sco_completed(&s_sco, packet);
+  if (length) {
+    receive(packet, length);
+  }
+  for (unsigned i = 0; i < SIFLI_SCO_CREDITS; ++i) {
+    length = transmit(packet);
+    if (!length) {
+      break;
+    }
+    sifli_sco_send(&s_sco, packet, length);
+  }
+  for (unsigned i = 0; i < 4; ++i) {
+    length = sifli_sco_receive(&s_sco, packet);
+    if (!length) {
+      break;
+    }
+    receive(packet, length);
+  }
+  prv_unlock();
+}
+
 #ifdef CONFIG_PROMPT
 static void prv_report_ring(const char *name, const SifliAudioRing *ring) {
   char buffer[128];

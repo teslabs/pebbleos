@@ -120,21 +120,7 @@ static void receive_task(void *context) {
       s_head = (s_head + 1) % ARRAY_LENGTH(s_pending);
       --s_count;
     }
-    length = hci_bridge_audio_completed(buffer);
-    if (length)
-      hci_local_audio_receive(buffer, length);
-    for (unsigned i = 0; i < 7; ++i) {
-      length = hci_local_audio_transmit(buffer);
-      if (!length)
-        break;
-      hci_bridge_audio_send(buffer, length);
-    }
-    for (unsigned i = 0; i < 4; ++i) {
-      length = hci_bridge_audio_receive(buffer);
-      if (!length)
-        break;
-      hci_local_audio_receive(buffer, length);
-    }
+    hci_bridge_audio_pump(hci_local_audio_receive, hci_local_audio_transmit);
     pbl_mutex_unlock(&s_io);
   }
 }

@@ -14,3 +14,7 @@ size_t hci_bridge_audio_receive(uint8_t packet[124]);
 void hci_bridge_audio_send(const uint8_t *packet, size_t length);
 size_t hci_bridge_audio_completed(uint8_t packet[8]);
 bool hci_bridge_audio_active(void);
+
+// Callbacks exchange H4 SCO packets and completion events while audio RAM is awake.
+// They must not call back into this adapter.
+void hci_bridge_audio_pump(bool (*receive)(const uint8_t *, size_t), size_t (*transmit)(uint8_t *));
