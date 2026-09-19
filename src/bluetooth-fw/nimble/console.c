@@ -19,6 +19,8 @@ void command_ble_host_reset(void) {
 #include "ble_hs_hci_priv.h"
 #include <stdio.h>
 
+extern unsigned nimble_host_reset_count(void);
+
 static struct ble_npl_event s_dual_status;
 typedef struct {
   unsigned count;
@@ -38,9 +40,10 @@ static void report_dual_status(struct ble_npl_event *event) {
   HfpStatus hfp;
   hfp_get_status(&hfp);
   char line[160];
-  snprintf(line, sizeof(line), "NimBLE enabled=%u synced=%u LE=%u BR=%u HFP=%u SCO=%u errors=%u",
+  snprintf(line, sizeof(line),
+           "NimBLE enabled=%u synced=%u LE=%u BR=%u HFP=%u SCO=%u errors=%u resets=%u",
            ble_hs_is_enabled(), ble_hs_synced(), connections.count, hfp.connected, hfp.ready,
-           hfp.audio, hfp.errors);
+           hfp.audio, hfp.errors, nimble_host_reset_count());
   prompt_send_response(line);
   for (unsigned i = 0; i < connections.count; ++i) {
     struct ble_gap_conn_desc desc;

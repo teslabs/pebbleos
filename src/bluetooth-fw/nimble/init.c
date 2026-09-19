@@ -43,6 +43,8 @@ PBL_THREAD_STACK_DEFINE(s_host_task_stack, 5000);
 static PBL_SEM_DEFINE(s_host_started, 0, 1);
 static PBL_SEM_DEFINE(s_host_stopped, 0, 1);
 static DisInfo s_dis_info;
+static unsigned s_host_reset_count;
+
 static struct ble_hs_stop_listener s_listener;
 
 typedef enum {
@@ -56,6 +58,10 @@ typedef enum {
 // with the vendor's ble_hs_enabled_state (Stopped<->OFF, Started<->ON).
 static DriverState s_driver_state = DriverStateStopped;
 
+unsigned nimble_host_reset_count(void) {
+  return s_host_reset_count;
+}
+
 static void prv_sync_cb(void) {
   PBL_LOG_DBG("NimBLE host synchronized");
 #ifdef CONFIG_BT_CLASSIC
@@ -66,10 +72,14 @@ static void prv_sync_cb(void) {
 }
 
 static void prv_reset_cb(int reason) {
+  ++s_host_reset_count;
+  if (reason == BLE_HS_EAPP) {
+    PBL_LOG_DBG("NimBLE host reset requested");
+    return;
+  }
   PBL_LOG_WRN("NimBLE host reset (reason: 0x%04x)", (uint16_t)reason);
 #ifdef CONFIG_SOC_SF32LB52
-  // Controller stopped answering HCI. Crash so the coredump captures LCPU RAM
-  // (core_dump wakes the LCPU itself); the reboot cold-recovers the controller.
+  // Controller faults preserve LCPU RAM for diagnosis before cold recovery.
   PBL_CROAK("NimBLE host reset 0x%04x; captured LCPU RAM", (uint16_t)reason);
 #endif
 }

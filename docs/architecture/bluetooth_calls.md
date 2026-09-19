@@ -889,6 +889,18 @@ at 50% watch volume recorded zero DMA underruns and zero driver write drops,
 with CoreApp protocol pings enabled. SCO loss indications remained; this result
 does not establish acoustic quality, echo cancellation or clock-drift tolerance.
 
+Explicit `ble host reset` requests now use NimBLE's normal HCI reset and
+resynchronization path instead of rebooting the watch. The `resets` field in
+`bt dual status` counts host resets within the current watch boot. Two cycles
+of idle and local incoming-call resets passed on the Pixel: both encrypted
+links returned with the existing bond, ringing state was restored, and the
+watch could reject the call. Repeated local audio stop/reset requests coalesce
+into one pending synchronization callback, retiring old capture immediately.
+
+This covers requested host resets, not an unresponsive or faulty controller.
+SiFli controller faults and HCI timeouts still capture a crash dump and reboot
+for cold recovery; bounded controller-only recovery remains a release gate.
+
 A console-free release build can be checked independently of the debug
 firmware used for flashing and diagnostics:
 
@@ -986,3 +998,15 @@ For timed audio-counter samples, add `--audio-interval 10` to the call runner.
 `--max-underrun-bytes 0` additionally fails if DMA underruns increase during
 an active call. Inspect the initial sample too: the delta check deliberately
 separates startup behavior from subsequent playback.
+
+To exercise idle and ringing-call host resets without placing a real call:
+
+```sh
+python tools/hfp_recovery.py --tty WATCH_SERIAL_PORT --android-serial ANDROID_SERIAL \
+  --device WATCH_BLUETOOTH_ADDRESS --repeat 2
+```
+
+CoreApp must already be connected. The runner checks the reset counter so a
+whole-watch reboot cannot pass as host recovery, and requires restoration of
+both encrypted links without re-pairing. Its incoming calls remain inside the
+local Android test app, are never answered, and are cleaned up on failure.
