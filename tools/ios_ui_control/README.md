@@ -83,8 +83,10 @@ Use the project's Python environment for the watch serial libraries. The
 runner queues a volume update immediately before answering, verifies the
 active call/audio state, and hangs up. A lost serial connection or increased
 HFP error count fails the test. It leaves global watch volume unchanged and
-sets call gain to 7/15 by default. Logs and screenshots remain under the
-ignored build directory. Avoid other UI/serial clients during the run.
+uses call gain 7/15 by default, then restores the previous call gain after a
+successful run. A failed run may leave the test gain selected. Logs and
+screenshots remain under the ignored build directory. Avoid other UI/serial
+clients during the run.
 This is a state/transport smoke test, not an acoustic-quality measurement.
 
 To inspect the helper's synthetic downlink tone, add

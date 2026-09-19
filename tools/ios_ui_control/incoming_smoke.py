@@ -127,6 +127,11 @@ def main():
                 raise RuntimeError("The iPhone Incoming UI command failed")
             check_idle_app()
             requested = False
+            command(f"bt hfp volume {before['gain']}")
+            restored = wait(lambda s: s["gain"] == before["gain"] and not s["busy"])
+            if not restored["ready"] or restored["errors"] != before["errors"]:
+                raise RuntimeError(f"Volume restoration failed: {restored}")
+            print(f"Restored call gain: {restored['gain']}/15", flush=True)
             print("PASS: queued answer, active audio state and hangup", flush=True)
     finally:
         if trigger is not None and trigger.poll() is None:
