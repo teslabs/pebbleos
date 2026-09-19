@@ -110,6 +110,10 @@ static void startup(BtClassicHost *s) {
       write_eir(s);
       break;
     case 10:
+      data[0] = 1; // Let the phone coordinate the Classic piconet after reconnect.
+      command(s, 0x080f, data, 2);
+      break;
+    case 11:
       data[0] = 3;
       command(s, 0x0c1a, data, 1);
       break;
@@ -426,6 +430,11 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
     if (opcode != s->pending_opcode)
       return;
     s->pending_opcode = 0;
+    // Role switching is optional on other controllers.
+    if (opcode == 0x080f && s->startup != 0xff && (status == 0x01 || status == 0x11)) {
+      startup(s);
+      return;
+    }
     if (status) {
       if (opcode == 0x0405) {
         s->connecting = s->canceling = false;

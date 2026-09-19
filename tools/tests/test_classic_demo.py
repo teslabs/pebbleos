@@ -113,6 +113,8 @@ class ClassicHostTest(unittest.TestCase):
             elif opcodes[-1] == 0x0C52:
                 self.assertEqual(packet[5:13], b"\7\x09Pebble")
                 self.assertEqual(packet[13:17], b"\3\3\x1e\x11")
+            elif opcodes[-1] == 0x080F:
+                self.assertEqual(packet[4:], le(1))
             self.complete(packet)
         expected = [
             0x0C03,
@@ -125,12 +127,49 @@ class ClassicHostTest(unittest.TestCase):
             0x1005,
             0x0C2F,
             0x0C52,
+            0x080F,
             0x0C1A,
         ]
         if self.managed:
             expected = [op for op in expected if op not in (0x0C03, 0x0C01, 0x1005)]
         self.assertEqual(opcodes, expected)
         self.assertEqual(self.lib.demo_flags(), 1)
+
+    def test_role_policy_unsupported_keeps_hfp_available(self):
+        for status in (0x01, 0x11):
+            with self.subTest(status=status):
+                if self.managed:
+                    self.lib.demo_init_managed()
+                else:
+                    self.lib.demo_init()
+                saw_policy = False
+                while packet := self.pop():
+                    opcode = int.from_bytes(packet[1:3], "little")
+                    if opcode == 0x080F:
+                        saw_policy = True
+                        self.event(0x0E, b"\1" + le(opcode) + bytes([status]))
+                    else:
+                        self.complete(packet)
+                self.assertTrue(saw_policy)
+                self.assertEqual(self.lib.demo_flags(), 1)
+                self.assertEqual(self.lib.demo_errors(), 0)
+
+    def test_role_policy_other_failure_stops_startup(self):
+        if self.managed:
+            self.lib.demo_init_managed()
+        else:
+            self.lib.demo_init()
+        while packet := self.pop():
+            opcode = int.from_bytes(packet[1:3], "little")
+            if opcode == 0x080F:
+                self.event(0x0E, b"\1" + le(opcode) + b"\x0c")
+                break
+            self.complete(packet)
+        else:
+            self.fail("Role policy command was not issued")
+        self.assertFalse(self.pop())
+        self.assertEqual(self.lib.demo_flags(), 0)
+        self.assertEqual(self.lib.demo_errors(), 1)
 
     def connect(self):
         self.peer = bytes.fromhex("112233445566")

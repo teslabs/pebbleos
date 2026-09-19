@@ -684,24 +684,45 @@ immediately following a volume request with no additional HFP error. The
 short active interval had zero speaker DMA underruns or write drops.
 The app also measured zero microphone RMS while the watch was muted.
 
-These tests have not passed end-to-end. Incoming-call teardown and watch
-hangup reproduced SiFli Hardware Error `0x43`, followed by the current cold
-recovery reboot. A fresh crash dump with a matching firmware build ID
-confirmed NimBLE reset reason `0x643` and the controller-fault assertion.
-The authenticated bond survived and encrypted BLE/HFP reconnected. The
-controller fault's underlying cause remains unresolved. A subsequent repeat
-also lost the watch serial session during active audio, before hangup.
-Further matching dumps show Hardware Error `0x43` before any SCO disconnect
-event, with `BTERRORTYPESTAT=0x8` (`PKTCNTL_EMACC_ERROR`) and zero BLE/dual-mode
-error status. Two consecutive ten-second local calls passed, followed by a
-thirty-second call failing at hangup; short passes do not establish recovery.
+Initial integrated iPhone tests reproduced SiFli Hardware Error `0x43` on
+incoming-call teardown and watch hangup, followed by the current cold recovery
+reboot. Matching dumps confirmed NimBLE reset reason `0x643` and
+`BTERRORTYPESTAT=0x8` (`PKTCNTL_EMACC_ERROR`), before a SCO disconnect event;
+BLE and dual-mode error registers were zero. Existing bonds survived recovery.
 The initial desktop iPhone probe used Classic without a concurrent BLE link
 and did not apply the embedded host's reboot-on-controller-error policy.
-Audio transfer on
+
+A controlled comparison passed three thirty-second calls with BLE disconnected.
+On the same firmware, restoring both BLE and the CoreApp data session reproduced
+the fault at the first thirty-second call's hangup. The watch was the Classic
+central. A manual role switch initially failed with Command Disallowed; enabling
+the standard link-policy role-switch bit allowed the phone to become central.
+Three thirty-second calls then passed with encrypted BLE and HFP both connected.
+
+The portable host now enables role switching through
+`HCI_Write_Default_Link_Policy_Settings` before enabling Classic scans. The
+existing Create Connection permission only allowed a switch during connection
+setup; it did not enable later switches. With this change the iPhone selected
+the central role automatically, and two thirty-second calls passed without a
+manual role request. This uses standard HCI and leaves unknown-command and
+unsupported-feature responses nonfatal for other controllers. Other failures
+still stop startup. See the [Bluetooth link policy definition](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-60/out/en/host-controller-interface/host-controller-interface-functional-specification.html).
+
+The final debug image, with its normal boot splash and no isolation hooks,
+passed five consecutive sixty-second incoming calls through watch hangup.
+Incoming rejection and a thirty-second local outgoing call also passed.
+Both encrypted links and the CTKD bond remained present, the watch retained
+the peripheral role, and profile errors and host resets stayed at zero.
+Speaker DMA underruns and write drops were zero. The controller still marked
+about 3.3% of received audio packets bad, so these tests establish call-state
+and teardown stability for this run, not acoustic quality.
+
+The vendor controller's internal memory-access failure is not repaired by the
+host change. Longer interoperability and coexistence stress remain release
+gates, including peers that retain the peripheral role. Audio transfer on
 iPhone also remains unverified: phone-route and SCO observations disagreed
 during an initial transfer test and the profile error count increased.
-Keep both issues as release blockers; the local incoming smoke runner
-reproduces the volume/answer/audio/hangup sequence.
+The local incoming smoke runner checks the volume/answer/audio/hangup sequence.
 
 HFP enables calling-line identification with `AT+CLIP=1`. The service validates
 the number, handles international numbering and withheld identities, and
