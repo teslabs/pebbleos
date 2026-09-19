@@ -757,7 +757,7 @@ digital tone and transport results, not an acoustic speech-quality or echo test.
 
 Subsequent microphone scheduling work found a 111 ms PDM backlog behind the
 shared background task. Fixing its reschedule flag and serializing circular
-buffer consumption against DMA removed two driver races, but a 60-second local
+buffer consumption against DMA fixed two driver defects, but a 60-second local
 call still dropped 19 HCI capture packets. Calls now use the optional microphone
 polling interface: the DMA interrupt wakes the HCI task, which drains bounded
 capture batches before entering the controller adapter. Dictation retains its
@@ -773,6 +773,55 @@ checksum buffer allocation while the splash exhausted the heap. Checksum
 validation now has a tested stack fallback and the debug firmware boots again.
 The [local call runner](../../tools/ios_ui_control/README.md) documents opt-in
 PCM capture and the reproducible tone analyzer.
+
+### Experimental acoustic echo cancellation
+
+The project-owned Apache-2.0 echo filter uses the PCM actually committed to
+speaker DMA, including inserted silence, as its reference. Optional driver
+hooks timestamp capture and playback on the same wrapping 16 kHz uptime clock.
+These are software estimates anchored at DMA interrupts, not precise hardware
+timestamps. The portable filter runs at 8 kHz with a 256-tap (32 ms) NLMS model.
+A separately trained background model replaces the output model only after
+sustained error reduction. It does not gate the microphone or apply residual
+noise suppression. Training every third sample bounds processing cost.
+
+The reference ring retains 128 ms of downsampled playback. Capture alignment
+includes 8 ms of lookahead to cover timestamp quantization and converter delay;
+the filter accounts for the remaining acoustic delay. Reference or capture
+discontinuities reset alignment. Unsupported timing and allocation failure
+leave ordinary call capture available. The optional session uses about 6.2 KiB
+of heap, allocated after essential audio buffers. Call capture uses at most
+128 ms of PDM storage and processes one client frame per transport poll.
+
+Echo cancellation is **disabled by default**. With no call active, use
+`bt audio echo 1` to enable it for subsequent calls, or `bt audio echo 0` to
+disable it. Reboot restores the disabled default. `bt audio probe` reports
+processed/bypassed samples, discontinuities, model promotions and processing
+time. Its `residual` is the output/input energy ratio in thousandths over the
+current model lifetime; it includes near-end speech and ambient sound and
+must not be interpreted as acoustic echo attenuation. Processing time includes
+task preemption and is not a CPU utilization measurement.
+
+Synthetic tests cover delayed multipath echo, independent near-end speech,
+path changes, silence, clipping, reference retention and timestamp wraparound.
+On an iPhone local 120-second tone call, the filter processed 961,380 samples,
+bypassed 180 startup samples and reported no reference gaps or speaker
+underruns. Capture processing took 17 seconds of accumulated wall time, with a
+4 ms maximum frame. Seven HCI capture packets were dropped. A subsequent
+120-second call with the filter disabled added no capture drops, but had one
+32 ms speaker underrun. Neither run dropped PDM samples, reset the host or
+reported HFP errors. These results leave transport scheduling and acoustic
+double-talk qualification open; they do not justify enabling the filter by
+default.
+
+Obelix has two microphones on a stereo PDM connection. Its manufacturing
+firmware captures interleaved left/right samples, while normal firmware
+currently selects the left channel. A future dual-microphone call mode must
+request stereo explicitly without changing dictation's format, measure both
+channels and preserve their timing before combining them. The second
+microphone is another mixture of speech, noise and speaker echo; it does not
+replace the playback reference. Channel selection or directional processing
+still needs acoustic measurements and an explicit CPU/heap budget.
 
 HFP enables calling-line identification with `AT+CLIP=1`. The service validates
 the number, handles international numbering and withheld identities, and

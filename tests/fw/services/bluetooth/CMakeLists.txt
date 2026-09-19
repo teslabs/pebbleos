@@ -4,6 +4,14 @@
 pbl_clar_test(test_hci_probe)
 pbl_clar_test(test_cvsd)
 
+pbl_clar_test(test_voice_echo
+  INCLUDES src/bluetooth-fw/hci_bridge
+  SOURCES
+    src/bluetooth-fw/hci_bridge/voice_echo.c
+    src/bluetooth-fw/hci_bridge/voice_echo_reference.c
+    src/bluetooth-fw/hci_bridge/voice_resampler.c
+)
+
 pbl_clar_test(test_hfp_service
   INCLUDES src/bluetooth-fw/classic
   SOURCES src/bluetooth-fw/classic/service.c
@@ -16,6 +24,8 @@ pbl_clar_test(test_hci_local_audio
     src/bluetooth-fw/hci_bridge/local_audio.c
     src/bluetooth-fw/hci_bridge/voice_resampler.c
     src/bluetooth-fw/hci_bridge/voice_playback.c
+    src/bluetooth-fw/hci_bridge/voice_echo.c
+    src/bluetooth-fw/hci_bridge/voice_echo_reference.c
   OVERRIDES dummy_board
 )
 

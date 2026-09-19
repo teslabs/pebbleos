@@ -89,7 +89,9 @@ config BT_HCI_LOCAL_AUDIO
       Route HCI SCO PCM through the watch audio services. The external
       host keeps call control and must enable SCO flow control without
       transmitting audio (--watch-audio in tools/hfp_probe.py).
-      No acoustic echo cancellation is provided.
+      Experimental echo cancellation can be enabled for a debug call with
+      'bt audio echo 1'. It requires timed capture and playback driver hooks
+      and remains disabled by default pending acoustic qualification.
 
 config BT_HCI_SOFTWARE_CVSD
     bool "Experimental project-owned software CVSD codec"
