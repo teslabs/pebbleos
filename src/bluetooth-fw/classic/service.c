@@ -87,7 +87,14 @@ static void publish_call_state(void) {
 
 void hfp_service_poll(uint32_t now) {
   Request request;
-  while (pbl_msgq_get(&s_requests, &request, PBL_NO_WAIT) == 0) {
+  while (pbl_msgq_peek(&s_requests, &request) == 0) {
+    // Keep call commands queued while the phone acknowledges the previous AT command.
+    if (s_host.status.ready && s_host.at_pending &&
+        (request.action == RequestDial || request.action == RequestAnswer ||
+         request.action == RequestHangup))
+      break;
+    if (pbl_msgq_get(&s_requests, &request, PBL_NO_WAIT))
+      break;
     bool accepted = false;
     switch (request.action) {
       case RequestDial:
