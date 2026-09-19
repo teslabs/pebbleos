@@ -675,6 +675,28 @@ path; it does not establish call audio or acoustic quality on that path.
 The [iPhone UI-control runner](../../tools/ios_ui_control/README.md) can
 operate the installed app and system pairing dialogs for these tests.
 
+The runner now includes a local CallKit app for incoming/outgoing calls with
+a quiet tone and microphone sample/RMS diagnostics, without dialing a real
+number. An incoming iPhone test exposed call commands being dropped while a
+volume AT command awaited its reply. The service now retains those requests;
+five queue regressions pass, and the watch answered a local incoming call
+immediately following a volume request with no additional HFP error. The
+short active interval had zero speaker DMA underruns or write drops.
+The app also measured zero microphone RMS while the watch was muted.
+
+These tests have not passed end-to-end. Incoming-call teardown and watch
+hangup reproduced SiFli Hardware Error `0x43`, followed by the current cold
+recovery reboot. A fresh crash dump with a matching firmware build ID
+confirmed NimBLE reset reason `0x643` and the controller-fault assertion.
+The authenticated bond survived and encrypted BLE/HFP reconnected. The
+controller fault's underlying cause remains unresolved. A subsequent repeat
+also lost the watch serial session during active audio, before hangup.
+Audio transfer on
+iPhone also remains unverified: phone-route and SCO observations disagreed
+during an initial transfer test and the profile error count increased.
+Keep both issues as release blockers; the local incoming smoke runner
+reproduces the volume/answer/audio/hangup sequence.
+
 HFP enables calling-line identification with `AT+CLIP=1`. The service validates
 the number, handles international numbering and withheld identities, and
 updates the existing incoming-call popup. Exact normalized matches in the

@@ -10,11 +10,18 @@ parser = argparse.ArgumentParser(description="Build a signed iPhone UI test runn
 parser.add_argument("--team", required=True, help="Apple development team identifier")
 parser.add_argument("--device", required=True, help="iPhone UDID from Xcode")
 parser.add_argument("--output", type=Path, default=Path("build-ios-ui-control"))
+parser.add_argument(
+    "--install",
+    action="store_true",
+    help="Explicitly install the updated local call app",
+)
 args = parser.parse_args()
 root = args.output.resolve()
 (root / "HfpDriver.xcodeproj/xcshareddata/xcschemes").mkdir(parents=True, exist_ok=True)
 for name in ("Driver.swift", "Control.swift"):
     shutil.copyfile(Path(__file__).parent / name, root / name)
+with open(root / "Driver-Info.plist", "wb") as info:
+    plistlib.dump({"UIBackgroundModes": ["audio", "voip"]}, info)
 objects = {}
 
 
@@ -92,8 +99,10 @@ appcfg = config(
     10,
     {
         "PRODUCT_BUNDLE_IDENTIFIER": "com.teslabs.hfpdriver",
+        "INFOPLIST_FILE": "Driver-Info.plist",
         "INFOPLIST_KEY_CFBundleDisplayName": "HFP Test Control",
         "INFOPLIST_KEY_UILaunchScreen_Generation": "YES",
+        "INFOPLIST_KEY_NSMicrophoneUsageDescription": "Measure local HFP test audio levels without saving audio.",
     },
 )
 testcfg = config(
@@ -214,3 +223,18 @@ subprocess.run(
     ],
     check=True,
 )
+
+if args.install:
+    subprocess.run(
+        [
+            "xcrun",
+            "devicectl",
+            "device",
+            "install",
+            "app",
+            "--device",
+            args.device,
+            str(root / "build/Build/Products/Debug-iphoneos/HfpDriver.app"),
+        ],
+        check=True,
+    )
