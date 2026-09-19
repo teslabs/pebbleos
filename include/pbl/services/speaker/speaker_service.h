@@ -89,6 +89,10 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
 //! Assign ownership atomically, so services cannot write into a preempting stream.
 bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
                                        PebbleTask owner);
+//! Internal live audio: writes feed complete driver blocks on the producer task.
+//! Driver callbacks retry backpressure without inserting silence into the PCM queue.
+bool speaker_service_stream_open_realtime_owned(SpeakerPriority pri, uint8_t vol,
+                                                SpeakerPcmFormat fmt, PebbleTask owner);
 uint32_t speaker_service_stream_write_owned(PebbleTask owner, const void *data, uint32_t num_bytes);
 void speaker_service_stream_close_owned(PebbleTask owner);
 

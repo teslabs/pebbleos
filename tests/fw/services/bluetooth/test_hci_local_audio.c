@@ -88,6 +88,10 @@ bool speaker_service_stream_open_owned(SpeakerPriority priority, uint8_t volume,
   s_speaker_open = true;
   return true;
 }
+bool speaker_service_stream_open_realtime_owned(SpeakerPriority priority, uint8_t volume,
+                                                SpeakerPcmFormat format, PebbleTask owner) {
+  return speaker_service_stream_open_owned(priority, volume, format, owner);
+}
 uint32_t speaker_service_stream_write_owned(PebbleTask owner, const void *data, uint32_t size) {
   cl_assert_equal_i(owner, PebbleTask_BTHCI);
   if (!s_speaker_open) {

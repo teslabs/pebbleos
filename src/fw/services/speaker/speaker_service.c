@@ -60,6 +60,7 @@ typedef struct {
   // PCM stream source
   PcmStreamState pcm_stream;
   SpeakerPcmFormat pcm_format;
+  bool stream_realtime;
 
   // Previous decoded samples for cubic interpolation across chunk boundaries.
   // [0] = second-to-last sample (s_{n-2}), [1] = last sample (s_{n-1}).
@@ -95,7 +96,7 @@ typedef struct {
 
 static SpeakerServiceState s_state;
 
-// Serializes public APIs against prv_refill_bg (system task).
+// Serializes producers and driver refill callbacks.
 static PBL_MUTEX_DEFINE(s_lock);
 
 //! Why playback is currently silent, cached so a muted watch logs once per change
@@ -114,6 +115,7 @@ static uint32_t s_total_speaker_on_time_ms; // Total speaker on-time tracked
 static void prv_stop_internal(SpeakerFinishReason reason);
 static void prv_audio_trans_cb(uint32_t *free_size);
 static void prv_refill_locked(void);
+static void prv_refill_realtime_locked(void);
 
 static bool prv_is_speaker_muted(void) {
   if (alerts_preferences_get_speaker_muted()) {
@@ -303,7 +305,11 @@ static void prv_audio_trans_cb(uint32_t *free_size) {
     return;
   }
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
-  prv_refill_locked();
+  if (s_state.source_type == SpeakerSourceStream && s_state.stream_realtime) {
+    prv_refill_realtime_locked();
+  } else {
+    prv_refill_locked();
+  }
   pbl_mutex_unlock(&s_lock);
 }
 
@@ -496,6 +502,20 @@ static void prv_refill_locked(void) {
 
   if (samples_generated > 0) {
     audio_write((AudioDevice *)AUDIO, s_state.refill_buf, samples_generated * sizeof(int16_t));
+  }
+}
+
+// Live producers supply whole refills; leave incomplete PCM for the next packet.
+static void prv_refill_realtime_locked(void) {
+  const unsigned bytes_per_sample = (s_state.pcm_format & 2) ? 2 : 1;
+  const unsigned samples =
+      (s_state.pcm_format & 1) ? SPEAKER_REFILL_SAMPLES : SPEAKER_REFILL_SAMPLES / 2;
+  for (unsigned i = 0; i < 2 && s_state.state == SpeakerStatePlaying; ++i) {
+    if (pcm_stream_available(&s_state.pcm_stream) < samples * bytes_per_sample ||
+        audio_write((AudioDevice *)AUDIO, NULL, 0) < sizeof(s_state.refill_buf)) {
+      break;
+    }
+    prv_refill_locked();
   }
 }
 
@@ -703,8 +723,8 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
   return speaker_service_stream_open_owned(pri, vol, fmt, PebbleTask_Unknown);
 }
 
-bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
-                                       PebbleTask owner) {
+static bool prv_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
+                            PebbleTask owner, bool realtime) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (!s_state.initialized) {
@@ -733,6 +753,7 @@ bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, Speaker
   s_state.priority = pri;
   s_state.volume = vol;
   s_state.pcm_format = fmt;
+  s_state.stream_realtime = realtime;
   s_state.owner_task = owner;
   s_state.prev_samples[0] = 0;
   s_state.prev_samples[1] = 0;
@@ -741,6 +762,16 @@ bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, Speaker
 
   pbl_mutex_unlock(&s_lock);
   return true;
+}
+
+bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
+                                       PebbleTask owner) {
+  return prv_stream_open(pri, vol, fmt, owner, false);
+}
+
+bool speaker_service_stream_open_realtime_owned(SpeakerPriority pri, uint8_t vol,
+                                                SpeakerPcmFormat fmt, PebbleTask owner) {
+  return prv_stream_open(pri, vol, fmt, owner, true);
 }
 
 uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {
@@ -758,6 +789,9 @@ uint32_t speaker_service_stream_write_owned(PebbleTask owner, const void *data,
   }
 
   uint32_t written = pcm_stream_write(&s_state.pcm_stream, data, num_bytes);
+  if (s_state.stream_realtime) {
+    prv_refill_realtime_locked();
+  }
   pbl_mutex_unlock(&s_lock);
   return written;
 }
@@ -775,7 +809,9 @@ void speaker_service_stream_close_owned(PebbleTask owner) {
     return;
   }
 
-  if (s_state.pcm_stream.count > 0) {
+  bool realtime = s_state.stream_realtime;
+  s_state.stream_realtime = false;
+  if (realtime || s_state.pcm_stream.count > 0) {
     // Data remaining - enter draining state
     pcm_stream_mark_closing(&s_state.pcm_stream);
     s_state.state = SpeakerStateDraining;
@@ -898,6 +934,11 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
 
 bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
                                        PebbleTask owner) {
+  return false;
+}
+
+bool speaker_service_stream_open_realtime_owned(SpeakerPriority pri, uint8_t vol,
+                                                SpeakerPcmFormat fmt, PebbleTask owner) {
   return false;
 }
 

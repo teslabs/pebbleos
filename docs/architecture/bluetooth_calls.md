@@ -879,6 +879,16 @@ Validated on Obelix and Pixel 8a:
   protocol pings. These are coexistence smoke checks, not a notification-load
   soak.
 
+On 2026-09-19, timed audio samples showed mid-call DMA underruns even after
+removing a redundant speaker refill callback. A two-minute local call recorded
+5,120 underrun bytes. Call playback now uses an internal live PCM stream mode:
+packet arrival feeds complete driver blocks directly, with bounded work and
+backpressure, while incomplete blocks wait for more samples. This keeps speaker
+feeding independent of background-task refill delays. The same two-minute test
+at 50% watch volume recorded zero DMA underruns and zero driver write drops,
+with CoreApp protocol pings enabled. SCO loss indications remained; this result
+does not establish acoustic quality, echo cancellation or clock-drift tolerance.
+
 A console-free release build can be checked independently of the debug
 firmware used for flashing and diagnostics:
 
@@ -971,3 +981,8 @@ both encrypted links throughout active calls and stops its local test call
 on failure. It refuses to begin while the watch already reports a call.
 Active calls must consume transmit packets and receive a majority of valid SCO
 payloads; an audio connection containing only missing packets fails the test.
+
+For timed audio-counter samples, add `--audio-interval 10` to the call runner.
+`--max-underrun-bytes 0` additionally fails if DMA underruns increase during
+an active call. Inspect the initial sample too: the delta check deliberately
+separates startup behavior from subsequent playback.

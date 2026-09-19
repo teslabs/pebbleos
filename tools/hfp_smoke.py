@@ -37,9 +37,24 @@ def main():
         action="store_true",
         help="Send Pebble protocol pings during calls; verify reception in companion logs",
     )
+    parser.add_argument(
+        "--audio-interval",
+        type=int,
+        default=0,
+        help="Print audio counter samples every N seconds (0 disables, 1..240)",
+    )
+    parser.add_argument(
+        "--max-underrun-bytes",
+        type=int,
+        help="Fail if speaker DMA underruns grow by more than this during a call",
+    )
     args = parser.parse_args()
     if not 1 <= args.duration <= 240 or not 1 <= args.repeat <= 10:
         parser.error("Duration must be 1..240 seconds and repeat must be 1..10")
+    if not 0 <= args.audio_interval <= 240:
+        parser.error("Audio interval must be 0..240 seconds")
+    if args.max_underrun_bytes is not None and args.max_underrun_bytes < 0:
+        parser.error("Maximum underrun bytes must be nonnegative")
     if not re.fullmatch(r"(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", args.device):
         parser.error("Device must be a Bluetooth address")
 
@@ -117,6 +132,12 @@ def main():
                     return fields(line)
             raise RuntimeError("Missing SCO audio counters")
 
+        def underrun_bytes(lines):
+            for line in lines:
+                if line.startswith("speaker DMA refills="):
+                    return fields(line)["underrun_bytes"]
+            raise RuntimeError("Missing speaker DMA counters")
+
         initial = status()
         initial_errors = initial.get("errors")
         if not idle(initial):
@@ -143,13 +164,28 @@ def main():
                         lambda state: state.get("call") and state.get("audio"),
                         "active audio",
                     )
-                    before_audio = audio_counters(command("bt audio probe"))
-                    deadline = time.monotonic() + args.duration
+                    initial_audio = command("bt audio probe")
+                    before_audio = audio_counters(initial_audio)
+                    started = time.monotonic()
+                    deadline = started + args.duration
                     next_ping = 0
+                    next_audio = started + args.audio_interval
+
+                    def sample_audio(lines, started=started):
+                        print(f"Audio at {time.monotonic() - started:.1f}s", flush=True)
+                        for line in lines:
+                            if line.startswith(("adapter rx=", "speaker DMA refills=")):
+                                print(line, flush=True)
+
+                    if args.audio_interval:
+                        sample_audio(initial_audio)
                     while time.monotonic() < deadline:
                         if args.companion_ping and time.monotonic() >= next_ping:
                             command("ping")
                             next_ping = time.monotonic() + 5
+                        if args.audio_interval and time.monotonic() >= next_audio:
+                            sample_audio(command("bt audio probe"))
+                            next_audio = time.monotonic() + args.audio_interval
                         state = status()
                         if not state.get("call") or not state.get("audio"):
                             raise RuntimeError(f"Call/audio stopped: {state}")
@@ -157,6 +193,12 @@ def main():
                     audio = command("bt audio probe")
                     for line in audio:
                         print(line, flush=True)
+                    if args.max_underrun_bytes is not None:
+                        delta = underrun_bytes(audio) - underrun_bytes(initial_audio)
+                        if delta < 0 or delta > args.max_underrun_bytes:
+                            raise RuntimeError(
+                                f"Speaker DMA underrun delta: {delta} bytes"
+                            )
                     after_audio = audio_counters(audio)
                     received = after_audio["rx"] - before_audio["rx"]
                     bad = after_audio["bad"] - before_audio["bad"]

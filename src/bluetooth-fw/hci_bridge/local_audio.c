@@ -125,8 +125,8 @@ static void prv_sync(void *context) {
   if (!start) {
     return;
   }
-  bool opened = speaker_service_stream_open_owned(SpeakerPriorityNotification, 100,
-                                                  SpeakerPcmFormat_8kHz_16bit, PebbleTask_BTHCI);
+  bool opened = speaker_service_stream_open_realtime_owned(
+      SpeakerPriorityNotification, 100, SpeakerPcmFormat_8kHz_16bit, PebbleTask_BTHCI);
   if (opened) {
     // One 32 ms refill of headroom absorbs the 3.75 ms SCO packet cadence.
     static const uint8_t silence[512];
