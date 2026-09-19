@@ -36,6 +36,17 @@ static uint16_t s_handle = NO_HANDLE;
 static unsigned s_mtu, s_limit, s_credits;
 static bool s_flow_requested, s_flow_enabled, s_running, s_mic_owned;
 static uint32_t s_generation;
+static bool s_sync_pending;
+
+static void prv_sync(void *context);
+
+// Caller holds s_lock; collapse reset/disconnect bursts into the latest state.
+static void prv_schedule_sync(void) {
+  if (!s_sync_pending) {
+    s_sync_pending = true;
+    PBL_ASSERTN(system_task_add_callback(prv_sync, NULL));
+  }
+}
 static VoiceResampler s_resampler;
 static VoicePlayback s_playback;
 static unsigned s_playback_gain = 1;
@@ -96,6 +107,7 @@ static void prv_sync(void *context) {
   s_pcm_remaining = 0;
 #endif
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  s_sync_pending = false;
   s_running = false;
   uint32_t generation = s_generation;
   bool start = s_handle != NO_HANDLE && s_flow_enabled && s_limit && s_mtu >= 2;
@@ -149,8 +161,8 @@ static void prv_retire(void) {
 void hci_local_audio_stop(void) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
   prv_retire();
+  prv_schedule_sync();
   pbl_mutex_unlock(&s_lock);
-  PBL_ASSERTN(system_task_add_callback(prv_sync, NULL));
 }
 
 void hci_local_audio_command(const uint8_t *p, size_t length) {
@@ -167,10 +179,10 @@ void hci_local_audio_command(const uint8_t *p, size_t length) {
   } else if (prv_u16(p + 1) == 0x0c2f && length == 5) {
     s_flow_requested = p[4] == 1;
   }
-  pbl_mutex_unlock(&s_lock);
   if (sync) {
-    PBL_ASSERTN(system_task_add_callback(prv_sync, NULL));
+    prv_schedule_sync();
   }
+  pbl_mutex_unlock(&s_lock);
 }
 
 bool hci_local_audio_receive(const uint8_t *p, size_t length) {
@@ -249,10 +261,10 @@ bool hci_local_audio_receive(const uint8_t *p, size_t length) {
       }
     }
   }
-  pbl_mutex_unlock(&s_lock);
   if (sync) {
-    PBL_ASSERTN(system_task_add_callback(prv_sync, NULL));
+    prv_schedule_sync();
   }
+  pbl_mutex_unlock(&s_lock);
   return forward;
 }
 

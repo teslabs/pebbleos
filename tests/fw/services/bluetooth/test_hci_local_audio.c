@@ -398,3 +398,32 @@ void test_hci_local_audio__explicit_capture_waits_for_audio_and_is_bounded(void)
   command_bt_audio_dump();
   cl_assert_equal_i(s_dump_bytes, 8192);
 }
+
+void test_hci_local_audio__repeated_stop_queues_only_one_audio_teardown(void) {
+  prv_connect(true);
+  prv_capture_frame();
+  for (unsigned i = 0; i < 100; ++i) {
+    hci_local_audio_stop();
+  }
+  cl_assert_equal_i(list_count(s_system_task_callback_head), 1);
+  uint8_t packet[64];
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 0);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_i(s_stops, 1);
+  cl_assert(!s_speaker_open);
+  prv_connect(true);
+  cl_assert_equal_i(s_starts, 2);
+}
+
+void test_hci_local_audio__disconnect_before_start_does_not_start_capture(void) {
+  const uint8_t connection[] = {
+    4, 0x2c, 17, 0, 0x80, 1, 1, 2, 3, 4, 5, 6, 2, 6, 2, 30, 0, 30, 0, 2,
+  };
+  const uint8_t disconnect[] = {4, 5, 4, 0, 0x80, 1, 0x13};
+  hci_local_audio_receive(connection, sizeof(connection));
+  hci_local_audio_receive(disconnect, sizeof(disconnect));
+  cl_assert_equal_i(list_count(s_system_task_callback_head), 1);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_i(s_starts, 0);
+  cl_assert(!s_speaker_open);
+}

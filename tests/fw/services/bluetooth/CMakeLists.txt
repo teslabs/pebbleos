@@ -5,6 +5,7 @@ pbl_clar_test(test_hci_probe)
 pbl_clar_test(test_cvsd)
 
 pbl_clar_test(test_hci_local_audio
+  DEFINES CONFIG_PROMPT
   INCLUDES src/bluetooth-fw/hci_bridge
   SOURCES
     src/bluetooth-fw/hci_bridge/local_audio.c
