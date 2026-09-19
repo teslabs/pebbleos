@@ -15,6 +15,12 @@ pbl_clar_test(test_flash_api
   OVERRIDES dummy_board
 )
 
+pbl_clar_test(test_flash_crc
+  SOURCES
+    src/fw/drivers/flash/flash_crc.c
+    src/fw/util/legacy_checksum.c
+)
+
 pbl_clar_test(test_flash_erase
   SOURCES
     src/fw/drivers/flash/flash_erase.c
