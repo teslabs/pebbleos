@@ -662,6 +662,19 @@ disconnected both transports. Fresh BLE numeric comparison negotiated CT2 and
 restored encrypted HFP automatically without a second pairing prompt. These
 tests used nRF Connect, not a full CoreApp session.
 
+On 2026-09-19, an iPhone 17 Pro Max paired through CoreApp 1.13.0 using
+one BLE numeric comparison. CoreApp showed the watch connected, and watch
+diagnostics reported `LE=1 BR=1 HFP=1 SCO=0 errors=0`, encrypted and bonded
+BLE, `SC=1 authenticated=1 CTKD=1 CT2=1 key_size=16`, and encrypted Classic
+with watch-initiated RFCOMM. No separate Classic pairing was required.
+An idle NimBLE host reset restored both encrypted links and HFP without
+another pairing prompt; the host reset counter incremented without a watch
+reboot. The test retained the authenticated CTKD bond.
+This verifies shared bonding and HFP readiness on the integrated iPhone
+path; it does not establish call audio or acoustic quality on that path.
+The [iPhone UI-control runner](../../tools/ios_ui_control/README.md) can
+operate the installed app and system pairing dialogs for these tests.
+
 HFP enables calling-line identification with `AT+CLIP=1`. The service validates
 the number, handles international numbering and withheld identities, and
 updates the existing incoming-call popup. Exact normalized matches in the
