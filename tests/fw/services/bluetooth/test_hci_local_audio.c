@@ -24,6 +24,7 @@ extern void command_bt_audio_pcm_test(void);
 extern void command_bt_audio_capture(void);
 extern void command_bt_audio_dump(void);
 static unsigned s_dump_bytes;
+static char s_capture_report[160];
 
 static NewTimerCallback s_timer_cb;
 static void *s_timer_data;
@@ -106,6 +107,9 @@ void speaker_service_stop_for_task(PebbleTask task) {
 void hci_bridge_transport_wake(void) {
 }
 void prompt_send_response(const char *response) {
+  if (!strncmp(response, "local capture ", 14)) {
+    strncpy(s_capture_report, response, sizeof(s_capture_report) - 1);
+  }
   if (!strncmp(response, "pcm: ", 5)) {
     s_dump_bytes += (strlen(response) - 5) / 2;
   }
@@ -430,4 +434,28 @@ void test_hci_local_audio__disconnect_before_start_does_not_start_capture(void) 
   fake_system_task_callbacks_invoke_pending();
   cl_assert_equal_i(s_starts, 0);
   cl_assert(!s_speaker_open);
+}
+
+void test_hci_local_audio__capture_counters_measure_only_the_current_call(void) {
+  prv_connect(true);
+  prv_capture_frame();
+  uint8_t packet[64] = {3, 0x80, 1, 60};
+  hci_local_audio_receive(packet, sizeof(packet));
+  hci_local_audio_transmit(packet);
+  const uint8_t completed[] = {4, 0x13, 5, 1, 0x80, 1, 1, 0};
+  hci_local_audio_receive(completed, sizeof(completed));
+  hci_local_audio_report();
+  cl_assert_equal_s(
+      s_capture_report,
+      "local capture raw=120 produced=60 completed=30 rendered=30 queued=1 peak_queue=2");
+  hci_local_audio_stop();
+  fake_system_task_callbacks_invoke_pending();
+  hci_local_audio_report();
+  cl_assert_equal_s(
+      s_capture_report,
+      "local capture raw=120 produced=60 completed=30 rendered=30 queued=0 peak_queue=2");
+  prv_connect(true);
+  hci_local_audio_report();
+  cl_assert_equal_s(s_capture_report,
+                    "local capture raw=0 produced=0 completed=0 rendered=0 queued=0 peak_queue=0");
 }

@@ -328,7 +328,11 @@ preemption. These tests and the Obelix firmware build pass. The
 `bt audio probe` diagnostics include local state, received/queued playback
 bytes, microphone transmissions, capture drops and start failures. It also
 reports the received PCM peak since the last query (without recording
-audio), watch mute/volume settings and the last hardware error.
+audio), watch mute/volume settings and the last hardware error. Per-call
+`local capture` counters compare raw 16 kHz microphone samples, produced 8 kHz
+samples, controller-completed samples and rendered downlink samples, together
+with current/peak capture queue depth. They survive call teardown and reset on
+the next audio start; no microphone audio is recorded by these counters.
 
 Call playback now follows the watch volume setting without the initial
 prototype's additional 35% multiplier (about 23 dB attenuation at a 100%
@@ -888,6 +892,18 @@ feeding independent of background-task refill delays. The same two-minute test
 at 50% watch volume recorded zero DMA underruns and zero driver write drops,
 with CoreApp protocol pings enabled. SCO loss indications remained; this result
 does not establish acoustic quality, echo cancellation or clock-drift tolerance.
+
+The 8-to-16 kHz speaker interpolator now retains all four filter taps across
+PCM reads instead of repeating samples at buffer boundaries. Regression tests
+compare identical input split into 1, 7, 30, 127 and 256 sample reads, and check
+that stream close flushes the final impulse and filter tail. This removes a
+proven packet-boundary waveform error; listening tests are still required to
+assess its contribution to the reported robotic sound. A two-minute local
+Pixel call at 100% watch volume passed with CoreApp pings, zero speaker DMA
+underruns/write drops, no playback clipping and no controller errors. Capture
+produced 964,560 samples versus 964,800 downlink samples; 52 queued uplink
+packets were dropped in bursts. The short run suggests scheduling stalls,
+but does not establish long-term clock stability or acoustic quality.
 
 Explicit `ble host reset` requests now use NimBLE's normal HCI reset and
 resynchronization path instead of rebooting the watch. The `resets` field in

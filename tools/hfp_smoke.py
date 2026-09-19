@@ -174,7 +174,14 @@ def main():
                     def sample_audio(lines, started=started):
                         print(f"Audio at {time.monotonic() - started:.1f}s", flush=True)
                         for line in lines:
-                            if line.startswith(("adapter rx=", "speaker DMA refills=")):
+                            if line.startswith(
+                                (
+                                    "adapter rx=",
+                                    "speaker DMA refills=",
+                                    "local capture ",
+                                    "local audio active=",
+                                )
+                            ):
                                 print(line, flush=True)
 
                     if args.audio_interval:

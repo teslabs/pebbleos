@@ -55,6 +55,8 @@ static MicPacket s_partial;
 static uint32_t s_rx_bytes, s_played_bytes, s_tx_packets, s_capture_drops, s_start_failures;
 static unsigned s_rx_peak, s_hw_error;
 static uint32_t s_quiet_bytes, s_bad_bytes;
+static uint32_t s_capture_samples, s_produced_samples, s_completed_samples, s_render_samples;
+static unsigned s_peak_capture_queue;
 #ifdef CONFIG_PROMPT
 static TimerID s_pcm_timer;
 static uint32_t s_pcm_generation, s_pcm_remaining;
@@ -73,11 +75,13 @@ static void prv_capture(int16_t *samples, size_t count, void *context) {
     pbl_mutex_unlock(&s_lock);
     return;
   }
+  s_capture_samples += count;
   for (size_t i = 0; i < count; ++i) {
     int16_t sample;
     if (!voice_resampler_push(&s_resampler, samples[i], &sample)) {
       continue;
     }
+    ++s_produced_samples;
     s_partial.data[s_partial.length++] = (uint16_t)sample & 0xff;
     s_partial.data[s_partial.length++] = (uint16_t)sample >> 8;
     if (s_partial.length == s_mtu) {
@@ -90,6 +94,7 @@ static void prv_capture(int16_t *samples, size_t count, void *context) {
         ++s_capture_drops;
         PBL_ASSERTN(pbl_msgq_put(&s_capture, &s_partial, PBL_NO_WAIT) == 0);
       }
+      s_peak_capture_queue = MAX(s_peak_capture_queue, pbl_msgq_num_used(&s_capture));
       s_partial.length = 0;
     }
   }
@@ -115,6 +120,10 @@ static void prv_sync(void *context) {
   s_resampler = (VoiceResampler){0};
   s_playback = (VoicePlayback){.gain = s_playback_gain};
   s_partial = (MicPacket){0};
+  if (start) {
+    s_capture_samples = s_produced_samples = s_completed_samples = s_render_samples = 0;
+    s_peak_capture_queue = 0;
+  }
   pbl_mutex_unlock(&s_lock);
 
   if (s_mic_owned) {
@@ -196,6 +205,7 @@ bool hci_local_audio_receive(const uint8_t *p, size_t length) {
     forward = false;
     if (s_running && (prv_u16(p + 1) & 0x0fff) == s_handle && !(p[3] & 1)) {
       s_rx_bytes += p[3];
+      s_render_samples += p[3] / 2;
       unsigned peak = 0;
       for (size_t i = 4; i < length; i += 2) {
         int sample = (int16_t)prv_u16(p + i);
@@ -243,7 +253,9 @@ bool hci_local_audio_receive(const uint8_t *p, size_t length) {
       forward = false;
       for (size_t i = 4; i < length; i += 4) {
         if (prv_u16(p + i) == s_handle) {
-          s_credits = MIN(s_limit, s_credits + prv_u16(p + i + 2));
+          unsigned completed = prv_u16(p + i + 2);
+          s_completed_samples += completed * s_mtu / 2;
+          s_credits = MIN(s_limit, s_credits + completed);
         } else {
           forward = true;
         }
@@ -300,6 +312,12 @@ void hci_local_audio_report(void) {
       "local audio active=%u handle=%u rx_bytes=%lu queued_bytes=%lu tx=%lu drops=%lu failures=%lu",
       s_running, s_handle, (unsigned long)s_rx_bytes, (unsigned long)s_played_bytes,
       (unsigned long)s_tx_packets, (unsigned long)s_capture_drops, (unsigned long)s_start_failures);
+  char capture[160];
+  snprintf(capture, sizeof(capture),
+           "local capture raw=%lu produced=%lu completed=%lu rendered=%lu queued=%u peak_queue=%u",
+           (unsigned long)s_capture_samples, (unsigned long)s_produced_samples,
+           (unsigned long)s_completed_samples, (unsigned long)s_render_samples,
+           (unsigned)pbl_msgq_num_used(&s_capture), s_peak_capture_queue);
   unsigned peak = s_rx_peak;
   unsigned hardware_error = s_hw_error;
   VoicePlayback playback = s_playback;
@@ -309,6 +327,7 @@ void hci_local_audio_report(void) {
   s_rx_peak = 0;
   pbl_mutex_unlock(&s_lock);
   prompt_send_response(buffer);
+  prompt_send_response(capture);
   snprintf(buffer, sizeof(buffer), "local speaker peak=%u muted=%u volume=%u hardware_error=%u",
            peak, speaker_service_is_muted(), alerts_preferences_get_speaker_volume(),
            hardware_error);
