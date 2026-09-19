@@ -4,6 +4,7 @@
 #include "applib/app_timer.h"
 #include "applib/touch_service.h"
 #include "applib/ui/ui.h"
+#include "applib/ui/action_menu_window_private.h"
 #include "kernel/pbl_malloc.h"
 #include "process_management/pebble_process_md.h"
 #include "process_state/app_state/app_state.h"
@@ -29,6 +30,7 @@ enum {
   CallQuieter,
   CallLouder,
   CallTransfer,
+  CallMore,
   CallControlCount
 };
 
@@ -51,6 +53,9 @@ typedef struct {
   bool touching;
   bool moved;
   bool dialed_here;
+  ActionMenuConfig call_menu;
+  ActionMenu *call_menu_window;
+  HfpStatus call_menu_status;
   GPoint touch_start;
   char number[33];
   const char *notice;
@@ -200,6 +205,8 @@ static void draw_contacts(AppData *d, GContext *ctx) {
 
 static GRect call_control_rect(AppData *d, unsigned control) {
   GSize size = d->canvas.bounds.size;
+  if (control == CallMore)
+    return GRect(size.w - 38, 0, 34, 30);
   if (control == CallEnd)
     return GRect(15, size.h - 50, size.w - 30, 40);
   if (control == CallMute || control == CallTransfer)
@@ -209,12 +216,18 @@ static GRect call_control_rect(AppData *d, unsigned control) {
 
 static void draw_call(AppData *d, GContext *ctx) {
   GSize size = d->canvas.bounds.size;
-  const char *title = d->status.call ? (d->status.audio ? "Call in progress" : "Call on phone")
+  const char *title = d->status.waiting          ? "Call waiting"
+                      : d->status.call_held == 2 ? "Call on hold"
+                      : d->status.call ? (d->status.audio ? "Call in progress" : "Call on phone")
                       : d->status.incoming ? "Incoming call"
                                            : "Calling...";
-  text(ctx, d->notice ? d->notice : title, FONT_KEY_GOTHIC_24_BOLD, GRect(8, 0, size.w - 16, 32),
-       GColorBlack, GTextAlignmentCenter);
-  const char *number = d->dialed_here ? d->number : d->status.caller_number;
+  bool more = d->status.call && d->status.hold_support;
+  text(ctx, d->notice ? d->notice : title, FONT_KEY_GOTHIC_24_BOLD,
+       GRect(8, 0, size.w - (more ? 46 : 16), 32), GColorBlack, GTextAlignmentCenter);
+  const char *number = d->status.waiting          ? d->status.waiting_number
+                       : *d->status.caller_number ? d->status.caller_number
+                       : d->dialed_here           ? d->number
+                                                  : "";
   const char *caller = *number ? number : "On your phone";
   if (*number) {
     for (unsigned i = 0; i < d->contact_count; ++i) {
@@ -235,12 +248,16 @@ static void draw_call(AppData *d, GContext *ctx) {
     !d->status.audio      ? "Watch mic"
     : d->status.mic_muted ? "Unmute"
                           : "Mute",
-    "-", "+",
+    "-",
+    "+",
     d->status.audio_pending ? "Switching"
     : d->status.audio       ? "Use phone"
-                            : "Use watch"
+                            : "Use watch",
+    "..."
   };
   for (unsigned i = 0; i < CallControlCount; ++i) {
+    if (i == CallMore && !more)
+      continue;
     GRect rect = call_control_rect(d, i);
     GColor color = i == CallEnd                                              ? GColorRed
                    : i == CallMute && d->status.audio && d->status.mic_muted ? ACCENT
@@ -256,6 +273,67 @@ static void draw_call(AppData *d, GContext *ctx) {
                                                                   : GColorBlack,
          GTextAlignmentCenter);
   }
+}
+
+static void call_menu_closed(ActionMenu *menu, const ActionMenuItem *item, void *context) {
+  AppData *d = context;
+  task_free(action_menu_get_root_level(menu));
+  d->call_menu.root_level = NULL;
+  d->call_menu_window = NULL;
+  app_touch_navigation_enable(false);
+}
+
+static void call_menu_action(ActionMenu *menu, const ActionMenuItem *item, void *context) {
+  AppData *d = context;
+  HfpStatus status;
+  hfp_get_status(&status);
+  if (status.waiting != d->call_menu_status.waiting ||
+      status.call_held != d->call_menu_status.call_held ||
+      status.call != d->call_menu_status.call || !status.ready)
+    return;
+  hfp_call_hold((uintptr_t)item->action_data);
+}
+
+static void show_call_menu(AppData *d) {
+  hfp_get_status(&d->status);
+  if (!d->status.ready || !d->status.call || !d->status.hold_support || d->call_menu.root_level)
+    return;
+  ActionMenuLevel *level = task_zalloc_check(sizeof(*level) + 4 * sizeof(ActionMenuItem));
+  level->display_mode = ActionMenuLevelDisplayModeWide;
+  const char *labels[] = {
+    d->status.waiting ? "Reject waiting call" : "End held call",
+    d->status.waiting ? "End & answer" : "End & resume",
+    d->status.waiting          ? "Hold & answer"
+    : d->status.call_held == 2 ? "Resume call"
+    : d->status.call_held      ? "Swap calls"
+                               : "Hold call",
+    "Merge calls",
+  };
+  for (unsigned action = 0; action < 4; ++action) {
+    bool allowed = action == 2 || d->status.waiting || d->status.call_held;
+    if (action == 3)
+      allowed = d->status.call_held == 1 && !d->status.waiting;
+    if (!allowed || !(d->status.hold_support & (1u << action)))
+      continue;
+    level->items[level->num_items++] = (ActionMenuItem){
+      .label = labels[action],
+      .perform_action = call_menu_action,
+      .action_data = (void *)(uintptr_t)action,
+    };
+  }
+  if (!level->num_items) {
+    task_free(level);
+    return;
+  }
+  d->call_menu = (ActionMenuConfig){
+    .context = d,
+    .colors.background = ACCENT,
+    .root_level = level,
+    .did_close = call_menu_closed,
+  };
+  app_touch_navigation_enable(true);
+  d->call_menu_status = d->status;
+  d->call_menu_window = app_action_menu_open(&d->call_menu);
 }
 
 static void draw(Layer *layer, GContext *ctx) {
@@ -294,7 +372,9 @@ static void activate(AppData *d, unsigned target) {
     return;
   d->notice = NULL;
   if (call_in_progress(&d->status)) {
-    if (target == CallEnd && !d->status.busy)
+    if (target == CallMore)
+      show_call_menu(d);
+    else if (target == CallEnd && !d->status.busy)
       hfp_hangup();
     else if (target == CallMute && d->status.audio)
       hfp_set_mic_muted(!d->status.mic_muted);
@@ -366,7 +446,7 @@ static void choose(ClickRecognizerRef recognizer, void *context) {
 static void switch_page(ClickRecognizerRef recognizer, void *context) {
   AppData *d = context;
   if (call_in_progress(&d->status))
-    activate(d, CallMute);
+    activate(d, d->status.call && d->status.hold_support ? CallMore : CallMute);
   else
     change_page(d, !d->page);
 }
@@ -380,6 +460,8 @@ static void clicks(void *context) {
 static int target_at(AppData *d, GPoint point) {
   if (call_in_progress(&d->status)) {
     for (unsigned i = 0; i < CallControlCount; ++i) {
+      if (i == CallMore && !(d->status.call && d->status.hold_support))
+        continue;
       GRect rect = call_control_rect(d, i);
       if (grect_contains_point(&rect, &point))
         return i;
@@ -433,7 +515,7 @@ static void touch(const TouchEvent *event, void *context) {
       if (abs(dx) >= 30 && abs(dx) > abs(dy))
         change_page(d, dx < 0 ? 1 : 0);
       else if (!d->moved) {
-        if (point.y < PAGE_TOP && d->touch_start.y < PAGE_TOP)
+        if (!call_in_progress(&d->status) && point.y < PAGE_TOP && d->touch_start.y < PAGE_TOP)
           change_page(d, point.x >= d->canvas.bounds.size.w / 2);
         else if (d->touch_target >= 0 && target_at(d, point) == d->touch_target)
           activate(d, d->touch_target);
@@ -480,11 +562,15 @@ static void tick(void *context) {
     refresh_contacts(d);
   bool changed = memcmp(&status, &d->status, sizeof(status));
   if (changed) {
+    if (d->call_menu_window &&
+        (!status.ready || status.call != d->status.call || status.waiting != d->status.waiting ||
+         status.call_held != d->status.call_held))
+      action_menu_close(d->call_menu_window, false);
     if (status.errors != d->status.errors)
       d->notice = "Call unavailable";
     else if (status.call_setup || status.call || !status.ready)
       d->notice = NULL;
-    if (!status.ready || status.incoming ||
+    if (!status.ready || status.incoming || status.call_held ||
         (!call_in_progress(&status) && call_in_progress(&d->status)))
       d->dialed_here = false;
     d->status = status;

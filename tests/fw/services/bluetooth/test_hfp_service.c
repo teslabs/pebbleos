@@ -7,13 +7,22 @@
 #include "service.h"
 #include "fake_msgq.h"
 #include "stubs_mutex.h"
-#include "stubs_events.h"
+#include "kernel/events.h"
 #include "stubs_phone_call_util.h"
 #include "stubs_passert.h"
 
 static unsigned s_answers, s_hangups, s_dials, s_polls;
 static unsigned s_audio_volume;
+static int s_hold_action;
 static bool s_audio_muted;
+static PhoneEventType s_events[8];
+static unsigned s_event_count;
+
+void event_put(PebbleEvent *event) {
+  cl_assert_equal_i(event->type, PEBBLE_PHONE_EVENT);
+  cl_assert(s_event_count < 8);
+  s_events[s_event_count++] = event->phone.type;
+}
 
 void bt_classic_reset(BtClassicHost *host) {
   memset(host, 0, sizeof(*host));
@@ -59,6 +68,13 @@ bool bt_classic_set_speaker_gain(BtClassicHost *host, unsigned gain) {
 bool bt_classic_transfer_audio(BtClassicHost *host, bool to_watch) {
   return true;
 }
+bool bt_classic_call_hold(BtClassicHost *host, unsigned action) {
+  if (!host->status.ready || host->at_pending || !host->status.waiting)
+    return false;
+  s_hold_action = action;
+  host->at_pending = true;
+  return true;
+}
 
 void test_hfp_service__initialize(void) {
   fake_msgq_reset();
@@ -67,6 +83,8 @@ void test_hfp_service__initialize(void) {
   s_answers = s_hangups = s_dials = s_polls = 0;
   s_audio_muted = false;
   s_audio_volume = 0;
+  s_hold_action = -1;
+  s_event_count = 0;
   hfp_service_host()->status.ready = true;
 }
 void test_hfp_service__cleanup(void) {
@@ -147,4 +165,59 @@ void test_hfp_service__local_mute_does_not_wait_for_at(void) {
   hfp_service_poll(1);
   cl_assert(s_audio_muted);
   cl_assert_equal_i(host->status.errors, 0);
+}
+
+void test_hfp_service__reject_waiting_preserves_active_call(void) {
+  BtClassicHost *host = hfp_service_host();
+  host->status.call = host->status.waiting = true;
+  cl_assert(hfp_reject());
+  hfp_service_poll(1);
+  cl_assert_equal_i(s_hold_action, 0);
+  cl_assert_equal_i(s_hangups, 0);
+}
+
+void test_hfp_service__expired_waiting_reject_never_hangs_up_active_call(void) {
+  BtClassicHost *host = hfp_service_host();
+  host->status.call = host->status.waiting = true;
+  host->at_pending = true;
+  cl_assert(hfp_reject());
+  hfp_service_poll(1);
+  host->status.waiting = false;
+  host->at_pending = false;
+  hfp_service_poll(2);
+  cl_assert_equal_i(s_hold_action, -1);
+  cl_assert_equal_i(s_hangups, 0);
+  cl_assert_equal_i(host->status.errors, 1);
+}
+
+void test_hfp_service__waiting_popup_returns_to_active_without_end(void) {
+  BtClassicHost *host = hfp_service_host();
+  host->status.call = host->status.waiting = true;
+  host->status.incoming = true;
+  hfp_service_poll(1);
+  cl_assert_equal_i(s_event_count, 1);
+  cl_assert_equal_i(s_events[0], PhoneEventType_Incoming);
+  host->status.waiting = host->status.incoming = false;
+  hfp_service_poll(2);
+  cl_assert_equal_i(s_event_count, 2);
+  cl_assert_equal_i(s_events[1], PhoneEventType_Start);
+  host->status.waiting = host->status.incoming = true;
+  hfp_service_poll(3);
+  cl_assert_equal_i(s_event_count, 3);
+  cl_assert_equal_i(s_events[2], PhoneEventType_Incoming);
+}
+
+void test_hfp_service__deferred_hold_rejects_changed_call_state(void) {
+  BtClassicHost *host = hfp_service_host();
+  host->status.call = host->status.waiting = true;
+  hfp_service_poll(1);
+  host->at_pending = true;
+  cl_assert(hfp_call_hold(1));
+  hfp_service_poll(2);
+  host->status.waiting = false;
+  host->status.call_held = 1;
+  host->at_pending = false;
+  hfp_service_poll(3);
+  cl_assert_equal_i(s_hold_action, -1);
+  cl_assert_equal_i(host->status.errors, 1);
 }

@@ -229,7 +229,11 @@ PBL_T_STATIC void prv_handle_phone_event(PebbleEvent *e, void *context) {
 #ifdef CONFIG_BT_HFP
   HfpStatus hfp;
   hfp_get_status(&hfp);
-  if (hfp.ready &&
+  if (hfp.waiting || hfp.call_held) {
+    kernel_free(s_companion_caller_name);
+    s_companion_caller_name = NULL;
+  }
+  if (hfp.ready && !hfp.waiting && !hfp.call_held &&
       (event.type == PhoneEventType_Incoming ||
        (event.type == PhoneEventType_CallerID && s_call_in_progress)) &&
       event.caller) {
@@ -251,6 +255,10 @@ PBL_T_STATIC void prv_handle_phone_event(PebbleEvent *e, void *context) {
       event.caller->name = kernel_strdup(contact.name);
   }
   if (hfp.ready && event.source != PhoneCallSource_HFP) {
+    if (hfp.waiting || hfp.call_held) {
+      phone_call_util_destroy_caller(event.caller);
+      return;
+    }
     // Companion notifications supply identity; HFP owns the call lifecycle.
     if (event.type == PhoneEventType_Incoming || event.type == PhoneEventType_CallerID) {
       event.source = PhoneCallSource_HFP;
@@ -265,6 +273,8 @@ PBL_T_STATIC void prv_handle_phone_event(PebbleEvent *e, void *context) {
       prv_cancel_call_watchdog();
       s_call_source = PhoneCallSource_HFP;
       s_call_identifier = 0;
+      phone_ui_handle_incoming_call(event.caller, true, PhoneCallSource_HFP);
+    } else if (hfp.waiting) {
       phone_ui_handle_incoming_call(event.caller, true, PhoneCallSource_HFP);
     } else if (event.caller) {
       prv_handle_caller_id(&event);
@@ -395,7 +405,12 @@ void phone_call_decline(void) {
 
 #ifdef CONFIG_BT_HFP
   if (s_call_source == PhoneCallSource_HFP) {
-    hfp_hangup();
+    HfpStatus hfp;
+    hfp_get_status(&hfp);
+    if (hfp.waiting || (hfp.incoming && !hfp.call))
+      hfp_reject();
+    else
+      hfp_hangup();
     return;
   }
 #endif

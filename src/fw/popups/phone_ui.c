@@ -3,6 +3,9 @@
 
 #include "phone_ui.h"
 #include "phone_formatting.h"
+#ifdef CONFIG_BT_HFP
+#include <pbl/services/bluetooth/hfp.h>
+#endif
 #ifdef CONFIG_APP_PHONE
 #include "process_management/app_manager.h"
 #include "shell/system_app_ids.auto.h"
@@ -549,6 +552,7 @@ static void prv_start_call_duration_timer(void) {
     s_phone_ui_data->call_start_time = rtc_get_time();
   }
 
+  evented_timer_cancel(s_phone_ui_data->call_duration_timer);
   s_phone_ui_data->call_duration_timer =
       evented_timer_register(1000, true /* repeating */, prv_update_call_time, NULL);
 
@@ -668,7 +672,16 @@ static void prv_decline_call(void) {
 }
 
 static void prv_decline_click_handler(ClickRecognizerRef recognizer, void *unused) {
+#ifdef CONFIG_BT_HFP
+  HfpStatus status;
+  hfp_get_status(&status);
+  bool waiting = s_phone_ui_data->source == PhoneCallSource_HFP && status.waiting;
+#endif
   prv_decline_call();
+#ifdef CONFIG_BT_HFP
+  if (waiting)
+    return; // HFP will restore the active call after rejecting the waiting one.
+#endif
   prv_window_pop_with_delay(DECLINE_DELAY_MS);
 }
 
@@ -1106,6 +1119,14 @@ void phone_ui_handle_incoming_call(PebblePhoneCaller *caller, bool show_ongoing_
   }
 
   uint8_t actions = PhoneCallActions_Decline | PhoneCallActions_Answer;
+#ifdef CONFIG_BT_HFP
+  if (source == PhoneCallSource_HFP) {
+    HfpStatus status;
+    hfp_get_status(&status);
+    if (status.waiting && !(status.hold_support & 1))
+      actions &= ~PhoneCallActions_Decline;
+  }
+#endif
   if (can_reply) {
     actions |= PhoneCallActions_Reply;
   }
@@ -1155,6 +1176,8 @@ void phone_ui_handle_call_start(bool can_decline) {
     return;
   }
 
+  evented_timer_cancel(s_phone_ui_data->window_pop_timer);
+  s_phone_ui_data->window_pop_timer = EVENTED_TIMER_INVALID_ID;
   prv_stop_ringing();
 
 #if PBL_RECT

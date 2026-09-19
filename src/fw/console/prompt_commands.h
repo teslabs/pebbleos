@@ -272,6 +272,7 @@ extern void command_bt_hfp_contacts(void);
 extern void command_bt_hfp_dial(const char *);
 extern void command_bt_hfp_answer(void);
 extern void command_bt_hfp_hangup(void);
+extern void command_bt_hfp_hold(const char *);
 #endif
 #endif
 
@@ -520,6 +521,7 @@ static const Command s_prompt_commands[] = {
   {"bt hfp dial", command_bt_hfp_dial, 1},
   {"bt hfp answer", command_bt_hfp_answer, 0},
   {"bt hfp hangup", command_bt_hfp_hangup, 0},
+  {"bt hfp hold", command_bt_hfp_hold, 1},
 #endif
 #endif
 

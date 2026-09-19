@@ -30,6 +30,7 @@ extern PBL_T_STATIC void prv_handle_ancs_disconnected_event(PebbleEvent *e, void
 #include "stubs_system_task.h"
 
 static unsigned s_hfp_answer_count, s_hfp_hangup_count;
+static unsigned s_hfp_reject_count;
 static bool s_show_ongoing;
 static HfpStatus s_hfp_status;
 static char s_caller_name[64];
@@ -52,6 +53,10 @@ bool hfp_answer(void) {
 
 bool hfp_hangup(void) {
   ++s_hfp_hangup_count;
+  return true;
+}
+bool hfp_reject(void) {
+  ++s_hfp_reject_count;
   return true;
 }
 
@@ -186,6 +191,7 @@ void test_phone_call__initialize(void) {
   s_caller_name[0] = 0;
   s_hfp_status = (HfpStatus){};
   s_hfp_answer_count = s_hfp_hangup_count = 0;
+  s_hfp_reject_count = 0;
   s_show_ongoing = false;
   prv_put_phone_event(PhoneEventType_End, PhoneCallSource_HFP, 0);
   // fake_comm_session_init();
@@ -226,6 +232,26 @@ void test_phone_call__hfp_identity_preserves_companion_name(void) {
   prv_handle_phone_event(&event, NULL);
   cl_assert_equal_s(s_caller_name, "Companion name");
   kernel_free(hfp.name);
+}
+
+void test_phone_call__waiting_identity_does_not_reuse_previous_companion_name(void) {
+  s_hfp_status.ready = true;
+  PebblePhoneCaller companion = {.number = "+12025550101", .name = "Previous caller"};
+  PebbleEvent event = {
+    .type = PEBBLE_PHONE_EVENT,
+    .phone = {.type = PhoneEventType_Incoming, .source = PhoneCallSource_PP, .caller = &companion},
+  };
+  prv_handle_phone_event(&event, NULL);
+  s_hfp_status.call = s_hfp_status.waiting = true;
+  PebblePhoneCaller waiting = {.number = "+12025550100"};
+  event.phone = (PebblePhoneEvent){
+    .type = PhoneEventType_Incoming,
+    .source = PhoneCallSource_HFP,
+    .caller = &waiting,
+  };
+  prv_handle_phone_event(&event, NULL);
+  cl_assert_equal_s(s_caller_name, "Test contact");
+  kernel_free(waiting.name);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -372,6 +398,22 @@ void test_phone_call__hfp_reject_and_disconnect(void) {
   ASSERT_LAST_EVENT(PhoneEventType_Incoming);
   prv_put_phone_event(PhoneEventType_End, PhoneCallSource_HFP, 0);
   ASSERT_LAST_EVENT(PhoneEventType_End);
+}
+
+void test_phone_call__waiting_call_reopens_answer_sidebar(void) {
+  s_hfp_status.ready = s_hfp_status.call = true;
+  prv_put_incoming_call_event(PhoneCallSource_HFP, false);
+  prv_put_phone_event(PhoneEventType_Start, PhoneCallSource_HFP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_Start);
+  s_hfp_status.waiting = true;
+  prv_put_incoming_call_event(PhoneCallSource_HFP, false);
+  ASSERT_LAST_EVENT(PhoneEventType_Incoming);
+  phone_call_decline();
+  cl_assert_equal_i(s_hfp_reject_count, 1);
+  cl_assert_equal_i(s_hfp_hangup_count, 0);
+  s_hfp_status.waiting = false;
+  prv_put_phone_event(PhoneEventType_Start, PhoneCallSource_HFP, 0);
+  ASSERT_LAST_EVENT(PhoneEventType_Start);
 }
 
 void test_phone_call__companion_ringing_before_hfp_uses_hfp_control(void) {

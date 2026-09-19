@@ -475,7 +475,7 @@ The phone initiates the connection from its Bluetooth settings.
 
 This deliberately small host is separate from NimBLE. It does not yet
 implement concurrent BLE, outgoing device discovery, multipoint, phonebook
-download, three-way calls, codec negotiation or production reconnection.
+download, codec negotiation or production reconnection.
 One pairing key is kept in RAM for reconnects during the same boot. After
 a restart, forget the watch in the phone's Bluetooth settings and pair again.
 No vendor host stack is linked; the existing controller firmware stays below
@@ -981,6 +981,31 @@ updates still apply normally. A regression covers that ordering. The subsequent
 combined incoming-call test passed transfer, gain and mute changes followed by
 one minute of audio at 100% global watch volume, with zero speaker DMA underruns
 or clipping and no controller/profile errors.
+
+### Call waiting and held calls
+
+The portable host now negotiates three-way calling and enhanced call status.
+It reads the phone's supported `AT+CHLD` actions and `callheld` indicator,
+enables waiting-call notifications, and refreshes caller identity with
+`AT+CLCC` when the phone supports it. Call-list replies are staged until `OK`;
+an intervening indicator change causes a fresh query. Malformed, duplicate or
+over-capacity lists are discarded. Up to four voice-call identities are
+tracked; larger lists cannot supply a reliable displayed identity.
+
+A waiting call opens the incoming-call sidebar. Answer holds the active call
+and accepts the waiting call; reject uses `CHLD=0`, preserving the active
+call. Rejection is offered only when the phone advertises that action.
+The Phone app's **...** menu (also available by holding Select) offers the
+applicable hold/resume, swap, end-and-answer, and merge actions. Menus close
+when call state changes, and deferred hold actions recheck the state before
+execution. Contact names resolve from the refreshed number; uncorrelated
+companion names are not reused across waiting/held calls.
+
+`bt hfp status` reports `held`, `waiting` and the `chld` support mask.
+`bt hfp hold 0|1|2|3` queues the corresponding supported action for diagnostics.
+Host protocol and service regressions pass, as do debug and console-free
+release builds. These paths and the new menu still require device validation
+with two concurrent calls on both phones. No live call-waiting pass is claimed.
 
 Explicit `ble host reset` requests now use NimBLE's normal HCI reset and
 resynchronization path instead of rebooting the watch. The `resets` field in

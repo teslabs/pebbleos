@@ -23,6 +23,8 @@ enum {
   RequestDial,
   RequestAnswer,
   RequestHangup,
+  RequestReject,
+  RequestCallHold,
   RequestSpeakerGain,
   RequestMicMute,
   RequestAudioTransfer
@@ -31,6 +33,7 @@ enum {
 typedef struct {
   unsigned action;
   unsigned value;
+  unsigned call_state;
   char number[BT_CLASSIC_NUMBER_SIZE];
 } Request;
 static PBL_MSGQ_DEFINE(s_requests, sizeof(Request), 4);
@@ -44,7 +47,8 @@ void hfp_service_init(void) {
 }
 
 static void notify_call(PhoneEventType type) {
-  const char *number = s_host.status.caller_number;
+  const char *number =
+      s_host.status.waiting ? s_host.status.waiting_number : s_host.status.caller_number;
   PebbleEvent event = {
     .type = PEBBLE_PHONE_EVENT,
     .phone = {
@@ -59,28 +63,35 @@ static void notify_call(PhoneEventType type) {
 }
 
 static void publish_call_state(void) {
-  static bool incoming, started;
+  static bool incoming, started, waiting;
+  static unsigned errors;
   static char caller_number[BT_CLASSIC_NUMBER_SIZE];
   const BtClassicStatus *status = &s_host.status;
-  if (!incoming && status->ready && status->incoming && !status->call) {
+  const char *number = status->waiting ? status->waiting_number : status->caller_number;
+  bool retry = incoming && errors != status->errors && (status->incoming || status->waiting);
+  errors = status->errors;
+  if (status->ready &&
+      ((!incoming && status->incoming) || (!waiting && status->waiting) || retry)) {
     incoming = true;
     started = false;
-    memcpy(caller_number, status->caller_number, sizeof(caller_number));
+    waiting = status->waiting;
+    memcpy(caller_number, number, sizeof(caller_number));
     notify_call(PhoneEventType_Incoming);
   }
   if (!incoming)
     return;
   if (status->ready && (status->incoming || status->call || status->call_setup) &&
-      strcmp(caller_number, status->caller_number)) {
-    memcpy(caller_number, status->caller_number, sizeof(caller_number));
+      strcmp(caller_number, number)) {
+    memcpy(caller_number, number, sizeof(caller_number));
     notify_call(PhoneEventType_CallerID);
   }
-  if (status->call && !started) {
+  waiting = status->waiting;
+  if (status->call && !status->waiting && !started) {
     started = true;
     notify_call(PhoneEventType_Start);
   }
   if (!status->ready || (!status->incoming && !status->call && !status->call_setup)) {
-    incoming = started = false;
+    incoming = started = waiting = false;
     notify_call(status->ready ? PhoneEventType_End : PhoneEventType_Disconnect);
   }
 }
@@ -91,7 +102,8 @@ void hfp_service_poll(uint32_t now) {
     // Keep call commands queued while the phone acknowledges the previous AT command.
     if (s_host.status.ready && s_host.at_pending &&
         (request.action == RequestDial || request.action == RequestAnswer ||
-         request.action == RequestHangup))
+         request.action == RequestHangup || request.action == RequestReject ||
+         request.action == RequestCallHold))
       break;
     if (pbl_msgq_get(&s_requests, &request, PBL_NO_WAIT))
       break;
@@ -105,6 +117,16 @@ void hfp_service_poll(uint32_t now) {
         break;
       case RequestHangup:
         accepted = bt_classic_hangup(&s_host);
+        break;
+      case RequestReject:
+        if (s_host.status.waiting)
+          accepted = bt_classic_call_hold(&s_host, 0);
+        else if (s_host.status.incoming && !s_host.status.call)
+          accepted = bt_classic_hangup(&s_host);
+        break;
+      case RequestCallHold:
+        if (request.call_state == (s_host.status.waiting | (s_host.status.call_held << 1)))
+          accepted = bt_classic_call_hold(&s_host, request.value);
         break;
       case RequestSpeakerGain:
         accepted = bt_classic_set_speaker_gain(&s_host, request.value);
@@ -140,6 +162,9 @@ void hfp_service_poll(uint32_t now) {
     .incoming = status->incoming,
     .busy = status->busy,
     .call_setup = status->call_setup,
+    .call_held = status->call_held,
+    .hold_support = status->hold_support,
+    .waiting = status->waiting,
     .errors = status->errors,
     .speaker_gain = status->speaker_gain,
     .mic_muted = s_mic_muted,
@@ -147,6 +172,7 @@ void hfp_service_poll(uint32_t now) {
   };
   snprintf(s_status.detail, sizeof(s_status.detail), "%s", status->detail);
   snprintf(s_status.caller_number, sizeof(s_status.caller_number), "%s", status->caller_number);
+  snprintf(s_status.waiting_number, sizeof(s_status.waiting_number), "%s", status->waiting_number);
   pbl_mutex_unlock(&s_lock);
   publish_call_state();
 }
@@ -158,6 +184,11 @@ void hfp_get_status(HfpStatus *status) {
 }
 static bool request(unsigned action, const char *number, unsigned value) {
   Request r = {.action = action, .value = value};
+  if (action == RequestCallHold) {
+    HfpStatus status;
+    hfp_get_status(&status);
+    r.call_state = status.waiting | (status.call_held << 1);
+  }
   if (number) {
     if (!bt_classic_valid_number(number))
       return false;
@@ -176,6 +207,12 @@ bool hfp_answer(void) {
 }
 bool hfp_hangup(void) {
   return request(RequestHangup, NULL, 0);
+}
+bool hfp_reject(void) {
+  return request(RequestReject, NULL, 0);
+}
+bool hfp_call_hold(unsigned action) {
+  return action <= 3 && request(RequestCallHold, NULL, action);
 }
 
 bool hfp_set_speaker_gain(unsigned gain) {
@@ -196,12 +233,18 @@ void command_bt_hfp_status(void) {
   char line[192];
   snprintf(
       line, sizeof(line),
-      "HFP available=%u connected=%u ready=%u audio=%u call=%u setup=%u busy=%u errors=%u gain=%u mic_muted=%u audio_pending=%u",
+      "HFP available=%u connected=%u ready=%u audio=%u call=%u setup=%u busy=%u errors=%u gain=%u mic_muted=%u audio_pending=%u held=%u waiting=%u chld=%u",
       status.available, status.connected, status.ready, status.audio, status.call,
       status.call_setup, status.busy, status.errors, status.speaker_gain, status.mic_muted,
-      status.audio_pending);
+      status.audio_pending, status.call_held, status.waiting, status.hold_support);
   prompt_send_response(line);
   prompt_send_response(status.detail);
+}
+void command_bt_hfp_hold(const char *value) {
+  prompt_send_response(strlen(value) == 1 && *value >= '0' && *value <= '3' &&
+                               hfp_call_hold(*value - '0')
+                           ? "Call hold action queued"
+                           : "Expected action 0..3, or queue full");
 }
 void command_bt_hfp_audio(const char *destination) {
   prompt_send_response((!strcmp(destination, "watch") || !strcmp(destination, "phone")) &&
