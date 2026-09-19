@@ -101,7 +101,7 @@ typedef struct {
 
 // Memory regions to dump
 static const MemoryRegion MEMORY_REGIONS_DUMP[] = {
-#if CONFIG_SOC_NRF52 || CONFIG_SOC_SF32LB52 || CONFIG_QEMU
+#if CONFIG_SOC_NRF52 || CONFIG_QEMU
   {.start = (void *)0x20000000, .length = COREDUMP_RAM_SIZE},
 #endif
   {.start = (void *)&NVIC->ISER, .length = sizeof(NVIC->ISER)}, // Enabled interrupts
@@ -627,6 +627,16 @@ PBL_EXTERNALLY_VISIBLE void core_dump_handler_c(void) {
       prv_write_image_header(s_flash_addr, CORE_ID_MAIN_MCU, &TINTIN_BUILD_ID, s_time_stamp);
 
   // Write out the memory chunks ----------------------------------------
+#if defined(CONFIG_SOC_SF32LB52)
+  // The kernel heap boundary varies with the configured app memory layout.
+  extern uint8_t __RAM_start__;
+  extern uint8_t _heap_end;
+  const MemoryRegion kernel_ram = {
+    .start = &__RAM_start__,
+    .length = (uintptr_t)&_heap_end - (uintptr_t)&__RAM_start__,
+  };
+  prv_write_memory_regions(&kernel_ram, 1, flash_base);
+#endif
   prv_write_memory_regions(MEMORY_REGIONS_DUMP, ARRAY_LENGTH(MEMORY_REGIONS_DUMP), flash_base);
 
   // Write out the extra registers chunk --------------------------------------------
