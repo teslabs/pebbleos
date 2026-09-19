@@ -76,8 +76,9 @@ def main():
         before = state()
         if not before["ready"] or before["call"] or before["setup"] or before["audio"]:
             raise RuntimeError(f"An idle, connected watch is required: {before}")
-        command(f"bt hfp volume {args.gain}")
-        wait(lambda s: not s["busy"] and s["gain"] == args.gain)
+        initial_gain = max(0, args.gain - 1)
+        command(f"bt hfp volume {initial_gain}")
+        wait(lambda s: not s["busy"] and s["gain"] == initial_gain)
         with (args.output / "incoming.txt").open("w") as output:
             requested = True
             trigger = subprocess.Popen(
