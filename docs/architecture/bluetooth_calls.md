@@ -905,6 +905,28 @@ produced 964,560 samples versus 964,800 downlink samples; 52 queued uplink
 packets were dropped in bursts. The short run suggests scheduling stalls,
 but does not establish long-term clock stability or acoustic quality.
 
+HFP now advertises remote speaker-volume control and synchronizes its 0..15
+gain with the phone using `AT+VGS` / `+VGS`. Local changes coalesce while another
+AT command is pending; remote changes are validated and are not echoed. Gain
+is retained across profile reconnects and multiplied by the watch's global
+speaker-volume preference. The Phone app offers volume and local microphone
+mute controls; the ongoing incoming-call popup's **more** action opens them.
+Up/down adjust call volume, select ends the call, and long-select toggles mute.
+Muting clears unsent capture and supplies silence while maintaining SCO flow;
+controller-buffered audio can take up to one queue depth to drain. Mute resets
+when the call ends. It is a local privacy control: HFP microphone gain is not
+used as a portable phone-side mute command.
+
+Unit tests cover invalid gains, command coalescing, mute/unmute capture, and
+volume ownership after audio preemption. A one-minute local Pixel call passed
+volume/mute actions with CoreApp pings and zero speaker DMA underruns. A Pixel
+volume-down key event changed the watch's call volume from 100% to 93%, verifying
+the reverse control direction. The popup-to-controls transition was checked on
+the watch. During a separate local call, microphone mute reduced the Pixel's
+received RMS from roughly 280 PCM units to 1–2 units while SCO stayed active.
+Acoustic echo and capture scheduling remain open.
+Use `--controls` with the smoke runner to repeat the watch-side control checks.
+
 Explicit `ble host reset` requests now use NimBLE's normal HCI reset and
 resynchronization path instead of rebooting the watch. The `resets` field in
 `bt dual status` counts host resets within the current watch boot. Two cycles

@@ -191,7 +191,7 @@ class ClassicHostTest(unittest.TestCase):
         self.rf_receive(rfcomm.RFCOMM_Frame.sabm(1, 2))
         frames = self.frames()
         self.assertEqual(frames[0].type, rfcomm.FrameType.UA)
-        self.assertEqual(frames[-1].information, b"AT+BRSF=4\r")
+        self.assertEqual(frames[-1].information, b"AT+BRSF=20\r")
 
     def at(self, text):
         self.rf_receive(
@@ -210,10 +210,34 @@ class ClassicHostTest(unittest.TestCase):
         )
         self.assertEqual(self.at("\r\n+CIND: 1,0,0\r\nOK\r\n"), [b"AT+CMER=3,0,0,1\r"])
         self.assertEqual(self.at("\r\nOK\r\n"), [b"AT+CLIP=1\r"])
+        self.assertEqual(self.at("\r\nOK\r\n"), [b"AT+VGS=15\r"])
         self.assertEqual(self.at("\r\nOK\r\n"), [])
         self.assertTrue(self.lib.demo_flags() & 4)
         self.rf_receive(rfcomm.RFCOMM_Frame.uih(1, 2, b"\7", p_f=1))
         self.frames()
+
+    def test_remote_speaker_gain_is_bounded_and_not_echoed(self):
+        self.ready()
+        for gain in (0, 7, 15):
+            self.assertEqual(self.at(f"+VGS: {gain}\r\n"), [])
+            self.assertEqual(self.lib.demo_speaker_gain(), gain)
+        for invalid in ("-1", "16", "4294967296", "", "7junk", "7,2"):
+            self.assertEqual(self.at(f"+VGS: {invalid}\r\n"), [])
+            self.assertEqual(self.lib.demo_speaker_gain(), 15)
+
+    def test_local_speaker_gain_coalesces_while_command_pending(self):
+        self.assertFalse(self.lib.demo_set_speaker_gain(7))
+        self.ready()
+        self.assertFalse(self.lib.demo_set_speaker_gain(16))
+        self.assertTrue(self.lib.demo_dial(b"+12025550100"))
+        self.frames()
+        self.assertTrue(self.lib.demo_set_speaker_gain(8))
+        self.assertTrue(self.lib.demo_set_speaker_gain(9))
+        self.assertFalse(self.frames())
+        self.assertEqual(self.at("OK\r\n"), [b"AT+VGS=9\r"])
+        self.assertEqual(self.at("OK\r\n"), [])
+        self.assertTrue(self.lib.demo_set_speaker_gain(9))
+        self.assertFalse(self.frames())
 
     def test_caller_number_is_normalized_and_cleared(self):
         self.ready()
@@ -654,12 +678,13 @@ class ReconnectTest(ClassicHostTest):
         )
         self.l2cap(0x41, bytes(rfcomm.RFCOMM_Frame.ua(1, 14)))
         frames = [rfcomm.RFCOMM_Frame.from_bytes(data) for _, data in self.drain()]
-        self.assertEqual(frames[-1].information, b"AT+BRSF=4\r")
+        self.assertEqual(frames[-1].information, b"AT+BRSF=20\r")
         for response, expected in [
             (b"\r\n+BRSF: 512\r\nOK\r\n", b"AT+CIND=?\r"),
             (b'\r\n+CIND: ("call",(0,1)),("callsetup",(0-3))\r\nOK\r\n', b"AT+CIND?\r"),
             (b"\r\n+CIND: 0,0\r\nOK\r\n", b"AT+CMER=3,0,0,1\r"),
             (b"\r\nOK\r\n", b"AT+CLIP=1\r"),
+            (b"\r\nOK\r\n", b"AT+VGS=15\r"),
             (b"\r\nOK\r\n", None),
         ]:
             self.l2cap(0x41, bytes(rfcomm.RFCOMM_Frame.uih(0, 14, response)))

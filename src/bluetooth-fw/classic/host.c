@@ -130,6 +130,7 @@ void bt_classic_init(BtClassicHost *s, void (*send)(const uint8_t *, size_t, voi
     .context = context,
     .command_credit = 1,
     .local_name = "Pebble",
+    .status.speaker_gain = 15,
     .handle = BT_CLASSIC_NO_HANDLE,
     .sco_handle = BT_CLASSIC_NO_HANDLE
   };
@@ -146,6 +147,7 @@ void bt_classic_init_managed(BtClassicHost *s, void (*send)(const uint8_t *, siz
     .context = context,
     .command_credit = 1,
     .local_name = "Pebble",
+    .status.speaker_gain = 15,
     .startup = 2,
     .acl_mtu = acl_mtu > BT_CLASSIC_MTU + 4 ? BT_CLASSIC_MTU + 4 : acl_mtu,
     .handle = BT_CLASSIC_NO_HANDLE,

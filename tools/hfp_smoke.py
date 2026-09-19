@@ -33,6 +33,11 @@ def main():
         "--scenario", choices=("all", "incoming", "reject", "outgoing"), default="all"
     )
     parser.add_argument(
+        "--controls",
+        action="store_true",
+        help="Exercise call volume and microphone mute",
+    )
+    parser.add_argument(
         "--companion-ping",
         action="store_true",
         help="Send Pebble protocol pings during calls; verify reception in companion logs",
@@ -166,6 +171,32 @@ def main():
                     )
                     initial_audio = command("bt audio probe")
                     before_audio = audio_counters(initial_audio)
+                    if args.controls:
+                        original_gain = status()["gain"]
+                        try:
+                            for gain in (7, 3, original_gain):
+                                command(f"bt hfp volume {gain}")
+                                wait_for(
+                                    lambda state, gain=gain: (
+                                        state.get("gain") == gain
+                                        and not state.get("busy")
+                                    ),
+                                    f"speaker gain {gain}",
+                                )
+                            command("bt hfp mute 1")
+                            wait_for(
+                                lambda state: state.get("mic_muted"), "microphone mute"
+                            )
+                            time.sleep(2)
+                            command("bt hfp mute 0")
+                            wait_for(
+                                lambda state: not state.get("mic_muted"),
+                                "microphone unmute",
+                            )
+                            print("Volume and local mute controls passed", flush=True)
+                        finally:
+                            command(f"bt hfp volume {original_gain}")
+                            command("bt hfp mute 0")
                     started = time.monotonic()
                     deadline = started + args.duration
                     next_ping = 0

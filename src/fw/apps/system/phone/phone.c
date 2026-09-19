@@ -23,6 +23,14 @@
 #define PAGE_TOP       38
 #define ACCENT         GColorCobaltBlue
 
+enum {
+  CallEnd,
+  CallMute,
+  CallQuieter,
+  CallLouder,
+  CallControlCount
+};
+
 static const char s_digits[] = "123456789*0#+";
 
 typedef struct {
@@ -189,27 +197,49 @@ static void draw_contacts(AppData *d, GContext *ctx) {
   graphics_fill_rect(ctx, &header);
 }
 
+static GRect call_control_rect(AppData *d, unsigned control) {
+  GSize size = d->canvas.bounds.size;
+  if (control == CallEnd)
+    return GRect(15, size.h - 50, size.w - 30, 40);
+  if (control == CallMute)
+    return GRect(15, size.h - 96, size.w - 30, 40);
+  return GRect(control == CallQuieter ? 10 : size.w - 50, size.h - 142, 40, 36);
+}
+
 static void draw_call(AppData *d, GContext *ctx) {
   GSize size = d->canvas.bounds.size;
   const char *title = d->status.call       ? "Call in progress"
                       : d->status.incoming ? "Incoming call"
                                            : "Calling...";
-  text(ctx, title, FONT_KEY_GOTHIC_24_BOLD, GRect(8, 40, size.w - 16, 40), GColorBlack,
+  text(ctx, title, FONT_KEY_GOTHIC_24_BOLD, GRect(8, 0, size.w - 16, 32), GColorBlack,
        GTextAlignmentCenter);
-  const char *caller = d->dialed_here ? d->number : "On your phone";
-  if (d->dialed_here) {
+  const char *number = d->dialed_here ? d->number : d->status.caller_number;
+  const char *caller = *number ? number : "On your phone";
+  if (*number) {
     for (unsigned i = 0; i < d->contact_count; ++i) {
-      if (!strcmp(d->number, d->contacts[i].number)) {
+      if (!strcmp(number, d->contacts[i].number)) {
         caller = d->contacts[i].name;
         break;
       }
     }
   }
-  text(ctx, caller, FONT_KEY_GOTHIC_24_BOLD, GRect(8, 86, size.w - 16, 62), GColorDarkGray,
+  text(ctx, caller, FONT_KEY_GOTHIC_24_BOLD, GRect(8, 32, size.w - 16, 52), GColorDarkGray,
        GTextAlignmentCenter);
-  GRect end = GRect(15, size.h - 56, size.w - 30, 42);
-  rounded(ctx, end, GColorRed, 10);
-  text(ctx, "End call", FONT_KEY_GOTHIC_24_BOLD, end, GColorWhite, GTextAlignmentCenter);
+  char volume[24];
+  snprintf(volume, sizeof(volume), "Volume %u%%", (d->status.speaker_gain * 100 + 7) / 15);
+  text(ctx, volume, FONT_KEY_GOTHIC_18, GRect(48, size.h - 136, size.w - 96, 26), GColorDarkGray,
+       GTextAlignmentCenter);
+  const char *labels[] = {"End call", d->status.mic_muted ? "Unmute" : "Mute", "-", "+"};
+  for (unsigned i = 0; i < CallControlCount; ++i) {
+    GRect rect = call_control_rect(d, i);
+    GColor color = i == CallEnd                           ? GColorRed
+                   : i == CallMute && d->status.mic_muted ? ACCENT
+                                                          : GColorLightGray;
+    rounded(ctx, rect, color, 8);
+    text(ctx, labels[i], FONT_KEY_GOTHIC_24_BOLD, rect,
+         i == CallEnd || (i == CallMute && d->status.mic_muted) ? GColorWhite : GColorBlack,
+         GTextAlignmentCenter);
+  }
 }
 
 static void draw(Layer *layer, GContext *ctx) {
@@ -248,8 +278,14 @@ static void activate(AppData *d, unsigned target) {
     return;
   d->notice = NULL;
   if (call_in_progress(&d->status)) {
-    if (!d->status.busy)
+    if (target == CallEnd && !d->status.busy)
       hfp_hangup();
+    else if (target == CallMute)
+      hfp_set_mic_muted(!d->status.mic_muted);
+    else if (target == CallQuieter && d->status.speaker_gain > 0)
+      hfp_set_speaker_gain(d->status.speaker_gain - 1);
+    else if (target == CallLouder && d->status.speaker_gain < 15)
+      hfp_set_speaker_gain(d->status.speaker_gain + 1);
   } else if (d->page) {
     if (target < d->contact_count)
       dial(d, d->contacts[target].number);
@@ -278,6 +314,10 @@ static void change_page(AppData *d, unsigned page) {
 }
 
 static void move_focus(AppData *d, int direction) {
+  if (call_in_progress(&d->status)) {
+    activate(d, direction < 0 ? CallLouder : CallQuieter);
+    return;
+  }
   if (!d->status.ready || call_in_progress(&d->status))
     return;
   if (d->page && d->contact_count) {
@@ -301,11 +341,16 @@ static void down(ClickRecognizerRef recognizer, void *context) {
 }
 static void choose(ClickRecognizerRef recognizer, void *context) {
   AppData *d = context;
-  activate(d, d->page ? d->focused_contact : d->focused_key);
+  activate(d, call_in_progress(&d->status) ? CallEnd
+              : d->page                    ? d->focused_contact
+                                           : d->focused_key);
 }
 static void switch_page(ClickRecognizerRef recognizer, void *context) {
   AppData *d = context;
-  change_page(d, !d->page);
+  if (call_in_progress(&d->status))
+    activate(d, CallMute);
+  else
+    change_page(d, !d->page);
 }
 static void clicks(void *context) {
   window_single_repeating_click_subscribe(BUTTON_ID_UP, 180, up);
@@ -316,8 +361,12 @@ static void clicks(void *context) {
 
 static int target_at(AppData *d, GPoint point) {
   if (call_in_progress(&d->status)) {
-    GSize size = d->canvas.bounds.size;
-    return grect_contains_point(&GRect(15, size.h - 56, size.w - 30, 42), &point) ? 0 : -1;
+    for (unsigned i = 0; i < CallControlCount; ++i) {
+      GRect rect = call_control_rect(d, i);
+      if (grect_contains_point(&rect, &point))
+        return i;
+    }
+    return -1;
   }
   if (point.y < PAGE_TOP)
     return -1;

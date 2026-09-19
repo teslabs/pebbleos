@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "service.h"
+#include "../hci_bridge/local_audio.h"
 
 #include <console/prompt.h>
 #include <kernel/events.h>
@@ -10,14 +11,25 @@
 #include <pbl/services/phone_call_contacts.h>
 #include <pbl/services/phone_call_util.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static BtClassicHost s_host;
 static PBL_MUTEX_DEFINE(s_lock);
 static HfpStatus s_status;
+static bool s_mic_muted;
+
+enum {
+  RequestDial,
+  RequestAnswer,
+  RequestHangup,
+  RequestSpeakerGain,
+  RequestMicMute
+};
 
 typedef struct {
   unsigned action;
+  unsigned value;
   char number[BT_CLASSIC_NUMBER_SIZE];
 } Request;
 static PBL_MSGQ_DEFINE(s_requests, sizeof(Request), 4);
@@ -75,15 +87,37 @@ static void publish_call_state(void) {
 void hfp_service_poll(uint32_t now) {
   Request request;
   while (pbl_msgq_get(&s_requests, &request, PBL_NO_WAIT) == 0) {
-    bool accepted = request.action == 0   ? bt_classic_dial(&s_host, request.number)
-                    : request.action == 1 ? bt_classic_answer(&s_host)
-                                          : bt_classic_hangup(&s_host);
+    bool accepted = false;
+    switch (request.action) {
+      case RequestDial:
+        accepted = bt_classic_dial(&s_host, request.number);
+        break;
+      case RequestAnswer:
+        accepted = bt_classic_answer(&s_host);
+        break;
+      case RequestHangup:
+        accepted = bt_classic_hangup(&s_host);
+        break;
+      case RequestSpeakerGain:
+        accepted = bt_classic_set_speaker_gain(&s_host, request.value);
+        break;
+      case RequestMicMute:
+        accepted = s_host.status.ready && (s_host.status.call || s_host.status.call_setup ||
+                                           s_host.status.incoming || s_host.status.audio);
+        if (accepted)
+          s_mic_muted = request.value;
+        break;
+    }
     if (!accepted) {
       ++s_host.status.errors;
       snprintf(s_host.status.detail, sizeof(s_host.status.detail), "Call action unavailable");
     }
   }
   bt_classic_poll(&s_host, now);
+  if (!s_host.status.ready || !(s_host.status.call || s_host.status.call_setup ||
+                                s_host.status.incoming || s_host.status.audio))
+    s_mic_muted = false;
+  hci_local_audio_set_controls((s_host.status.speaker_gain * 100 + 7) / 15, s_mic_muted);
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
   const BtClassicStatus *status = &s_host.status;
   s_status = (HfpStatus){
@@ -96,8 +130,11 @@ void hfp_service_poll(uint32_t now) {
     .busy = status->busy,
     .call_setup = status->call_setup,
     .errors = status->errors,
+    .speaker_gain = status->speaker_gain,
+    .mic_muted = s_mic_muted,
   };
   snprintf(s_status.detail, sizeof(s_status.detail), "%s", status->detail);
+  snprintf(s_status.caller_number, sizeof(s_status.caller_number), "%s", status->caller_number);
   pbl_mutex_unlock(&s_lock);
   publish_call_state();
 }
@@ -107,8 +144,8 @@ void hfp_get_status(HfpStatus *status) {
   *status = s_status;
   pbl_mutex_unlock(&s_lock);
 }
-static bool request(unsigned action, const char *number) {
-  Request r = {.action = action};
+static bool request(unsigned action, const char *number, unsigned value) {
+  Request r = {.action = action, .value = value};
   if (number) {
     if (!bt_classic_valid_number(number))
       return false;
@@ -120,13 +157,20 @@ static bool request(unsigned action, const char *number) {
   return true;
 }
 bool hfp_dial(const char *number) {
-  return request(0, number);
+  return request(RequestDial, number, 0);
 }
 bool hfp_answer(void) {
-  return request(1, NULL);
+  return request(RequestAnswer, NULL, 0);
 }
 bool hfp_hangup(void) {
-  return request(2, NULL);
+  return request(RequestHangup, NULL, 0);
+}
+
+bool hfp_set_speaker_gain(unsigned gain) {
+  return gain <= 15 && request(RequestSpeakerGain, NULL, gain);
+}
+bool hfp_set_mic_muted(bool muted) {
+  return request(RequestMicMute, NULL, muted);
 }
 
 #ifdef CONFIG_PROMPT
@@ -134,12 +178,26 @@ void command_bt_hfp_status(void) {
   HfpStatus status;
   hfp_get_status(&status);
   char line[192];
-  snprintf(line, sizeof(line),
-           "HFP available=%u connected=%u ready=%u audio=%u call=%u setup=%u busy=%u errors=%u",
-           status.available, status.connected, status.ready, status.audio, status.call,
-           status.call_setup, status.busy, status.errors);
+  snprintf(
+      line, sizeof(line),
+      "HFP available=%u connected=%u ready=%u audio=%u call=%u setup=%u busy=%u errors=%u gain=%u mic_muted=%u",
+      status.available, status.connected, status.ready, status.audio, status.call,
+      status.call_setup, status.busy, status.errors, status.speaker_gain, status.mic_muted);
   prompt_send_response(line);
   prompt_send_response(status.detail);
+}
+void command_bt_hfp_volume(const char *value) {
+  char *end;
+  unsigned long gain = strtoul(value, &end, 10);
+  prompt_send_response(*value && !*end && gain <= 15 && hfp_set_speaker_gain(gain)
+                           ? "Volume queued"
+                           : "Expected gain 0..15 or queue full");
+}
+void command_bt_hfp_mute(const char *value) {
+  prompt_send_response((!strcmp(value, "0") || !strcmp(value, "1")) &&
+                               hfp_set_mic_muted(*value == '1')
+                           ? "Mute queued"
+                           : "Expected 0 or 1, or queue full");
 }
 void command_bt_hfp_contact(const char *name, const char *number) {
   char decoded[sizeof(((PhoneContact *)0)->name)];

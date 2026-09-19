@@ -264,6 +264,8 @@ extern void command_bt_audio_dump(void);
 extern void command_bt_audio_gain(const char *);
 #ifdef CONFIG_BT_HFP
 extern void command_bt_hfp_status(void);
+extern void command_bt_hfp_volume(const char *);
+extern void command_bt_hfp_mute(const char *);
 extern void command_bt_hfp_contact(const char *, const char *);
 extern void command_bt_hfp_contacts(void);
 extern void command_bt_hfp_dial(const char *);
@@ -509,6 +511,8 @@ static const Command s_prompt_commands[] = {
   {"bt audio gain", command_bt_audio_gain, 1},
 #ifdef CONFIG_BT_HFP
   {"bt hfp status", command_bt_hfp_status, 0},
+  {"bt hfp volume", command_bt_hfp_volume, 1},
+  {"bt hfp mute", command_bt_hfp_mute, 1},
   {"bt hfp contacts", command_bt_hfp_contacts, 0},
   {"bt hfp contact", command_bt_hfp_contact, 2},
   {"bt hfp dial", command_bt_hfp_dial, 1},

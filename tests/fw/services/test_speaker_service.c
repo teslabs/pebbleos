@@ -43,6 +43,7 @@ static int s_stop_count;
 static uint32_t s_samples_written;
 static uint32_t s_nonzero_samples;
 static uint32_t s_driver_space;
+static int s_volume;
 static int16_t s_output[4096];
 static unsigned s_output_count;
 
@@ -70,6 +71,7 @@ uint32_t audio_write(AudioDevice *device, void *buf, uint32_t size) {
 }
 
 void audio_set_volume(AudioDevice *device, int volume) {
+  s_volume = volume;
 }
 
 void audio_stop(AudioDevice *device) {
@@ -290,4 +292,15 @@ void test_speaker_service__upsampling_close_flushes_the_last_sample_and_filter_t
   cl_assert_equal_m(s_output, expected, sizeof(expected));
   cl_assert_equal_i(s_samples_written, sizeof(expected) / sizeof(expected[0]) + DRAIN_SAMPLES);
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
+}
+
+void test_speaker_service__volume_change_cannot_affect_a_preempting_stream(void) {
+  cl_assert(speaker_service_stream_open_owned(SpeakerPriorityNotification, 100,
+                                              SpeakerPcmFormat_8kHz_16bit, PebbleTask_BTHCI));
+  speaker_service_set_volume_owned(PebbleTask_BTHCI, 40);
+  cl_assert_equal_i(s_volume, 40);
+  cl_assert(speaker_service_stream_open_owned(SpeakerPriorityCritical, 80,
+                                              SpeakerPcmFormat_8kHz_16bit, PebbleTask_KernelMain));
+  speaker_service_set_volume_owned(PebbleTask_BTHCI, 20);
+  cl_assert_equal_i(s_volume, 80);
 }

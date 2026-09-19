@@ -809,7 +809,15 @@ void speaker_service_stop(void) {
 }
 
 void speaker_service_set_volume(uint8_t vol) {
+  speaker_service_set_volume_owned(PebbleTask_Unknown, vol);
+}
+
+void speaker_service_set_volume_owned(PebbleTask owner, uint8_t vol) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  if (owner != PebbleTask_Unknown && owner != s_state.owner_task) {
+    pbl_mutex_unlock(&s_lock);
+    return;
+  }
   s_state.volume = vol;
   if (s_state.state != SpeakerStateIdle) {
     const uint8_t effective_vol = prv_effective_volume(vol);

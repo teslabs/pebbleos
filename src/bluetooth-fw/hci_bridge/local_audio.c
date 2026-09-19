@@ -50,6 +50,8 @@ static void prv_schedule_sync(void) {
 static VoiceResampler s_resampler;
 static VoicePlayback s_playback;
 static unsigned s_playback_gain = 1;
+static unsigned s_speaker_volume = 100;
+static bool s_mic_muted;
 static int16_t s_mic_buffer[120];
 static MicPacket s_partial;
 static uint32_t s_rx_bytes, s_played_bytes, s_tx_packets, s_capture_drops, s_start_failures;
@@ -82,6 +84,8 @@ static void prv_capture(int16_t *samples, size_t count, void *context) {
       continue;
     }
     ++s_produced_samples;
+    if (s_mic_muted)
+      sample = 0;
     s_partial.data[s_partial.length++] = (uint16_t)sample & 0xff;
     s_partial.data[s_partial.length++] = (uint16_t)sample >> 8;
     if (s_partial.length == s_mtu) {
@@ -116,6 +120,7 @@ static void prv_sync(void *context) {
   s_running = false;
   uint32_t generation = s_generation;
   bool start = s_handle != NO_HANDLE && s_flow_enabled && s_limit && s_mtu >= 2;
+  unsigned volume = s_speaker_volume;
   pbl_msgq_purge(&s_capture);
   s_resampler = (VoiceResampler){0};
   s_playback = (VoicePlayback){.gain = s_playback_gain};
@@ -135,7 +140,7 @@ static void prv_sync(void *context) {
     return;
   }
   bool opened = speaker_service_stream_open_realtime_owned(
-      SpeakerPriorityNotification, 100, SpeakerPcmFormat_8kHz_16bit, PebbleTask_BTHCI);
+      SpeakerPriorityNotification, volume, SpeakerPcmFormat_8kHz_16bit, PebbleTask_BTHCI);
   if (opened) {
     // One 32 ms refill of headroom absorbs the 3.75 ms SCO packet cadence.
     static const uint8_t silence[512];
@@ -148,6 +153,8 @@ static void prv_sync(void *context) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
   bool ready = opened && s_mic_owned && generation == s_generation && s_handle != NO_HANDLE;
   s_running = ready;
+  if (ready)
+    speaker_service_set_volume_owned(PebbleTask_BTHCI, s_speaker_volume);
   s_start_failures += !ready;
   pbl_mutex_unlock(&s_lock);
   if (!ready) {
@@ -165,6 +172,24 @@ static void prv_retire(void) {
   s_credits = 0;
   ++s_generation;
   pbl_msgq_purge(&s_capture);
+}
+
+void hci_local_audio_set_controls(unsigned speaker_volume, bool mic_muted) {
+  if (speaker_volume > 100)
+    return;
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  if (s_speaker_volume != speaker_volume) {
+    s_speaker_volume = speaker_volume;
+    if (s_running)
+      speaker_service_set_volume_owned(PebbleTask_BTHCI, speaker_volume);
+  }
+  if (s_mic_muted != mic_muted) {
+    s_mic_muted = mic_muted;
+    pbl_msgq_purge(&s_capture);
+    s_partial.length = 0;
+    s_resampler = (VoiceResampler){0};
+  }
+  pbl_mutex_unlock(&s_lock);
 }
 
 void hci_local_audio_stop(void) {
@@ -292,7 +317,10 @@ size_t hci_local_audio_transmit(uint8_t packet[64]) {
     packet[1] = s_handle & 0xff;
     packet[2] = s_handle >> 8;
     packet[3] = captured.length;
-    memcpy(packet + 4, captured.data, captured.length);
+    if (s_mic_muted)
+      memset(packet + 4, 0, captured.length);
+    else
+      memcpy(packet + 4, captured.data, captured.length);
     --s_credits;
     ++s_tx_packets;
     length = captured.length + 4;
@@ -319,6 +347,8 @@ void hci_local_audio_report(void) {
            (unsigned long)s_completed_samples, (unsigned long)s_render_samples,
            (unsigned)pbl_msgq_num_used(&s_capture), s_peak_capture_queue);
   unsigned peak = s_rx_peak;
+  unsigned call_volume = s_speaker_volume;
+  bool mic_muted = s_mic_muted;
   unsigned hardware_error = s_hw_error;
   VoicePlayback playback = s_playback;
   unsigned sample_length = s_sample_length;
@@ -328,9 +358,10 @@ void hci_local_audio_report(void) {
   pbl_mutex_unlock(&s_lock);
   prompt_send_response(buffer);
   prompt_send_response(capture);
-  snprintf(buffer, sizeof(buffer), "local speaker peak=%u muted=%u volume=%u hardware_error=%u",
+  snprintf(buffer, sizeof(buffer),
+           "local speaker peak=%u muted=%u volume=%u hardware_error=%u call_volume=%u mic_muted=%u",
            peak, speaker_service_is_muted(), alerts_preferences_get_speaker_volume(),
-           hardware_error);
+           hardware_error, call_volume, mic_muted);
   prompt_send_response(buffer);
   snprintf(buffer, sizeof(buffer), "local playback gain=%u concealed=%lu clipped=%lu",
            playback.gain, (unsigned long)playback.concealed, (unsigned long)playback.clipped);

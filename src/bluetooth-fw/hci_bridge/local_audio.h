@@ -15,3 +15,6 @@ void hci_local_audio_report(void);
 
 // Retire the audio stream even if the controller cannot report disconnection.
 void hci_local_audio_stop(void);
+
+// Per-call controls; speaker volume is additionally capped by watch preferences.
+void hci_local_audio_set_controls(unsigned speaker_volume, bool mic_muted);

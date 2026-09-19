@@ -3,6 +3,10 @@
 
 #include "phone_ui.h"
 #include "phone_formatting.h"
+#ifdef CONFIG_APP_PHONE
+#include "process_management/app_manager.h"
+#include "shell/system_app_ids.auto.h"
+#endif
 
 #include "applib/fonts/fonts.h"
 #include "pbl/util/math.h"
@@ -168,6 +172,7 @@ typedef struct {
   RegularTimerInfo ring_timer;
   time_t ring_start_time;
   bool show_ongoing_call_ui;
+  PhoneCallSource source;
 
   // Incoming call reply data
   TimelineItem *call_response_item;
@@ -695,6 +700,16 @@ static void prv_pop_click_handler(ClickRecognizerRef recognizer, void *unused) {
   prv_window_pop();
 }
 
+#ifdef CONFIG_APP_PHONE
+static void prv_call_controls_click_handler(ClickRecognizerRef recognizer, void *unused) {
+  prv_window_pop();
+  app_manager_put_launch_app_event(&(AppLaunchEventConfig){
+    .id = APP_ID_PHONE,
+    .common.reason = APP_LAUNCH_USER,
+  });
+}
+#endif
+
 //! Action bar animation
 static void prv_hide_action_bar(void) {
   if (s_phone_ui_data->hid_action_bar) {
@@ -865,6 +880,12 @@ static void prv_action_bar_setup(PhoneCallActions actions) {
       down_icon = RESOURCE_ID_ACTION_BAR_ICON_X;
     }
 
+#ifdef CONFIG_APP_PHONE
+    if (actions == PhoneCallActions_Decline && s_phone_ui_data->source == PhoneCallSource_HFP) {
+      s_phone_ui_data->select_action = prv_call_controls_click_handler;
+      select_icon = RESOURCE_ID_ACTION_BAR_ICON_MORE;
+    }
+#endif
     prv_set_action_bar_icon(BUTTON_ID_UP, up_icon, &s_phone_ui_data->up_bitmap);
     prv_set_action_bar_icon(BUTTON_ID_SELECT, select_icon, &s_phone_ui_data->select_bitmap);
     prv_set_action_bar_icon(BUTTON_ID_DOWN, down_icon, &s_phone_ui_data->down_bitmap);
@@ -1072,6 +1093,7 @@ void phone_ui_handle_incoming_call(PebblePhoneCaller *caller, bool show_ongoing_
 
   prv_phone_ui_init();
   s_phone_ui_data->show_ongoing_call_ui = show_ongoing_call_ui;
+  s_phone_ui_data->source = source;
 
   prv_unfold_icon_resource(TIMELINE_RESOURCE_INCOMING_PHONE_CALL);
 

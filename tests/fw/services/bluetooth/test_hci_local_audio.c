@@ -23,7 +23,7 @@ extern void command_bt_audio_speaker_test(void);
 extern void command_bt_audio_pcm_test(void);
 extern void command_bt_audio_capture(void);
 extern void command_bt_audio_dump(void);
-static unsigned s_dump_bytes;
+static unsigned s_dump_bytes, s_volume;
 static char s_capture_report[160];
 
 static NewTimerCallback s_timer_cb;
@@ -101,6 +101,10 @@ uint32_t speaker_service_stream_write_owned(PebbleTask owner, const void *data, 
   s_speaker_bytes += size;
   return size;
 }
+void speaker_service_set_volume_owned(PebbleTask owner, uint8_t volume) {
+  cl_assert_equal_i(owner, PebbleTask_BTHCI);
+  s_volume = volume;
+}
 void speaker_service_stop_for_task(PebbleTask task) {
   s_speaker_open = false;
 }
@@ -122,6 +126,7 @@ void test_hci_local_audio__initialize(void) {
   fake_msgq_reset();
   command_bt_audio_dump();
   s_dump_bytes = 0;
+  hci_local_audio_set_controls(100, false);
   s_mic_busy = false;
   s_capture = NULL;
   s_starts = s_stops = s_speaker_bytes = s_tones = s_stream_closes = 0;
@@ -458,4 +463,26 @@ void test_hci_local_audio__capture_counters_measure_only_the_current_call(void) 
   hci_local_audio_report();
   cl_assert_equal_s(s_capture_report,
                     "local capture raw=0 produced=0 completed=0 rendered=0 queued=0 peak_queue=0");
+}
+
+void test_hci_local_audio__mute_discards_queued_capture_and_resumes_cleanly(void) {
+  prv_connect(true);
+  prv_capture_frame();
+  hci_local_audio_set_controls(40, true);
+  cl_assert_equal_i(s_volume, 40);
+  uint8_t packet[64];
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 0);
+  prv_capture_frame();
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  const uint8_t silence[60] = {0};
+  cl_assert_equal_m(packet + 4, silence, sizeof(silence));
+  hci_local_audio_set_controls(60, false);
+  cl_assert_equal_i(s_volume, 60);
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 0);
+  prv_capture_frame();
+  hci_local_audio_transmit(packet);
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  cl_assert_equal_i((int16_t)(packet[4] | packet[5] << 8), 800);
+  hci_local_audio_set_controls(101, false);
+  cl_assert_equal_i(s_volume, 60);
 }

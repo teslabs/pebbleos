@@ -54,12 +54,13 @@ static void at_command(BtClassicHost *s, const char *text) {
 
 static void slc_next(BtClassicHost *s) {
   static const char *const commands[] = {
-    "AT+BRSF=4\r", "AT+CIND=?\r", "AT+CIND?\r", "AT+CMER=3,0,0,1\r", "AT+CLIP=1\r"
+    "AT+BRSF=20\r", "AT+CIND=?\r", "AT+CIND?\r", "AT+CMER=3,0,0,1\r", "AT+CLIP=1\r"
   };
   if (s->slc_step < sizeof(commands) / sizeof(commands[0]))
     at_command(s, commands[s->slc_step++]);
   else {
     s->status.ready = true;
+    s->speaker_gain_dirty = true;
     snprintf(s->status.detail, sizeof(s->status.detail), "Ready to call");
   }
 }
@@ -166,6 +167,25 @@ static void caller_id(BtClassicHost *s, const char *text) {
   memcpy(s->status.caller_number, number, sizeof(number));
 }
 
+static void speaker_gain(BtClassicHost *s, const char *text) {
+  while (*text == ' ')
+    ++text;
+  if (*text < '0' || *text > '9')
+    return;
+  unsigned gain = 0;
+  do {
+    gain = gain * 10 + *text++ - '0';
+    if (gain > 15)
+      return;
+  } while (*text >= '0' && *text <= '9');
+  while (*text == ' ')
+    ++text;
+  if (*text)
+    return;
+  s->status.speaker_gain = gain;
+  s->speaker_gain_dirty = false;
+}
+
 static void line(BtClassicHost *s, const char *text) {
   if (!strcmp(text, "OK")) {
     if (!s->at_pending || s->at_tx_length)
@@ -187,6 +207,8 @@ static void line(BtClassicHost *s, const char *text) {
     s->status.incoming = true;
   else if (!strncmp(text, "+CLIP:", 6)) {
     caller_id(s, text + 6);
+  } else if (!strncmp(text, "+VGS:", 5)) {
+    speaker_gain(s, text + 5);
   } else if (!strncmp(text, "+CIEV:", 6)) {
     unsigned index, value;
     if (sscanf(text + 6, " %u , %u", &index, &value) == 2)
@@ -236,6 +258,7 @@ void bt_classic_profile_reset(BtClassicHost *s) {
   s->status.caller_number[0] = 0;
   s->at_tx_length = s->at_line_length = 0;
   s->indicator_call = s->indicator_setup = 0;
+  s->speaker_gain_dirty = false;
 }
 
 void bt_classic_profile_poll(BtClassicHost *s) {
@@ -248,6 +271,12 @@ void bt_classic_profile_poll(BtClassicHost *s) {
     // A late response cannot be associated safely with another AT command.
     bt_classic_disconnect_peer(s);
     return;
+  }
+  if (s->status.ready && !s->at_pending && s->speaker_gain_dirty) {
+    char command[16];
+    snprintf(command, sizeof(command), "AT+VGS=%u\r", s->status.speaker_gain);
+    at_command(s, command);
+    s->speaker_gain_dirty = false;
   }
   if (s->at_tx_length && (!s->credit_mode || s->rfcomm_credits)) {
     unsigned length = s->at_tx_length;
@@ -467,5 +496,15 @@ bool bt_classic_hangup(BtClassicHost *s) {
       !(s->status.call || s->status.call_setup || s->status.incoming))
     return false;
   at_command(s, "AT+CHUP\r");
+  return true;
+}
+
+bool bt_classic_set_speaker_gain(BtClassicHost *s, unsigned gain) {
+  if (!s->status.ready || gain > 15)
+    return false;
+  if (gain != s->status.speaker_gain) {
+    s->status.speaker_gain = gain;
+    s->speaker_gain_dirty = true;
+  }
   return true;
 }

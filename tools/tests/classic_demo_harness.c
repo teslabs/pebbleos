@@ -110,3 +110,10 @@ unsigned demo_connecting(void) {
 void demo_set_local_name(const char *name) {
   bt_classic_set_local_name(&s_host, name);
 }
+
+int demo_speaker_gain(void) {
+  return s_host.status.speaker_gain;
+}
+int demo_set_speaker_gain(unsigned gain) {
+  return bt_classic_set_speaker_gain(&s_host, gain);
+}

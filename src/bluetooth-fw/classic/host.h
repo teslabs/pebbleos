@@ -13,6 +13,7 @@
 typedef struct {
   bool available, connected, ready, audio, call, incoming, busy;
   unsigned call_setup, errors;
+  uint8_t speaker_gain;
   char detail[64];
   char caller_number[BT_CLASSIC_NUMBER_SIZE];
 } BtClassicStatus;
@@ -84,6 +85,7 @@ typedef struct {
   char at_line[512];
   unsigned at_line_length;
   uint8_t indicator_call, indicator_setup;
+  bool speaker_gain_dirty;
 } BtClassicHost;
 
 void bt_classic_init(BtClassicHost *host, void (*send)(const uint8_t *, size_t, void *),
@@ -93,6 +95,7 @@ void bt_classic_receive(BtClassicHost *host, const uint8_t *packet, size_t lengt
 bool bt_classic_dial(BtClassicHost *host, const char *number);
 bool bt_classic_answer(BtClassicHost *host);
 bool bt_classic_hangup(BtClassicHost *host);
+bool bt_classic_set_speaker_gain(BtClassicHost *host, unsigned gain);
 bool bt_classic_valid_number(const char *number);
 
 // The shared host owns reset, event masks and ACL credits. Calls run on its task.

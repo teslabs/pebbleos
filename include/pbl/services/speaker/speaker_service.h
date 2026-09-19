@@ -112,6 +112,9 @@ void speaker_service_stop(void);
 //! @param vol Volume 0-100
 void speaker_service_set_volume(uint8_t vol);
 
+//! Change volume only if the playback still belongs to this task.
+void speaker_service_set_volume_owned(PebbleTask owner, uint8_t vol);
+
 //! Get current speaker state.
 SpeakerState speaker_service_get_state(void);
 
