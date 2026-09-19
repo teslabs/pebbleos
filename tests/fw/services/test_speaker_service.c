@@ -166,3 +166,20 @@ void test_speaker_service__owned_stream_cannot_write_or_stop_a_preempting_stream
       speaker_service_stream_write_owned(PebbleTask_KernelMain, samples, sizeof(samples)),
       sizeof(samples));
 }
+
+void test_speaker_service__refill_completes_in_driver_callback(void) {
+  cl_assert(speaker_service_stream_open(SpeakerPriorityApp, 30, SpeakerPcmFormat_16kHz_16bit));
+  int16_t samples[512];
+  for (unsigned i = 0; i < 512; ++i) {
+    samples[i] = 100;
+  }
+  cl_assert_equal_i(speaker_service_stream_write(samples, sizeof(samples)), sizeof(samples));
+  uint32_t free_size = sizeof(samples) - 2;
+  s_trans_cb(&free_size);
+  cl_assert_equal_i(s_samples_written, 0);
+  free_size = sizeof(samples);
+  s_trans_cb(&free_size);
+  cl_assert_equal_i(s_samples_written, 512);
+  cl_assert_equal_i(s_nonzero_samples, 512);
+  cl_assert_equal_i(list_count(s_system_task_callback_head), 0);
+}

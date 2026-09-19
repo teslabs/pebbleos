@@ -404,6 +404,7 @@ void audec_stop(AudioDevice *audio_device) {
   prv_bf0_disable_pll(state);
 
   HAL_NVIC_DisableIRQ(audio_device->audec_dma_irq);
+  state->trans_cb = NULL;
   HAL_AUDCODEC_DMAStop(haudcodec, HAL_AUDCODEC_DAC_CH0);
   haudcodec->channel_ref &= ~(1 << HAL_AUDCODEC_DAC_CH0);
   haudcodec->State[HAL_AUDCODEC_DAC_CH0] = HAL_AUDCODEC_STATE_READY;
@@ -425,9 +426,11 @@ void audec_dac0_dma_irq_handler(AudioDevice *audio_device) {
 
 static void prv_audio_trans_bg(void *data) {
   AudioDeviceState *state = (AudioDeviceState *)data;
+  if (state->trans_cb && state->circ_buffer_storage) {
+    uint32_t free_size = circular_buffer_get_write_space_remaining(&state->circ_buffer);
+    state->trans_cb(&free_size);
+  }
   state->callback_pending = false;
-  uint32_t free_size = circular_buffer_get_write_space_remaining(&state->circ_buffer);
-  state->trans_cb(&free_size);
 }
 
 static void prv_dma_request_processing(AudioDeviceState *state) {

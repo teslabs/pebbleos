@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 typedef const struct AudioDevice AudioDevice;
+//! Invoked on the system task; consumers may refill synchronously.
 typedef void (*AudioTransCB)(uint32_t *free_size);
 
 //! Optional board-level power hooks. Either callback may be NULL.
