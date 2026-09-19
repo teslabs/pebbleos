@@ -61,6 +61,7 @@ static void slc_next(BtClassicHost *s) {
   else {
     s->status.ready = true;
     s->speaker_gain_dirty = true;
+    s->speaker_gain_next = s->status.speaker_gain;
     snprintf(s->status.detail, sizeof(s->status.detail), "Ready to call");
   }
 }
@@ -183,7 +184,6 @@ static void speaker_gain(BtClassicHost *s, const char *text) {
   if (*text)
     return;
   s->status.speaker_gain = gain;
-  s->speaker_gain_dirty = false;
 }
 
 static void line(BtClassicHost *s, const char *text) {
@@ -253,6 +253,7 @@ void bt_classic_profile_reset(BtClassicHost *s) {
   s->rfcomm_initiator = false;
   s->at_discard = false;
   s->status.ready = s->status.busy = false;
+  s->status.audio_pending = false;
   s->status.call = s->status.incoming = false;
   s->status.call_setup = 0;
   s->status.caller_number[0] = 0;
@@ -273,6 +274,7 @@ void bt_classic_profile_poll(BtClassicHost *s) {
     return;
   }
   if (s->status.ready && !s->at_pending && s->speaker_gain_dirty) {
+    s->status.speaker_gain = s->speaker_gain_next;
     char command[16];
     snprintf(command, sizeof(command), "AT+VGS=%u\r", s->status.speaker_gain);
     at_command(s, command);
@@ -502,7 +504,8 @@ bool bt_classic_hangup(BtClassicHost *s) {
 bool bt_classic_set_speaker_gain(BtClassicHost *s, unsigned gain) {
   if (!s->status.ready || gain > 15)
     return false;
-  if (gain != s->status.speaker_gain) {
+  if (gain != s->status.speaker_gain || s->speaker_gain_dirty) {
+    s->speaker_gain_next = gain;
     s->status.speaker_gain = gain;
     s->speaker_gain_dirty = true;
   }

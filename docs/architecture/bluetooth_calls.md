@@ -927,6 +927,26 @@ received RMS from roughly 280 PCM units to 1–2 units while SCO stayed active.
 Acoustic echo and capture scheduling remain open.
 Use `--controls` with the smoke runner to repeat the watch-side control checks.
 
+The call screen can transfer audio to the phone and back without hanging up.
+The portable host releases only the synchronous link for **Use phone** and
+uses standard HCI Setup Synchronous Connection with CVSD S1 for **Use watch**.
+Transfers require an encrypted active call, have a deadline and preserve local
+mute and call gain. Failed setup permits retry; timeout retires the profile
+before reconnecting, and a setup completing after call end is released. Tests
+cover these paths and reject a synchronous completion for another peer.
+The `--transfer` smoke option checks both directions, watch audio teardown and
+retained controls before measuring the resumed stream. A one-minute Pixel
+outgoing-call repeat passed with both encrypted links and zero speaker DMA
+underruns. Android Telecom logs confirmed earpiece and Bluetooth routing.
+
+The initial combined transfer/control test caught a competing phone gain
+update overwriting a queued watch-side request. Queued local gain now has its
+own value and survives remote updates until it is sent; subsequent remote
+updates still apply normally. A regression covers that ordering. The subsequent
+combined incoming-call test passed transfer, gain and mute changes followed by
+one minute of audio at 100% global watch volume, with zero speaker DMA underruns
+or clipping and no controller/profile errors.
+
 Explicit `ble host reset` requests now use NimBLE's normal HCI reset and
 resynchronization path instead of rebooting the watch. The `resets` field in
 `bt dual status` counts host resets within the current watch boot. Two cycles

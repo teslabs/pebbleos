@@ -24,7 +24,8 @@ enum {
   RequestAnswer,
   RequestHangup,
   RequestSpeakerGain,
-  RequestMicMute
+  RequestMicMute,
+  RequestAudioTransfer
 };
 
 typedef struct {
@@ -101,6 +102,9 @@ void hfp_service_poll(uint32_t now) {
       case RequestSpeakerGain:
         accepted = bt_classic_set_speaker_gain(&s_host, request.value);
         break;
+      case RequestAudioTransfer:
+        accepted = bt_classic_transfer_audio(&s_host, request.value);
+        break;
       case RequestMicMute:
         accepted = s_host.status.ready && (s_host.status.call || s_host.status.call_setup ||
                                            s_host.status.incoming || s_host.status.audio);
@@ -132,6 +136,7 @@ void hfp_service_poll(uint32_t now) {
     .errors = status->errors,
     .speaker_gain = status->speaker_gain,
     .mic_muted = s_mic_muted,
+    .audio_pending = status->audio_pending,
   };
   snprintf(s_status.detail, sizeof(s_status.detail), "%s", status->detail);
   snprintf(s_status.caller_number, sizeof(s_status.caller_number), "%s", status->caller_number);
@@ -173,6 +178,10 @@ bool hfp_set_mic_muted(bool muted) {
   return request(RequestMicMute, NULL, muted);
 }
 
+bool hfp_transfer_audio(bool to_watch) {
+  return request(RequestAudioTransfer, NULL, to_watch);
+}
+
 #ifdef CONFIG_PROMPT
 void command_bt_hfp_status(void) {
   HfpStatus status;
@@ -180,11 +189,18 @@ void command_bt_hfp_status(void) {
   char line[192];
   snprintf(
       line, sizeof(line),
-      "HFP available=%u connected=%u ready=%u audio=%u call=%u setup=%u busy=%u errors=%u gain=%u mic_muted=%u",
+      "HFP available=%u connected=%u ready=%u audio=%u call=%u setup=%u busy=%u errors=%u gain=%u mic_muted=%u audio_pending=%u",
       status.available, status.connected, status.ready, status.audio, status.call,
-      status.call_setup, status.busy, status.errors, status.speaker_gain, status.mic_muted);
+      status.call_setup, status.busy, status.errors, status.speaker_gain, status.mic_muted,
+      status.audio_pending);
   prompt_send_response(line);
   prompt_send_response(status.detail);
+}
+void command_bt_hfp_audio(const char *destination) {
+  prompt_send_response((!strcmp(destination, "watch") || !strcmp(destination, "phone")) &&
+                               hfp_transfer_audio(!strcmp(destination, "watch"))
+                           ? "Audio transfer queued"
+                           : "Expected watch or phone, or queue full");
 }
 void command_bt_hfp_volume(const char *value) {
   char *end;

@@ -117,3 +117,10 @@ int demo_speaker_gain(void) {
 int demo_set_speaker_gain(unsigned gain) {
   return bt_classic_set_speaker_gain(&s_host, gain);
 }
+
+int demo_transfer_audio(int to_watch) {
+  return bt_classic_transfer_audio(&s_host, to_watch);
+}
+int demo_audio_state(void) {
+  return s_host.status.audio | (s_host.status.audio_pending << 1);
+}

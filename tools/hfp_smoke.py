@@ -33,6 +33,11 @@ def main():
         "--scenario", choices=("all", "incoming", "reject", "outgoing"), default="all"
     )
     parser.add_argument(
+        "--transfer",
+        action="store_true",
+        help="Transfer active audio to the phone and back",
+    )
+    parser.add_argument(
         "--controls",
         action="store_true",
         help="Exercise call volume and microphone mute",
@@ -169,6 +174,51 @@ def main():
                         lambda state: state.get("call") and state.get("audio"),
                         "active audio",
                     )
+                    if args.transfer:
+                        gain = status()["gain"]
+                        command("bt hfp mute 1")
+                        wait_for(
+                            lambda state: state.get("mic_muted"), "microphone mute"
+                        )
+                        command("bt hfp audio phone")
+                        wait_for(
+                            lambda state: (
+                                state.get("call")
+                                and not state.get("audio")
+                                and not state.get("audio_pending")
+                            ),
+                            "audio on phone",
+                        )
+                        time.sleep(1)
+                        if not status().get("call"):
+                            raise RuntimeError("Audio transfer ended the call")
+                        probe = command("bt audio probe")
+                        if not any(
+                            line.startswith("local audio active=0 ") for line in probe
+                        ):
+                            raise RuntimeError(
+                                "Watch capture did not stop after transfer"
+                            )
+                        command("bt hfp audio watch")
+                        wait_for(
+                            lambda state: (
+                                state.get("call")
+                                and state.get("audio")
+                                and not state.get("audio_pending")
+                            ),
+                            "audio back on watch",
+                        )
+                        state = status()
+                        if state.get("gain") != gain or not state.get("mic_muted"):
+                            raise RuntimeError(
+                                "Audio transfer lost volume or local mute state"
+                            )
+                        command("bt hfp mute 0")
+                        wait_for(
+                            lambda state: not state.get("mic_muted"),
+                            "microphone unmute",
+                        )
+                        print("Audio transfer in both directions passed", flush=True)
                     initial_audio = command("bt audio probe")
                     before_audio = audio_counters(initial_audio)
                     if args.controls:

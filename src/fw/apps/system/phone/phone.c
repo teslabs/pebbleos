@@ -28,6 +28,7 @@ enum {
   CallMute,
   CallQuieter,
   CallLouder,
+  CallTransfer,
   CallControlCount
 };
 
@@ -201,18 +202,18 @@ static GRect call_control_rect(AppData *d, unsigned control) {
   GSize size = d->canvas.bounds.size;
   if (control == CallEnd)
     return GRect(15, size.h - 50, size.w - 30, 40);
-  if (control == CallMute)
-    return GRect(15, size.h - 96, size.w - 30, 40);
+  if (control == CallMute || control == CallTransfer)
+    return GRect(control == CallMute ? 15 : size.w / 2 + 3, size.h - 96, (size.w - 36) / 2, 40);
   return GRect(control == CallQuieter ? 10 : size.w - 50, size.h - 142, 40, 36);
 }
 
 static void draw_call(AppData *d, GContext *ctx) {
   GSize size = d->canvas.bounds.size;
-  const char *title = d->status.call       ? "Call in progress"
+  const char *title = d->status.call ? (d->status.audio ? "Call in progress" : "Call on phone")
                       : d->status.incoming ? "Incoming call"
                                            : "Calling...";
-  text(ctx, title, FONT_KEY_GOTHIC_24_BOLD, GRect(8, 0, size.w - 16, 32), GColorBlack,
-       GTextAlignmentCenter);
+  text(ctx, d->notice ? d->notice : title, FONT_KEY_GOTHIC_24_BOLD, GRect(8, 0, size.w - 16, 32),
+       GColorBlack, GTextAlignmentCenter);
   const char *number = d->dialed_here ? d->number : d->status.caller_number;
   const char *caller = *number ? number : "On your phone";
   if (*number) {
@@ -229,15 +230,30 @@ static void draw_call(AppData *d, GContext *ctx) {
   snprintf(volume, sizeof(volume), "Volume %u%%", (d->status.speaker_gain * 100 + 7) / 15);
   text(ctx, volume, FONT_KEY_GOTHIC_18, GRect(48, size.h - 136, size.w - 96, 26), GColorDarkGray,
        GTextAlignmentCenter);
-  const char *labels[] = {"End call", d->status.mic_muted ? "Unmute" : "Mute", "-", "+"};
+  const char *labels[] = {
+    "End call",
+    !d->status.audio      ? "Watch mic"
+    : d->status.mic_muted ? "Unmute"
+                          : "Mute",
+    "-", "+",
+    d->status.audio_pending ? "Switching"
+    : d->status.audio       ? "Use phone"
+                            : "Use watch"
+  };
   for (unsigned i = 0; i < CallControlCount; ++i) {
     GRect rect = call_control_rect(d, i);
-    GColor color = i == CallEnd                           ? GColorRed
-                   : i == CallMute && d->status.mic_muted ? ACCENT
-                                                          : GColorLightGray;
+    GColor color = i == CallEnd                                              ? GColorRed
+                   : i == CallMute && d->status.audio && d->status.mic_muted ? ACCENT
+                                                                             : GColorLightGray;
     rounded(ctx, rect, color, 8);
-    text(ctx, labels[i], FONT_KEY_GOTHIC_24_BOLD, rect,
-         i == CallEnd || (i == CallMute && d->status.mic_muted) ? GColorWhite : GColorBlack,
+    bool disabled = i == CallMute && !d->status.audio;
+    bool small = i == CallTransfer || disabled;
+    if (small)
+      rect.origin.y += 4;
+    text(ctx, labels[i], small ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD, rect,
+         disabled                                                 ? GColorDarkGray
+         : i == CallEnd || (i == CallMute && d->status.mic_muted) ? GColorWhite
+                                                                  : GColorBlack,
          GTextAlignmentCenter);
   }
 }
@@ -280,8 +296,10 @@ static void activate(AppData *d, unsigned target) {
   if (call_in_progress(&d->status)) {
     if (target == CallEnd && !d->status.busy)
       hfp_hangup();
-    else if (target == CallMute)
+    else if (target == CallMute && d->status.audio)
       hfp_set_mic_muted(!d->status.mic_muted);
+    else if (target == CallTransfer && d->status.call && !d->status.audio_pending)
+      hfp_transfer_audio(!d->status.audio);
     else if (target == CallQuieter && d->status.speaker_gain > 0)
       hfp_set_speaker_gain(d->status.speaker_gain - 1);
     else if (target == CallLouder && d->status.speaker_gain < 15)

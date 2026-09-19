@@ -178,8 +178,13 @@ class ClassicHostTest(unittest.TestCase):
             if cid == 0x80
         ]
 
-    def rf_open(self):
+    def rf_open(self, secure=False):
+        if secure:
+            self.lib.demo_shared_bond(1)
         self.connect()
+        if secure:
+            self.drain()
+            self.event(8, b"\0" + le(1) + b"\1")
         self.channel(3)
         self.rf_receive(rfcomm.RFCOMM_Frame.sabm(1, 0))
         self.assertEqual(self.frames()[0].type, rfcomm.FrameType.UA)
@@ -199,8 +204,8 @@ class ClassicHostTest(unittest.TestCase):
         )
         return [f.information for f in self.frames() if f.dlci == 2 and not f.p_f]
 
-    def ready(self):
-        self.rf_open()
+    def ready(self, secure=False):
+        self.rf_open(secure=secure)
         self.assertEqual(self.at("\r\n+BRSF: 512\r\nOK\r\n"), [b"AT+CIND=?\r"])
         self.assertEqual(
             self.at(
@@ -224,6 +229,18 @@ class ClassicHostTest(unittest.TestCase):
         for invalid in ("-1", "16", "4294967296", "", "7junk", "7,2"):
             self.assertEqual(self.at(f"+VGS: {invalid}\r\n"), [])
             self.assertEqual(self.lib.demo_speaker_gain(), 15)
+
+    def test_remote_gain_preserves_a_queued_local_change(self):
+        self.ready()
+        self.assertTrue(self.lib.demo_set_speaker_gain(7))
+        self.assertEqual(self.frames()[0].information, b"AT+VGS=7\r")
+        self.assertTrue(self.lib.demo_set_speaker_gain(3))
+        self.assertEqual(self.at("+VGS: 15\r\nOK\r\n"), [b"AT+VGS=3\r"])
+        self.assertEqual(self.lib.demo_speaker_gain(), 3)
+        self.assertEqual(self.at("+VGS: 7\r\nOK\r\n"), [])
+        self.assertEqual(self.lib.demo_speaker_gain(), 7)
+        self.at("+VGS: 9\r\n")
+        self.assertEqual(self.lib.demo_speaker_gain(), 9)
 
     def test_local_speaker_gain_coalesces_while_command_pending(self):
         self.assertFalse(self.lib.demo_set_speaker_gain(7))
@@ -261,6 +278,97 @@ class ClassicHostTest(unittest.TestCase):
             self.assertEqual(self.lib.demo_caller_number(), b"+12025550100")
         self.at('\r\n+CLIP: "+12025550100",145,"",128,"Hidden",1\r\n')
         self.assertEqual(self.lib.demo_caller_number(), b"")
+
+    def active_on_phone(self):
+        self.ready(secure=True)
+        self.at("+CIEV: 2,1\r\n")
+
+    def audio_complete(self, status=0, peer=None):
+        self.event(
+            0x2C,
+            bytes([status])
+            + le(0x180)
+            + (peer or self.peer)
+            + bytes([2, 6, 1])
+            + le(30, 30)
+            + b"\2",
+        )
+
+    def test_audio_transfer_requires_encrypted_call(self):
+        self.ready()
+        self.at("+CIEV: 2,1\r\n")
+        self.assertFalse(self.lib.demo_transfer_audio(1))
+        self.assertFalse(self.pop())
+
+    def test_foreign_audio_connection_does_not_replace_transfer(self):
+        self.active_on_phone()
+        self.assertTrue(self.lib.demo_transfer_audio(1))
+        self.pop()
+        self.event(0x0F, bytes([0, 1]) + le(0x0428))
+        self.audio_complete(peer=b"\x55" * 6)
+        self.assertEqual(self.lib.demo_audio_state(), 2)
+        self.assertEqual(self.pop(), b"\1" + le(0x0406) + b"\3" + le(0x180) + b"\x13")
+
+    def test_audio_transfer_preserves_call_and_acl(self):
+        self.assertFalse(self.lib.demo_transfer_audio(1))
+        self.active_on_phone()
+        self.assertTrue(self.lib.demo_transfer_audio(1))
+        self.assertEqual(self.lib.demo_audio_state(), 2)
+        self.assertFalse(self.lib.demo_transfer_audio(1))
+        command = self.pop()
+        self.assertEqual(
+            command,
+            b"\1"
+            + le(0x0428)
+            + b"\x11"
+            + le(1)
+            + struct.pack("<IIHHBH", 8000, 8000, 7, 0x60, 1, 0x03C8),
+        )
+        self.event(0x0F, bytes([0, 1]) + le(0x0428))
+        self.audio_complete()
+        self.assertEqual(self.lib.demo_audio_state(), 1)
+        self.assertTrue(self.lib.demo_transfer_audio(0))
+        self.assertEqual(self.pop(), b"\1" + le(0x0406) + b"\3" + le(0x180) + b"\x13")
+        self.event(0x0F, bytes([0, 1]) + le(0x0406))
+        self.event(5, b"\0" + le(0x180) + b"\x16")
+        self.assertEqual(self.lib.demo_audio_state(), 0)
+        self.assertEqual(self.lib.demo_flags() & 14, 14)
+        self.assertTrue(self.lib.demo_transfer_audio(0))
+        self.assertFalse(self.pop())
+
+    def test_audio_transfer_failure_allows_retry(self):
+        self.active_on_phone()
+        self.assertTrue(self.lib.demo_transfer_audio(1))
+        self.pop()
+        self.event(0x0F, bytes([0x0C, 1]) + le(0x0428))
+        self.assertEqual(self.lib.demo_audio_state(), 0)
+        self.assertTrue(self.lib.demo_transfer_audio(1))
+        self.pop()
+        self.event(0x0F, bytes([0, 1]) + le(0x0428))
+        self.audio_complete(status=0x10, peer=b"\0" * 6)
+        self.assertEqual(self.lib.demo_audio_state(), 0)
+        self.assertTrue(self.lib.demo_transfer_audio(1))
+
+    def test_audio_transfer_timeout_disconnects_before_retry(self):
+        self.active_on_phone()
+        self.assertTrue(self.lib.demo_transfer_audio(1))
+        self.pop()
+        self.event(0x0F, bytes([0, 1]) + le(0x0428))
+        self.now += 10001
+        self.tick()
+        self.assertFalse(self.lib.demo_flags() & 4)
+        self.assertEqual(self.lib.demo_audio_state(), 0)
+        self.assertFalse(self.lib.demo_transfer_audio(1))
+        self.assertEqual(self.pop(), b"\1" + le(0x0406) + b"\3" + le(1) + b"\x13")
+
+    def test_audio_transfer_finishing_after_call_end_is_released(self):
+        self.active_on_phone()
+        self.assertTrue(self.lib.demo_transfer_audio(1))
+        self.pop()
+        self.event(0x0F, bytes([0, 1]) + le(0x0428))
+        self.at("+CIEV: 2,0\r\n")
+        self.audio_complete()
+        self.assertEqual(self.pop(), b"\1" + le(0x0406) + b"\3" + le(0x180) + b"\x13")
 
     def test_dial_answer_hangup_and_disconnect(self):
         self.ready()

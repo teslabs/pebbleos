@@ -186,6 +186,32 @@ static void disconnect_link(BtClassicHost *s, uint16_t handle) {
   command(s, 0x0406, data, sizeof(data));
 }
 
+bool bt_classic_transfer_audio(BtClassicHost *s, bool to_watch) {
+  if (!s->status.ready || !s->status.call || !s->encrypted || s->revoking || s->stopping ||
+      s->status.audio_pending || s->accepting_sco || s->command_count == 8)
+    return false;
+  if (to_watch == s->status.audio)
+    return true;
+  s->status.audio_pending = true;
+  s->audio_target = to_watch;
+  s->audio_deadline = s->now + 10000;
+  if (to_watch) {
+    uint8_t data[17] = {0};
+    put16(data, s->handle);
+    put16(data + 2, 8000);
+    put16(data + 6, 8000);
+    put16(data + 10, 7);
+    put16(data + 12, 0x60);
+    data[14] = 1;
+    put16(data + 15, 0x03c8); // CVSD S1: EV3, 7 ms maximum latency.
+    s->accepting_sco = true;
+    command(s, 0x0428, data, sizeof(data));
+  } else {
+    disconnect_link(s, s->sco_handle);
+  }
+  return true;
+}
+
 bool bt_classic_connect(BtClassicHost *s, const uint8_t peer[6]) {
   if (!s->status.available || s->stopping || s->connecting || s->accepting ||
       s->handle != BT_CLASSIC_NO_HANDLE || !s->get_link_key ||
@@ -284,7 +310,7 @@ void bt_classic_stop(BtClassicHost *s) {
     unsigned opcode = u16(s->commands[(s->command_head + i) % 8].data + 1);
     cancel_accept |= opcode == 0x0409;
     cancel_create |= opcode == 0x0405;
-    if (opcode == 0x0429)
+    if (opcode == 0x0429 || opcode == 0x0428)
       s->accepting_sco = false;
   }
   s->stopping = true;
@@ -346,6 +372,10 @@ void bt_classic_poll(BtClassicHost *s, uint32_t now) {
   if (s->get_link_key && s->encrypted && !s->revoking && !s->stopping && !bond_current(s)) {
     bt_classic_disconnect_peer(s);
   }
+  if (s->status.audio_pending && (int32_t)(now - s->audio_deadline) >= 0) {
+    bt_classic_error(s, "Audio transfer timed out");
+    bt_classic_disconnect_peer(s);
+  }
   if (s->pending_opcode && (int32_t)(now - s->command_deadline) >= 0) {
     bt_classic_error(s, "Controller command timed out; restart");
     s->status.available = s->status.ready = false;
@@ -403,8 +433,10 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
       }
       if (opcode == 0x0409)
         s->accepting = false;
-      if (opcode == 0x0429)
+      if (opcode == 0x0429 || opcode == 0x0428)
         s->accepting_sco = false;
+      if (opcode == 0x0428 || (opcode == 0x0406 && !s->audio_target))
+        s->status.audio_pending = false;
       char text[64];
       snprintf(text, sizeof(text), "HCI %04x failed: %02x", opcode, status);
       bt_classic_error(s, text);
@@ -487,14 +519,22 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
       disconnect(s);
     } else if (u16(p + 1) == s->sco_handle) {
       s->status.audio = false;
+      s->status.audio_pending = false;
       s->sco_handle = BT_CLASSIC_NO_HANDLE;
     }
   } else if (event == 0x2c && n == 17) {
+    if (!p[0] && memcmp(p + 3, s->peer, 6)) {
+      disconnect_link(s, u16(p + 1));
+      return;
+    }
+    bool transfer = s->status.audio_pending && s->audio_target;
     s->accepting_sco = false;
+    if (s->audio_target)
+      s->status.audio_pending = false;
     if (!p[0]) {
       s->sco_handle = u16(p + 1);
       s->status.audio = true;
-      if (s->stopping || s->revoking)
+      if (s->stopping || s->revoking || (transfer && !s->status.call))
         disconnect_link(s, s->sco_handle);
     } else
       bt_classic_error(s, "Call audio connection failed");
