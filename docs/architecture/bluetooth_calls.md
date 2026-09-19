@@ -691,6 +691,12 @@ confirmed NimBLE reset reason `0x643` and the controller-fault assertion.
 The authenticated bond survived and encrypted BLE/HFP reconnected. The
 controller fault's underlying cause remains unresolved. A subsequent repeat
 also lost the watch serial session during active audio, before hangup.
+Further matching dumps show Hardware Error `0x43` before any SCO disconnect
+event, with `BTERRORTYPESTAT=0x8` (`PKTCNTL_EMACC_ERROR`) and zero BLE/dual-mode
+error status. Two consecutive ten-second local calls passed, followed by a
+thirty-second call failing at hangup; short passes do not establish recovery.
+The initial desktop iPhone probe used Classic without a concurrent BLE link
+and did not apply the embedded host's reboot-on-controller-error policy.
 Audio transfer on
 iPhone also remains unverified: phone-route and SCO observations disagreed
 during an initial transfer test and the profile error count increased.
@@ -1030,8 +1036,29 @@ pbl build -b build-obelix-hfp-release
 ```
 
 Keep the hardware debug build at `CONFIG_RELEASE=n`; deep sleep powers down
-the debug UART. Building the release configuration is not evidence of release
-readiness. Before enabling calling by default, complete these gates:
+the debug UART. Use a debug PRF as well when investigating repeated crashes:
+
+```sh
+pbl configure -b build-obelix-prf-debug --board obelix@pvt --variant prf \
+  -DCONFIG_RELEASE=n
+pbl build -b build-obelix-prf-debug
+pbl flash -b build-obelix-prf-debug --tty /dev/tty.wchusbserial5B7A1355001
+```
+
+Read the saved crash before restoring normal firmware. PRF invalidates the
+normal firmware slots on boot. The debug dual transport retains a bounded
+64-entry HCI metadata history and freezes it on Hardware Error; it stores no
+keys, addresses, ACL payloads or audio. With a matching firmware ELF and core,
+inspect `s_hci_history_count`, `*s_hci_history@64` and `s_hci_hw_error` in GDB.
+Entries wrap modulo 64; command codes have bit 15 set, while event records
+include the first event parameter and selected opcode/handle metadata.
+The five error words are BT, dual-mode and BLE error status, then BT debug
+address minimum/maximum. Raw crash dumps still contain private runtime data.
+The history allocation occurs after the boot splash releases its temporary
+framebuffer, because this debug configuration has little boot-time heap
+headroom. Allocation failure disables history without preventing startup.
+
+Building the release configuration is not evidence of release readiness. Before enabling calling by default, complete these gates:
 
 1. First-time CoreApp setup and sustained notification/GATT load during calls,
    on Android and iPhone, including deleting and re-establishing the shared bond.

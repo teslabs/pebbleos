@@ -3,6 +3,7 @@
 #include <bf0_hal.h>
 #include <ipc_queue.h>
 #include <kernel/pebble_tasks.h>
+#include <kernel/pbl_malloc.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/kernel/sem.h>
 #include <pbl/kernel/thread.h>
@@ -12,6 +13,7 @@
 #include <nimble/transport.h>
 #include <nimble/transport_impl.h>
 #include <host/ble_hs.h>
+#include <nimble/nimble_npl.h>
 #include "../../../src/bluetooth-fw/hci_bridge/h4_stream.h"
 #include "../../../src/bluetooth-fw/hci_bridge/local_audio.h"
 #include "../../../src/bluetooth-fw/hci_bridge/sf32lb52_audio_probe.h"
@@ -30,6 +32,71 @@ typedef struct {
 // Preserve reliable traffic while the host drains its pools; never block HCI RX.
 static PendingPacket s_pending[8];
 static unsigned s_head, s_count;
+
+#ifdef CONFIG_PROMPT
+// Metadata only: retain controller ordering in a crash dump without keys or audio.
+typedef struct {
+  uint32_t ticks;
+  uint16_t code, value;
+  uint8_t status, detail;
+} HciHistoryEntry;
+static volatile HciHistoryEntry *s_hci_history;
+#define HCI_HISTORY_COUNT 64
+static volatile unsigned s_hci_history_count;
+static bool s_hci_history_frozen;
+static volatile uint32_t s_hci_hw_error[5];
+
+static void trace_hci(const uint8_t *p, size_t length) {
+  if (!s_hci_history || s_hci_history_frozen || length < 4 || (p[0] != 1 && p[0] != 4) ||
+      (p[0] == 4 && p[1] == 0x13))
+    return;
+  unsigned index = s_hci_history_count++ % HCI_HISTORY_COUNT;
+  s_hci_history[index].ticks = ble_npl_time_get();
+  s_hci_history[index].code = p[0] == 1 ? (0x8000 | p[1] | (p[2] << 8)) : p[1];
+  s_hci_history[index].status = 0;
+  s_hci_history[index].value = 0;
+  s_hci_history[index].detail = 0;
+  if (p[0] == 4) {
+    switch (p[1]) {
+      case 3:
+      case 5:
+      case 6:
+      case 8:
+      case 0x0e:
+      case 0x0f:
+      case 0x10:
+      case 0x12:
+      case 0x2c:
+      case 0x30:
+      case 0x3e:
+        s_hci_history[index].status = p[3];
+    }
+  }
+  if (p[0] == 4 && length >= 7) {
+    if (p[1] == 0x0e || p[1] == 5) {
+      s_hci_history[index].value = p[4] | (p[5] << 8);
+      s_hci_history[index].detail = p[6];
+    } else if (p[1] == 0x2c && length == 20) {
+      s_hci_history[index].value = p[4] | (p[5] << 8);
+      s_hci_history[index].detail = p[12];
+    } else if (p[1] == 0x0f) {
+      s_hci_history[index].value = p[5] | (p[6] << 8);
+    }
+  }
+  if (p[0] == 4 && p[1] == 0x10) {
+    s_hci_history_frozen = true;
+    HAL_HPAON_WakeCore(CORE_ID_LCPU);
+    s_hci_hw_error[0] = hwp_bt_mac->BTERRORTYPESTAT;
+    s_hci_hw_error[1] = hwp_bt_mac->DMERRORTYPESTAT;
+    s_hci_hw_error[2] = hwp_bt_mac->BLEERRORTYPESTAT;
+    s_hci_hw_error[3] = hwp_bt_mac->BTDEBUGADDMIN;
+    s_hci_hw_error[4] = hwp_bt_mac->BTDEBUGADDMAX;
+    HAL_HPAON_CANCEL_LP_ACTIVE_REQUEST();
+  }
+}
+#else
+#define trace_hci(p, length) ((void)0)
+#endif
 
 extern void lcpu_power_on(void);
 extern uint8_t lcpu_power_off(void);
@@ -81,6 +148,7 @@ static bool deliver(const uint8_t *p, size_t length) {
 }
 
 static void controller_packet(uint8_t *p, size_t length, void *context) {
+  trace_hci(p, length);
   if (p[0] == 4) {
     // Unsolicited SiFli boot notification, not an acknowledgement to NimBLE.
     if (length >= 6 && p[1] == 0x0e && p[4] == 0x11 && p[5] == 0xfc)
@@ -127,6 +195,11 @@ static void receive_task(void *context) {
 
 void ble_transport_ll_reinit(void) {
   pbl_mutex_lock(&s_io, PBL_FOREVER);
+#ifdef CONFIG_PROMPT
+  // Allocate after the boot splash releases its temporary frame buffer.
+  if (!s_hci_history)
+    s_hci_history = kernel_zalloc(HCI_HISTORY_COUNT * sizeof(*s_hci_history));
+#endif
   h4_stream_init(&s_stream, s_receive, sizeof(s_receive));
   s_head = s_count = 0;
   ipc_queue_cfg_t cfg = {
@@ -187,6 +260,7 @@ int ble_transport_to_ll_cmd_impl(void *buf) {
   // Free before publishing an acknowledgement, including synthetic SCO replies.
   ble_transport_free(buf);
   pbl_mutex_lock(&s_io, PBL_FOREVER);
+  trace_hci(packet, length);
   hci_local_audio_command(packet, length);
   uint8_t response[8];
   size_t response_length = hci_bridge_audio_command(packet, length, response);
