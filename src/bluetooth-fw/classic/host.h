@@ -9,14 +9,23 @@
 #define BT_CLASSIC_MTU         672
 #define BT_CLASSIC_NUMBER_SIZE 33
 #define BT_CLASSIC_NO_HANDLE   0xffff
+#define BT_CLASSIC_MAX_CALLS   4
+
+typedef struct {
+  uint8_t index, state;
+  char number[BT_CLASSIC_NUMBER_SIZE];
+} BtClassicCall;
 
 typedef struct {
   bool available, connected, ready, audio, call, incoming, busy;
-  unsigned call_setup, errors;
+  unsigned call_setup, call_held, errors;
+  uint8_t hold_support;
+  bool waiting;
   uint8_t speaker_gain;
   bool audio_pending;
   char detail[64];
   char caller_number[BT_CLASSIC_NUMBER_SIZE];
+  char waiting_number[BT_CLASSIC_NUMBER_SIZE];
 } BtClassicStatus;
 
 typedef struct {
@@ -85,7 +94,11 @@ typedef struct {
   unsigned at_tx_length;
   char at_line[512];
   unsigned at_line_length;
-  uint8_t indicator_call, indicator_setup;
+  uint8_t indicator_call, indicator_setup, indicator_held;
+  uint32_t ag_features;
+  bool calls_dirty, calls_query, calls_invalid, calls_after_ack;
+  uint8_t call_count;
+  BtClassicCall calls[BT_CLASSIC_MAX_CALLS];
   bool speaker_gain_dirty;
   uint8_t speaker_gain_next;
   bool audio_target;
@@ -101,6 +114,8 @@ bool bt_classic_answer(BtClassicHost *host);
 bool bt_classic_hangup(BtClassicHost *host);
 bool bt_classic_set_speaker_gain(BtClassicHost *host, unsigned gain);
 bool bt_classic_transfer_audio(BtClassicHost *host, bool to_watch);
+// HFP CHLD 0..3; only actions advertised by the phone are accepted.
+bool bt_classic_call_hold(BtClassicHost *host, unsigned action);
 bool bt_classic_valid_number(const char *number);
 
 // The shared host owns reset, event masks and ACL credits. Calls run on its task.

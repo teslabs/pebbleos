@@ -124,3 +124,16 @@ int demo_transfer_audio(int to_watch) {
 int demo_audio_state(void) {
   return s_host.status.audio | (s_host.status.audio_pending << 1);
 }
+
+int demo_call_hold(unsigned action) {
+  return bt_classic_call_hold(&s_host, action);
+}
+int demo_call_held(void) {
+  return s_host.status.call_held;
+}
+int demo_waiting(void) {
+  return s_host.status.waiting;
+}
+const char *demo_waiting_number(void) {
+  return s_host.status.waiting_number;
+}

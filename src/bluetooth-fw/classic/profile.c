@@ -53,17 +53,26 @@ static void at_command(BtClassicHost *s, const char *text) {
 }
 
 static void slc_next(BtClassicHost *s) {
-  static const char *const commands[] = {
-    "AT+BRSF=20\r", "AT+CIND=?\r", "AT+CIND?\r", "AT+CMER=3,0,0,1\r", "AT+CLIP=1\r"
-  };
-  if (s->slc_step < sizeof(commands) / sizeof(commands[0]))
-    at_command(s, commands[s->slc_step++]);
-  else {
-    s->status.ready = true;
-    s->speaker_gain_dirty = true;
-    s->speaker_gain_next = s->status.speaker_gain;
-    snprintf(s->status.detail, sizeof(s->status.detail), "Ready to call");
+  static const char *const commands[] = {"AT+BRSF=54\r",      "AT+CIND=?\r", "AT+CIND?\r",
+                                         "AT+CMER=3,0,0,1\r", "AT+CHLD=?\r", "AT+CLIP=1\r",
+                                         "AT+CCWA=1\r"};
+  while (s->slc_step < sizeof(commands) / sizeof(commands[0])) {
+    unsigned step = s->slc_step++;
+    if ((step == 4 || step == 6) && !(s->ag_features & 1))
+      continue;
+    at_command(s, commands[step]);
+    return;
   }
+  if ((s->ag_features & 1) && (!s->indicator_held || (s->status.hold_support & 6) != 6)) {
+    bt_classic_error(s, "Missing call hold capabilities");
+    bt_classic_disconnect_peer(s);
+    return;
+  }
+  s->status.ready = true;
+  s->speaker_gain_dirty = true;
+  s->speaker_gain_next = s->status.speaker_gain;
+  s->calls_dirty = true;
+  snprintf(s->status.detail, sizeof(s->status.detail), "Ready to call");
 }
 
 void bt_classic_channel_ready(BtClassicHost *s, BtClassicChannel *ch) {
@@ -86,47 +95,67 @@ void bt_classic_channel_ready(BtClassicHost *s, BtClassicChannel *ch) {
 }
 
 static void indicator(BtClassicHost *s, unsigned index, unsigned value) {
+  if (!index)
+    return;
+  if ((index == s->indicator_call && value <= 1) || (index == s->indicator_setup && value <= 3) ||
+      (index == s->indicator_held && value <= 2))
+    s->calls_dirty = true;
   if (index == s->indicator_call && value <= 1)
     s->status.call = value;
   if (index == s->indicator_setup && value <= 3) {
     s->status.call_setup = value;
     s->status.incoming = value == 1;
+    s->status.waiting = value == 1 && s->status.call;
+    if (value != 1)
+      s->status.waiting_number[0] = 0;
+  }
+  if (index == s->indicator_held && value <= 2) {
+    s->status.call_held = value;
+    // An exchange may leave callheld unchanged; do not retain the old caller identity.
+    s->status.caller_number[0] = 0;
+  }
+  if (index == s->indicator_call && value == 0) {
+    s->status.waiting = false;
+    s->status.call_held = 0;
+    s->status.waiting_number[0] = 0;
   }
   if ((index == s->indicator_call || index == s->indicator_setup) && !s->status.call &&
       !s->status.call_setup)
     s->status.caller_number[0] = 0;
 }
 
-static void caller_id(BtClassicHost *s, const char *text) {
+static bool caller_id(char destination[BT_CLASSIC_NUMBER_SIZE], const char *text,
+                      unsigned validity_field) {
   while (*text == ' ')
     ++text;
   if (*text++ != '"')
-    return;
+    return false;
   const char *end = strchr(text, '"');
   if (!end)
-    return;
+    return false;
   const char *p = end + 1;
   while (*p == ' ')
     ++p;
   if (*p++ != ',')
-    return;
+    return false;
   while (*p == ' ')
     ++p;
   if (*p < '0' || *p > '9')
-    return;
+    return false;
   unsigned type = 0;
   while (*p >= '0' && *p <= '9') {
     type = type * 10 + *p++ - '0';
     if (type > 255)
-      return;
+      return false;
   }
   while (*p == ' ')
     ++p;
   if (*p && *p != ',')
-    return;
+    return false;
   // Honor an optional CLI validity field; do not display withheld identities.
   bool withheld = false;
-  for (unsigned field = 2; *p == ',' && field <= 5; ++field) {
+  bool voice_class = validity_field != 4;
+  for (unsigned field = 2; *p == ',' && field <= validity_field; ++field) {
     ++p;
     while (*p == ' ')
       ++p;
@@ -134,7 +163,7 @@ static void caller_id(BtClassicHost *s, const char *text) {
     if (*p == '"') {
       p = strchr(p + 1, '"');
       if (!p)
-        return;
+        return false;
       ++p;
     } else {
       while (*p && *p != ',')
@@ -143,29 +172,37 @@ static void caller_id(BtClassicHost *s, const char *text) {
     const char *stop = p;
     while (stop > start && stop[-1] == ' ')
       --stop;
-    if (field == 5 && stop != start) {
+    if (validity_field == 4 && field == 2) {
+      if (stop - start != 1 || *start != '1')
+        return false;
+      voice_class = true;
+    }
+    if (field == validity_field && stop != start) {
       if (stop - start != 1 || *start < '0' || *start > '2')
-        return;
+        return false;
       withheld = *start != '0';
     }
     while (*p == ' ')
       ++p;
     if (*p && *p != ',')
-      return;
+      return false;
   }
   char number[BT_CLASSIC_NUMBER_SIZE] = {0};
+  if (!voice_class)
+    return false;
   unsigned prefix = type == 145 && *text != '+' && end != text;
   size_t length = end - text;
   if (length + prefix >= sizeof(number))
-    return;
+    return false;
   if (prefix)
     number[0] = '+';
   memcpy(number + prefix, text, length);
   if (length && !bt_classic_valid_number(number))
-    return;
+    return false;
   if (withheld)
     memset(number, 0, sizeof(number));
-  memcpy(s->status.caller_number, number, sizeof(number));
+  memcpy(destination, number, sizeof(number));
+  return true;
 }
 
 static void speaker_gain(BtClassicHost *s, const char *text) {
@@ -186,6 +223,114 @@ static void speaker_gain(BtClassicHost *s, const char *text) {
   s->status.speaker_gain = gain;
 }
 
+static void supported_hold(BtClassicHost *s, const char *text) {
+  if (s->slc_step != 5 || s->status.ready)
+    return;
+  while (*text == ' ')
+    ++text;
+  if (*text++ != '(')
+    return;
+  unsigned mask = 0;
+  for (unsigned count = 0; count < 16; ++count) {
+    while (*text == ' ')
+      ++text;
+    if (*text < '0' || *text > '4')
+      return;
+    unsigned action = *text++ - '0';
+    if (*text == 'x' && (action == 1 || action == 2))
+      ++text;
+    else
+      mask |= 1u << action;
+    while (*text == ' ')
+      ++text;
+    if (*text == ')') {
+      ++text;
+      while (*text == ' ')
+        ++text;
+      if (!*text)
+        s->status.hold_support = mask & 15;
+      return;
+    }
+    if (*text++ != ',')
+      return;
+  }
+}
+
+static bool unsigned_field(const char **text, unsigned maximum, unsigned *value) {
+  const char *p = *text;
+  while (*p == ' ')
+    ++p;
+  if (*p < '0' || *p > '9')
+    return false;
+  unsigned result = 0;
+  do {
+    unsigned digit = *p++ - '0';
+    if (digit > maximum || result > (maximum - digit) / 10)
+      return false;
+    result = result * 10 + digit;
+  } while (*p >= '0' && *p <= '9');
+  while (*p == ' ')
+    ++p;
+  *text = p;
+  *value = result;
+  return true;
+}
+
+static void current_call(BtClassicHost *s, const char *p) {
+  if (!s->calls_query || !s->at_pending || s->at_tx_length)
+    return;
+  unsigned fields[5];
+  const unsigned limits[] = {255, 1, 6, 2, 1};
+  for (unsigned i = 0; i < 5; ++i) {
+    if (!unsigned_field(&p, limits[i], &fields[i]) || (i < 4 && *p++ != ',')) {
+      s->calls_invalid = true;
+      return;
+    }
+  }
+  BtClassicCall call = {.index = fields[0], .state = fields[2]};
+  if (!call.index || (*p && (*p++ != ',' || !caller_id(call.number, p, 255)))) {
+    s->calls_invalid = true;
+    return;
+  }
+  if (fields[3] != 0)
+    return; // Only voice calls participate in the watch's call display.
+  for (unsigned i = 0; i < s->call_count; ++i) {
+    if (s->calls[i].index == call.index) {
+      s->calls_invalid = true;
+      return;
+    }
+  }
+  if (s->call_count == BT_CLASSIC_MAX_CALLS) {
+    s->calls_invalid = true;
+    return;
+  }
+  s->calls[s->call_count++] = call;
+}
+
+static void publish_calls(BtClassicHost *s) {
+  if (s->calls_invalid || s->calls_dirty)
+    return;
+  const BtClassicCall *display = NULL, *waiting = NULL;
+  unsigned priority = 0;
+  for (unsigned i = 0; i < s->call_count; ++i) {
+    const BtClassicCall *call = &s->calls[i];
+    if (call->state == 5) {
+      waiting = call;
+      continue;
+    }
+    unsigned next = call->state == 0 ? 3 : call->state == 1 ? 1 : 2;
+    if (next > priority) {
+      display = call;
+      priority = next;
+    }
+  }
+  snprintf(s->status.caller_number, sizeof(s->status.caller_number), "%s",
+           display ? display->number : "");
+  if (s->status.waiting)
+    snprintf(s->status.waiting_number, sizeof(s->status.waiting_number), "%s",
+             waiting ? waiting->number : "");
+}
+
 static void line(BtClassicHost *s, const char *text) {
   if (!strcmp(text, "OK")) {
     if (!s->at_pending || s->at_tx_length)
@@ -196,22 +341,46 @@ static void line(BtClassicHost *s, const char *text) {
       return;
     }
     s->at_pending = s->status.busy = false;
+    if (s->calls_query) {
+      publish_calls(s);
+      s->calls_query = false;
+    }
+    if (s->calls_after_ack) {
+      s->calls_dirty = true;
+      s->calls_after_ack = false;
+    }
     if (!s->status.ready)
       slc_next(s);
   } else if (!strcmp(text, "ERROR") || !strncmp(text, "+CME ERROR", 10)) {
     s->at_pending = s->status.busy = false;
+    s->calls_query = s->calls_after_ack = false;
     bt_classic_error(s, "Phone rejected command");
     if (!s->status.ready)
       bt_classic_disconnect_peer(s);
   } else if (!strcmp(text, "RING"))
     s->status.incoming = true;
   else if (!strncmp(text, "+CLIP:", 6)) {
-    caller_id(s, text + 6);
+    caller_id(s->status.caller_number, text + 6, 5);
+  } else if (!strncmp(text, "+CCWA:", 6) && s->status.call && (s->ag_features & 1)) {
+    if (caller_id(s->status.waiting_number, text + 6, 4)) {
+      s->status.waiting = true;
+      s->calls_dirty = true;
+    }
+  } else if (!strncmp(text, "+CLCC:", 6)) {
+    current_call(s, text + 6);
+  } else if (!strncmp(text, "+CHLD:", 6)) {
+    supported_hold(s, text + 6);
+  } else if (!strncmp(text, "+BRSF:", 6) && s->slc_step == 1) {
+    unsigned features;
+    const char *p = text + 6;
+    if (unsigned_field(&p, UINT32_MAX, &features) && !*p)
+      s->ag_features = features;
   } else if (!strncmp(text, "+VGS:", 5)) {
     speaker_gain(s, text + 5);
   } else if (!strncmp(text, "+CIEV:", 6)) {
     unsigned index, value;
-    if (sscanf(text + 6, " %u , %u", &index, &value) == 2)
+    const char *p = text + 6;
+    if (unsigned_field(&p, 255, &index) && *p++ == ',' && unsigned_field(&p, 3, &value) && !*p)
       indicator(s, index, value);
   } else if (!strncmp(text, "+CIND:", 6)) {
     if (s->slc_step == 2) {
@@ -226,6 +395,8 @@ static void line(BtClassicHost *s, const char *text) {
           s->indicator_call = index;
         if (end - p == 9 && !memcmp(p, "callsetup", 9))
           s->indicator_setup = index;
+        if (end - p == 8 && !memcmp(p, "callheld", 8))
+          s->indicator_held = index;
         p = end + 1;
       }
     } else if (s->slc_step == 3) {
@@ -255,10 +426,16 @@ void bt_classic_profile_reset(BtClassicHost *s) {
   s->status.ready = s->status.busy = false;
   s->status.audio_pending = false;
   s->status.call = s->status.incoming = false;
-  s->status.call_setup = 0;
+  s->status.call_setup = s->status.call_held = 0;
+  s->status.waiting = false;
+  s->status.hold_support = 0;
+  s->status.waiting_number[0] = 0;
+  s->ag_features = 0;
+  s->calls_dirty = s->calls_query = s->calls_invalid = s->calls_after_ack = false;
+  s->call_count = 0;
   s->status.caller_number[0] = 0;
   s->at_tx_length = s->at_line_length = 0;
-  s->indicator_call = s->indicator_setup = 0;
+  s->indicator_call = s->indicator_setup = s->indicator_held = 0;
   s->speaker_gain_dirty = false;
 }
 
@@ -279,6 +456,12 @@ void bt_classic_profile_poll(BtClassicHost *s) {
     snprintf(command, sizeof(command), "AT+VGS=%u\r", s->status.speaker_gain);
     at_command(s, command);
     s->speaker_gain_dirty = false;
+  }
+  if (s->status.ready && !s->at_pending && s->calls_dirty && (s->ag_features & (1u << 6))) {
+    s->calls_dirty = s->calls_invalid = false;
+    s->calls_query = true;
+    s->call_count = 0;
+    at_command(s, "AT+CLCC\r");
   }
   if (s->at_tx_length && (!s->credit_mode || s->rfcomm_credits)) {
     unsigned length = s->at_tx_length;
@@ -482,14 +665,18 @@ bool bt_classic_dial(BtClassicHost *s, const char *number) {
   char command[40];
   snprintf(command, sizeof(command), "ATD%s;\r", number);
   at_command(s, command);
+  s->calls_after_ack = true;
   snprintf(s->status.detail, sizeof(s->status.detail), "Dial requested");
   return true;
 }
 
 bool bt_classic_answer(BtClassicHost *s) {
+  if (s->status.waiting)
+    return bt_classic_call_hold(s, 2);
   if (!s->status.ready || s->at_pending || !s->status.incoming)
     return false;
   at_command(s, "ATA\r");
+  s->calls_after_ack = true;
   return true;
 }
 
@@ -498,6 +685,7 @@ bool bt_classic_hangup(BtClassicHost *s) {
       !(s->status.call || s->status.call_setup || s->status.incoming))
     return false;
   at_command(s, "AT+CHUP\r");
+  s->calls_after_ack = true;
   return true;
 }
 
@@ -509,5 +697,18 @@ bool bt_classic_set_speaker_gain(BtClassicHost *s, unsigned gain) {
     s->status.speaker_gain = gain;
     s->speaker_gain_dirty = true;
   }
+  return true;
+}
+
+bool bt_classic_call_hold(BtClassicHost *s, unsigned action) {
+  if (!s->status.ready || s->at_pending || action > 3 || !(s->status.hold_support & (1u << action)))
+    return false;
+  if (action == 3 ? s->status.call_held != 1 || s->status.waiting
+                  : !s->status.waiting && !s->status.call_held && !(action == 2 && s->status.call))
+    return false;
+  char command[16];
+  snprintf(command, sizeof(command), "AT+CHLD=%u\r", action);
+  at_command(s, command);
+  s->calls_after_ack = true;
   return true;
 }

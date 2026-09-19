@@ -50,6 +50,7 @@ class ClassicHostTest(unittest.TestCase):
         cls.lib = ctypes.CDLL(str(library))
         cls.lib.demo_detail.restype = ctypes.c_char_p
         cls.lib.demo_caller_number.restype = ctypes.c_char_p
+        cls.lib.demo_waiting_number.restype = ctypes.c_char_p
 
     @classmethod
     def tearDownClass(cls):
@@ -196,7 +197,7 @@ class ClassicHostTest(unittest.TestCase):
         self.rf_receive(rfcomm.RFCOMM_Frame.sabm(1, 2))
         frames = self.frames()
         self.assertEqual(frames[0].type, rfcomm.FrameType.UA)
-        self.assertEqual(frames[-1].information, b"AT+BRSF=20\r")
+        self.assertEqual(frames[-1].information, b"AT+BRSF=54\r")
 
     def at(self, text):
         self.rf_receive(
@@ -204,9 +205,9 @@ class ClassicHostTest(unittest.TestCase):
         )
         return [f.information for f in self.frames() if f.dlci == 2 and not f.p_f]
 
-    def ready(self, secure=False):
+    def ready(self, secure=False, features="512"):
         self.rf_open(secure=secure)
-        self.assertEqual(self.at("\r\n+BRSF: 512\r\nOK\r\n"), [b"AT+CIND=?\r"])
+        self.assertEqual(self.at(f"\r\n+BRSF: {features}\r\nOK\r\n"), [b"AT+CIND=?\r"])
         self.assertEqual(
             self.at(
                 '\r\n+CIND: ("service",(0,1)),("call",(0,1)),("callsetup",(0-3))\r\nOK\r\n'
@@ -220,6 +221,131 @@ class ClassicHostTest(unittest.TestCase):
         self.assertTrue(self.lib.demo_flags() & 4)
         self.rf_receive(rfcomm.RFCOMM_Frame.uih(1, 2, b"\7", p_f=1))
         self.frames()
+
+    def ready_three_way(self, enhanced=True, hold="(0,1,1x,2,2x,3)"):
+        self.rf_open()
+        self.assertEqual(
+            self.at(f"+BRSF: {65 if enhanced else 1}\r\nOK\r\n"), [b"AT+CIND=?\r"]
+        )
+        self.assertEqual(
+            self.at(
+                '+CIND: ("call",(0,1)),("callsetup",(0-3)),("callheld",(0-2))\r\nOK\r\n'
+            ),
+            [b"AT+CIND?\r"],
+        )
+        self.assertEqual(self.at("+CIND: 0,0,0\r\nOK\r\n"), [b"AT+CMER=3,0,0,1\r"])
+        self.assertEqual(self.at("OK\r\n"), [b"AT+CHLD=?\r"])
+        self.assertEqual(self.at(f"+CHLD: {hold}\r\nOK\r\n"), [b"AT+CLIP=1\r"])
+        self.assertEqual(self.at("OK\r\n"), [b"AT+CCWA=1\r"])
+        self.rf_receive(rfcomm.RFCOMM_Frame.uih(1, 2, b"\7", p_f=1))
+        self.frames()
+        self.assertEqual(self.at("OK\r\n"), [b"AT+VGS=15\r"])
+        self.assertEqual(self.at("OK\r\n"), [b"AT+CLCC\r"] if enhanced else [])
+        if enhanced:
+            self.assertEqual(self.at("OK\r\n"), [])
+        self.assertTrue(self.lib.demo_flags() & 4)
+
+    def test_waiting_answer_holds_active_call(self):
+        self.ready_three_way(enhanced=False)
+        self.at('+CIEV: 1,1\r\n+CLIP: "12025550100",145\r\n')
+        self.at('+CCWA: "12025550101",145,1\r\n')
+        self.assertTrue(self.lib.demo_waiting())
+        self.assertEqual(self.lib.demo_caller_number(), b"+12025550100")
+        self.assertEqual(self.lib.demo_waiting_number(), b"+12025550101")
+        self.assertTrue(self.lib.demo_answer())
+        self.assertEqual(
+            [f.information for f in self.frames() if f.dlci == 2], [b"AT+CHLD=2\r"]
+        )
+        self.at("OK\r\n+CIEV: 2,0\r\n+CIEV: 3,1\r\n")
+        self.assertFalse(self.lib.demo_waiting())
+        self.assertEqual(self.lib.demo_call_held(), 1)
+        self.assertEqual(self.lib.demo_caller_number(), b"")
+        self.assertTrue(self.lib.demo_call_hold(3))
+        self.assertEqual(
+            [f.information for f in self.frames() if f.dlci == 2], [b"AT+CHLD=3\r"]
+        )
+
+    def test_waiting_identity_rejects_malformed_or_nonvoice_notifications(self):
+        self.ready_three_way(enhanced=False)
+        self.at("+CIEV: 1,1\r\n")
+        for text in (
+            '"123",145',
+            '"123",145,2',
+            '"123",145,1junk',
+            '"123;ATD",145,1',
+            '"123",-1,1',
+        ):
+            self.at(f"+CCWA: {text}\r\n")
+            self.assertFalse(self.lib.demo_waiting())
+            self.assertEqual(self.lib.demo_waiting_number(), b"")
+        self.at('+CCWA: "123",145,1,"",1\r\n')
+        self.assertTrue(self.lib.demo_waiting())
+        self.assertEqual(self.lib.demo_waiting_number(), b"")
+
+    def test_current_call_list_publishes_only_after_ok(self):
+        self.ready_three_way()
+        self.assertEqual(self.at("+CIEV: 1,1\r\n"), [b"AT+CLCC\r"])
+        self.at('+CLCC: 1,0,0,0,0,"12025550100",145\r\n')
+        self.assertEqual(self.lib.demo_caller_number(), b"")
+        self.at("OK\r\n")
+        self.assertEqual(self.lib.demo_caller_number(), b"+12025550100")
+        self.assertEqual(self.at("+CIEV: 3,1\r\n"), [b"AT+CLCC\r"])
+        self.at('+CLCC: 1,0,1,0,0,"12025550100",145\r\n')
+        self.at('+CLCC: 2,1,0,0,0,"12025550101",145\r\nOK\r\n')
+        self.assertEqual(self.lib.demo_caller_number(), b"+12025550101")
+
+    def test_indicator_during_call_query_discards_obsolete_snapshot(self):
+        self.ready_three_way()
+        self.assertEqual(self.at("+CIEV: 1,1\r\n"), [b"AT+CLCC\r"])
+        self.at('+CLCC: 1,0,0,0,0,"123",129\r\n')
+        self.at("+CIEV: 1,0\r\n")
+        self.assertEqual(self.at("OK\r\n"), [b"AT+CLCC\r"])
+        self.assertEqual(self.lib.demo_caller_number(), b"")
+        self.at("OK\r\n")
+        self.assertEqual(self.lib.demo_caller_number(), b"")
+
+    def test_invalid_call_lists_do_not_publish_partial_identity(self):
+        self.ready_three_way()
+        for invalid in (
+            "0,0,0,0,0",
+            "-1,0,0,0,0",
+            "999999999999999,0,0,0,0",
+            "2,0,9,0,0",
+            '2,0,0,0,0,"123;ATD",129',
+            "1,0,0,0,0",
+        ):
+            self.assertEqual(self.at("+CIEV: 1,1\r\n"), [b"AT+CLCC\r"])
+            self.at('+CLCC: 1,0,0,0,0,"123",129\r\n')
+            self.at(f"+CLCC: {invalid}\r\nOK\r\n")
+            self.assertEqual(self.lib.demo_caller_number(), b"")
+            self.rf_receive(rfcomm.RFCOMM_Frame.uih(1, 2, b"\7", p_f=1))
+            self.frames()
+
+    def test_call_hold_only_uses_advertised_actions(self):
+        self.ready_three_way(enhanced=False, hold="(1,2)")
+        self.at("+CIEV: 1,1\r\n+CIEV: 2,1\r\n")
+        self.assertFalse(self.lib.demo_call_hold(0))
+        self.assertFalse(self.lib.demo_call_hold(3))
+        self.assertFalse(self.lib.demo_call_hold(4))
+        self.assertTrue(self.lib.demo_call_hold(1))
+        self.assertEqual(
+            [f.information for f in self.frames() if f.dlci == 2], [b"AT+CHLD=1\r"]
+        )
+
+    def test_negative_ag_features_do_not_enable_call_waiting(self):
+        self.ready(features="-1")
+        self.at("+CIEV: 2,1\r\n")
+        self.at('+CCWA: "123",129,1\r\n')
+        self.assertFalse(self.lib.demo_waiting())
+        self.assertFalse(self.lib.demo_call_hold(2))
+
+    def test_call_list_overflow_does_not_publish_a_partial_list(self):
+        self.ready_three_way()
+        self.assertEqual(self.at("+CIEV: 1,1\r\n"), [b"AT+CLCC\r"])
+        for index in range(1, 6):
+            self.at(f'+CLCC: {index},0,0,0,0,"123",129\r\n')
+        self.at("OK\r\n")
+        self.assertEqual(self.lib.demo_caller_number(), b"")
 
     def test_remote_speaker_gain_is_bounded_and_not_echoed(self):
         self.ready()
@@ -786,7 +912,7 @@ class ReconnectTest(ClassicHostTest):
         )
         self.l2cap(0x41, bytes(rfcomm.RFCOMM_Frame.ua(1, 14)))
         frames = [rfcomm.RFCOMM_Frame.from_bytes(data) for _, data in self.drain()]
-        self.assertEqual(frames[-1].information, b"AT+BRSF=20\r")
+        self.assertEqual(frames[-1].information, b"AT+BRSF=54\r")
         for response, expected in [
             (b"\r\n+BRSF: 512\r\nOK\r\n", b"AT+CIND=?\r"),
             (b'\r\n+CIND: ("call",(0,1)),("callsetup",(0-3))\r\nOK\r\n', b"AT+CIND?\r"),
