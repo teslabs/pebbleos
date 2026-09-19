@@ -62,9 +62,9 @@ typedef struct {
   SpeakerPcmFormat pcm_format;
   bool stream_realtime;
 
-  // Previous decoded samples for cubic interpolation across chunk boundaries.
-  // [0] = second-to-last sample (s_{n-2}), [1] = last sample (s_{n-1}).
-  int16_t prev_samples[2];
+  // Cubic interpolation history, oldest first; two input samples of delay.
+  int16_t prev_samples[3];
+  unsigned pcm_tail_samples;
 
   // Temporary buffer for reading raw PCM data before format conversion
   uint8_t raw_buf[1024];
@@ -362,51 +362,31 @@ static uint32_t prv_read_and_convert_pcm(int16_t *out, uint32_t max_out_samples)
   }
 
   uint32_t bytes_read = pcm_stream_read(&s_state.pcm_stream, s_state.raw_buf, input_bytes_needed);
-  if (bytes_read == 0) {
-    return 0;
+  bool tail = bytes_read == 0;
+  uint32_t samples_read = bytes_read / bytes_per_sample;
+  if (tail) {
+    if (is_16khz || !pcm_stream_is_done(&s_state.pcm_stream)) {
+      return 0;
+    }
+    samples_read = MIN(s_state.pcm_tail_samples, input_samples_needed);
+    s_state.pcm_tail_samples -= samples_read;
+  } else if (!is_16khz) {
+    s_state.pcm_tail_samples = 3;
   }
 
-  uint32_t samples_read = bytes_read / bytes_per_sample;
   uint32_t out_pos = 0;
-
-  if (is_16khz) {
-    // No upsampling needed — just convert bit depth
-    for (uint32_t i = 0; i < samples_read; i++) {
-      out[out_pos++] = prv_decode_sample(s_state.raw_buf, i, is_16bit);
-    }
-    // Track last two samples for potential future use
-    if (samples_read >= 2) {
-      s_state.prev_samples[0] = out[out_pos - 2];
-      s_state.prev_samples[1] = out[out_pos - 1];
-    } else if (samples_read == 1) {
+  for (uint32_t i = 0; i < samples_read; i++) {
+    int16_t sample = tail ? 0 : prv_decode_sample(s_state.raw_buf, i, is_16bit);
+    if (is_16khz) {
+      out[out_pos++] = sample;
+    } else {
+      // Delay output until all four taps exist, including across short reads.
+      out[out_pos++] = s_state.prev_samples[1];
+      out[out_pos++] = prv_cubic_midpoint(s_state.prev_samples[0], s_state.prev_samples[1],
+                                          s_state.prev_samples[2], sample);
       s_state.prev_samples[0] = s_state.prev_samples[1];
-      s_state.prev_samples[1] = out[out_pos - 1];
-    }
-  } else {
-    // 8kHz -> 16kHz: 4-tap cubic interpolation
-    // For each input sample, output the sample itself plus a cubic-interpolated
-    // midpoint using 4 surrounding points: s[i-1], s[i], s[i+1], s[i+2]
-    // prev_samples[] provides the history across chunk boundaries.
-    for (uint32_t i = 0; i < samples_read; i++) {
-      int16_t s_prev =
-          (i >= 1) ? prv_decode_sample(s_state.raw_buf, i - 1, is_16bit) : s_state.prev_samples[1];
-      int16_t s_curr = prv_decode_sample(s_state.raw_buf, i, is_16bit);
-      int16_t s_next =
-          (i + 1 < samples_read) ? prv_decode_sample(s_state.raw_buf, i + 1, is_16bit) : s_curr;
-      int16_t s_next2 =
-          (i + 2 < samples_read) ? prv_decode_sample(s_state.raw_buf, i + 2, is_16bit) : s_next;
-
-      out[out_pos++] = s_curr;
-      out[out_pos++] = prv_cubic_midpoint(s_prev, s_curr, s_next, s_next2);
-    }
-
-    // Save last two decoded samples for next chunk's interpolation
-    if (samples_read >= 2) {
-      s_state.prev_samples[0] = prv_decode_sample(s_state.raw_buf, samples_read - 2, is_16bit);
-      s_state.prev_samples[1] = prv_decode_sample(s_state.raw_buf, samples_read - 1, is_16bit);
-    } else if (samples_read == 1) {
-      s_state.prev_samples[0] = s_state.prev_samples[1];
-      s_state.prev_samples[1] = prv_decode_sample(s_state.raw_buf, 0, is_16bit);
+      s_state.prev_samples[1] = s_state.prev_samples[2];
+      s_state.prev_samples[2] = sample;
     }
   }
 
@@ -755,8 +735,8 @@ static bool prv_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat f
   s_state.pcm_format = fmt;
   s_state.stream_realtime = realtime;
   s_state.owner_task = owner;
-  s_state.prev_samples[0] = 0;
-  s_state.prev_samples[1] = 0;
+  memset(s_state.prev_samples, 0, sizeof(s_state.prev_samples));
+  s_state.pcm_tail_samples = 0;
 
   prv_start_audio(vol);
 
@@ -811,7 +791,7 @@ void speaker_service_stream_close_owned(PebbleTask owner) {
 
   bool realtime = s_state.stream_realtime;
   s_state.stream_realtime = false;
-  if (realtime || s_state.pcm_stream.count > 0) {
+  if (realtime || s_state.pcm_stream.count > 0 || s_state.pcm_tail_samples > 0) {
     // Data remaining - enter draining state
     pcm_stream_mark_closing(&s_state.pcm_stream);
     s_state.state = SpeakerStateDraining;

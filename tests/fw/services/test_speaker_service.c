@@ -43,6 +43,8 @@ static int s_stop_count;
 static uint32_t s_samples_written;
 static uint32_t s_nonzero_samples;
 static uint32_t s_driver_space;
+static int16_t s_output[4096];
+static unsigned s_output_count;
 
 void audio_init(AudioDevice *device) {
 }
@@ -59,6 +61,9 @@ uint32_t audio_write(AudioDevice *device, void *buf, uint32_t size) {
     if (samples[i] != 0) {
       s_nonzero_samples++;
     }
+  }
+  for (uint32_t i = 0; i < num_samples && s_output_count < 4096; ++i) {
+    s_output[s_output_count++] = samples[i];
   }
   s_samples_written += num_samples;
   return s_driver_space;
@@ -95,6 +100,7 @@ void test_speaker_service__initialize(void) {
   s_samples_written = 0;
   s_nonzero_samples = 0;
   s_driver_space = 4096;
+  s_output_count = 0;
   speaker_service_init();
 }
 
@@ -228,7 +234,7 @@ void test_speaker_service__live_stream_close_drains_a_partial_refill(void) {
   speaker_service_stream_close_owned(PebbleTask_BTHCI);
   prv_pump_until_idle();
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
-  cl_assert_equal_i(s_samples_written, 40 + DRAIN_SAMPLES);
+  cl_assert_equal_i(s_samples_written, 40 + 6 + DRAIN_SAMPLES);
 }
 
 void test_speaker_service__live_stream_close_preserves_already_queued_audio(void) {
@@ -240,5 +246,48 @@ void test_speaker_service__live_stream_close_preserves_already_queued_audio(void
   speaker_service_stream_close_owned(PebbleTask_BTHCI);
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStateDraining);
   prv_pump_until_idle();
-  cl_assert_equal_i(s_samples_written, 512 + DRAIN_SAMPLES);
+  cl_assert_equal_i(s_samples_written, 512 + 6 + DRAIN_SAMPLES);
+}
+
+static void prv_resample_partition(unsigned partition, int16_t output[1200]) {
+  int16_t input[600];
+  for (unsigned i = 0; i < 600; ++i) {
+    input[i] = (i * 977 % 24000) - 12000;
+  }
+  s_output_count = 0;
+  cl_assert(speaker_service_stream_open(SpeakerPriorityApp, 50, SpeakerPcmFormat_8kHz_16bit));
+  for (unsigned offset = 0; offset < 600;) {
+    unsigned count = partition < 600 - offset ? partition : 600 - offset;
+    cl_assert_equal_i(speaker_service_stream_write(input + offset, count * 2), count * 2);
+    uint32_t space = 4096;
+    s_trans_cb(&space);
+    offset += count;
+  }
+  cl_assert_equal_i(s_output_count, 1200);
+  memcpy(output, s_output, 2400);
+  speaker_service_stop();
+}
+
+void test_speaker_service__upsampling_does_not_depend_on_packet_boundaries(void) {
+  int16_t expected[1200], actual[1200];
+  prv_resample_partition(256, expected);
+  const unsigned partitions[] = {1, 7, 30, 127};
+  for (unsigned i = 0; i < sizeof(partitions) / sizeof(partitions[0]); ++i) {
+    prv_resample_partition(partitions[i], actual);
+    cl_assert_equal_m(expected, actual, sizeof(actual));
+  }
+}
+
+void test_speaker_service__upsampling_close_flushes_the_last_sample_and_filter_tail(void) {
+  cl_assert(speaker_service_stream_open(SpeakerPriorityApp, 50, SpeakerPcmFormat_8kHz_16bit));
+  const int16_t input[] = {0, 0, 16000};
+  speaker_service_stream_write(input, sizeof(input));
+  uint32_t space = 4096;
+  s_trans_cb(&space);
+  speaker_service_stream_close();
+  prv_pump_until_idle();
+  const int16_t expected[] = {0, 0, 0, 0, 0, -1000, 0, 9000, 16000, 9000, 0, -1000};
+  cl_assert_equal_m(s_output, expected, sizeof(expected));
+  cl_assert_equal_i(s_samples_written, sizeof(expected) / sizeof(expected[0]) + DRAIN_SAMPLES);
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
 }
