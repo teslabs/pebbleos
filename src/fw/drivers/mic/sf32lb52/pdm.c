@@ -10,6 +10,7 @@
 #include <pbl/logging/logging.h>
 #include "pbl/kernel/mutex.h"
 #include "pbl/kernel/irq.h"
+#include "pbl/kernel/sched.h"
 #include "system/passert.h"
 #include "pbl/util/circular_buffer.h"
 #include "pbl/util/heap.h"
@@ -50,6 +51,9 @@ static PDM_HandleTypeDef s_hpdm;
 static MicDeviceState *s_state;
 static uint32_t s_capture_bytes, s_dispatched_bytes, s_dropped_bytes;
 static uint16_t s_peak_backlog;
+static uint32_t s_capture_epoch, s_frame_time, s_timed_samples;
+static unsigned s_channels;
+static bool s_frame_time_valid;
 
 void mic_init(const MicDevice *this) {
   PBL_ASSERTN(this);
@@ -103,11 +107,13 @@ void mic_set_volume(const MicDevice *this, uint16_t volume) {
   state->volume = volume;
 }
 
-static bool prv_allocate_buffers(const MicDevice *this) {
+static bool prv_allocate_buffers(const MicDevice *this, bool polling) {
   MicDeviceState *state = this->state;
   const uint32_t channels = this->channels ? this->channels : 1;
-  const size_t requested = PDM_CIRCULAR_BUF_BYTES(PDM_CIRCULAR_BUF_SIZE_SAMPLES, channels);
-  const size_t floor = PDM_CIRCULAR_BUF_BYTES(PDM_CIRCULAR_BUF_MIN_SIZE_SAMPLES, channels);
+  const size_t requested = PDM_CIRCULAR_BUF_BYTES(
+      polling ? MIC_SAMPLE_RATE * 128 / 1000 : PDM_CIRCULAR_BUF_SIZE_SAMPLES, channels);
+  const size_t floor = PDM_CIRCULAR_BUF_BYTES(
+      polling ? MIC_SAMPLE_RATE * 64 / 1000 : PDM_CIRCULAR_BUF_MIN_SIZE_SAMPLES, channels);
   const size_t step = PDM_CIRCULAR_BUF_BYTES(PDM_CIRCULAR_BUF_STEP_SAMPLES, channels);
 
   size_t try_size = requested;
@@ -170,9 +176,10 @@ static void prv_dispatch_samples_system_task(void *data) {
       s_state->circ_buffer_storage) {
     size_t frame_size_bytes = s_state->audio_buffer_len * sizeof(int16_t);
     int frames_processed = 0;
+    // Give a realtime consumer a chance to service output and credits after each frame.
+    int frame_limit = s_state->ready_handler ? 1 : MAX_FRAMES_PER_SYSTEM_TASK_CALLBACK;
 
-    while (s_state->is_running && s_state->data_handler &&
-           frames_processed < MAX_FRAMES_PER_SYSTEM_TASK_CALLBACK) {
+    while (s_state->is_running && s_state->data_handler && frames_processed < frame_limit) {
       // Check if we have enough data for a complete frame
       pbl_irq_lock();
       uint16_t available_data = circular_buffer_get_read_space_remaining(&s_state->circ_buffer);
@@ -185,14 +192,17 @@ static void prv_dispatch_samples_system_task(void *data) {
       // Copy one frame
       uint16_t bytes_copied = circular_buffer_copy(
           &s_state->circ_buffer, (uint8_t *)s_state->audio_buffer, frame_size_bytes);
+      s_frame_time = s_capture_epoch + s_timed_samples - available_data / (2 * s_channels);
       circular_buffer_consume(&s_state->circ_buffer, bytes_copied);
       s_dispatched_bytes += bytes_copied;
       pbl_irq_unlock();
 
       if (bytes_copied == frame_size_bytes) {
         // Call callback with the frame
+        s_frame_time_valid = true;
         s_state->data_handler(s_state->audio_buffer, s_state->audio_buffer_len,
                               s_state->handler_context);
+        s_frame_time_valid = false;
 
         frames_processed++;
 
@@ -267,7 +277,12 @@ static void prv_dma_data_processing(uint8_t *data, uint16_t size) {
     s_dropped_bytes += to_drop;
   }
   circular_buffer_write(&s_state->circ_buffer, data, size);
+  if (!s_timed_samples) {
+    s_capture_epoch =
+        pbl_ticks_to_ms(pbl_uptime_ticks()) * (MIC_SAMPLE_RATE / 1000) - size / (2 * s_channels);
+  }
   s_capture_bytes += size;
+  s_timed_samples += size / (2 * s_channels);
 
   // Check if we have enough data for a complete frame
   size_t frame_size_bytes = s_state->audio_buffer_len * sizeof(int16_t);
@@ -358,19 +373,18 @@ static bool prv_start(const MicDevice *this, MicDataHandlerCB data_handler, void
     pbl_mutex_unlock(&state->mutex);
     return false;
   }
-  // Allocate buffers dynamically
-  if (!prv_allocate_buffers(this)) {
-    pbl_mutex_unlock(&state->mutex);
-    return false;
-  }
-
   hpdm->RxXferSize = this->channels * PDM_AUDIO_RECORD_PIPE_SIZE * sizeof(int16_t);
   // Over-allocate by one cache line so the DMA buffer can start on a line
   // boundary. dcache_invalidate() in the IRQ path would otherwise risk
   // destroying dirty bytes in lines shared with neighboring allocations.
   const size_t cache_align = dcache_line_size();
   state->raw_dma_buffer = kernel_malloc(hpdm->RxXferSize + cache_align - 1U);
-  PBL_ASSERT(state->raw_dma_buffer, "Can not allocate buffer");
+  if (!state->raw_dma_buffer || !prv_allocate_buffers(this, ready != NULL)) {
+    kernel_free(state->raw_dma_buffer);
+    state->raw_dma_buffer = NULL;
+    pbl_mutex_unlock(&state->mutex);
+    return false;
+  }
   hpdm->pRxBuffPtr = (uint8_t *)(((uintptr_t)state->raw_dma_buffer + cache_align - 1U) &
                                  ~(uintptr_t)(cache_align - 1U));
 
@@ -380,6 +394,9 @@ static bool prv_start(const MicDevice *this, MicDataHandlerCB data_handler, void
   state->audio_buffer = audio_buffer;
   state->audio_buffer_len = audio_buffer_len;
   state->main_pending = false;
+  s_channels = this->channels ? this->channels : 1;
+  s_frame_time_valid = false;
+  s_timed_samples = 0;
   s_capture_bytes = s_dispatched_bytes = s_dropped_bytes = 0;
   s_peak_backlog = 0;
 
@@ -430,6 +447,14 @@ bool mic_start_polling(const MicDevice *this, MicDataHandlerCB data_handler, voi
 
 void mic_poll(const MicDevice *this) {
   prv_dispatch_samples_system_task((void *)this);
+}
+
+bool mic_get_frame_time(const MicDevice *this, uint32_t *sample_time) {
+  if (!s_frame_time_valid) {
+    return false;
+  }
+  *sample_time = s_frame_time;
+  return true;
 }
 
 void mic_stop(const MicDevice *this) {

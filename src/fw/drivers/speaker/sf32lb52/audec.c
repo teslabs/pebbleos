@@ -9,6 +9,8 @@
 #include "pbl/util/misc.h"
 #include "pbl/services/system_task.h"
 #include "pbl/soc/sf32lb/sleep.h"
+#include <pbl/kernel/irq.h>
+#include <pbl/kernel/sched.h>
 
 PBL_LOG_MODULE_DEFINE(driver_speaker_sf32lb, CONFIG_DRIVER_SPEAKER_LOG_LEVEL);
 
@@ -328,6 +330,7 @@ void audec_start(AudioDevice *audio_device, AudioTransCB cb) {
   AUDCODEC_HandleTypeDef *haudcodec = &state->audcodec;
   state->trans_cb = cb;
   state->callback_pending = false;
+  state->playback_started = false;
 #ifdef CONFIG_BT_HCI_LOCAL_AUDIO
   state->diagnostic_refills = 0;
   state->diagnostic_underrun_bytes = 0;
@@ -373,6 +376,7 @@ void audec_start(AudioDevice *audio_device, AudioTransCB cb) {
 uint32_t audec_write(AudioDevice *audio_device, void *writeBuf, uint32_t size) {
   AudioDeviceState *state = audio_device->state;
   if (state->circ_buffer_storage) {
+    pbl_irq_lock();
     uint32_t free_size = circular_buffer_get_write_space_remaining(&state->circ_buffer);
     uint16_t to_write = (size > free_size) ? (uint16_t)free_size : (uint16_t)size;
 #ifdef CONFIG_BT_HCI_LOCAL_AUDIO
@@ -381,7 +385,9 @@ uint32_t audec_write(AudioDevice *audio_device, void *writeBuf, uint32_t size) {
     if (to_write > 0) {
       circular_buffer_write(&state->circ_buffer, writeBuf, to_write);
     }
-    return circular_buffer_get_write_space_remaining(&state->circ_buffer);
+    free_size = circular_buffer_get_write_space_remaining(&state->circ_buffer);
+    pbl_irq_unlock();
+    return free_size;
   }
 
   return 0;
@@ -471,6 +477,29 @@ static void prv_dma_request_processing(AudioDeviceState *state) {
   // doesn't replay stale RAM contents. We always flush a full half because
   // any bytes we didn't touch were already memset() to silence.
   dcache_flush(state->queue_buf[HAL_AUDCODEC_DAC_CH0], CFG_AUDIO_PLAYBACK_PIPE_SIZE);
+  if (state->playback_cb) {
+    const unsigned samples = CFG_AUDIO_PLAYBACK_PIPE_SIZE / sizeof(int16_t);
+    uint32_t now = pbl_ticks_to_ms(pbl_uptime_ticks()) * 16;
+    int32_t skew = (int32_t)(now - (state->playback_time - samples));
+    if (skew < -128 || skew > 128) {
+      state->playback_started = false;
+    }
+    if (!state->playback_started) {
+      // The other half is playing now; this newly filled half follows it.
+      uint8_t *base = state->audcodec.buf[HAL_AUDCODEC_DAC_CH0];
+      uint8_t *playing = state->queue_buf[HAL_AUDCODEC_DAC_CH0] == base
+                             ? base + CFG_AUDIO_PLAYBACK_PIPE_SIZE
+                             : base;
+      state->playback_time = now;
+      state->playback_cb((const int16_t *)playing, samples, state->playback_time,
+                         state->playback_context);
+      state->playback_time += samples;
+      state->playback_started = true;
+    }
+    state->playback_cb((const int16_t *)state->queue_buf[HAL_AUDCODEC_DAC_CH0], samples,
+                       state->playback_time, state->playback_context);
+    state->playback_time += samples;
+  }
   uint32_t free_size = circular_buffer_get_write_space_remaining(&state->circ_buffer);
   // Only one refill callback may be in flight: this ISR fires every half
   // buffer, and enqueueing on each one floods the system task queue when

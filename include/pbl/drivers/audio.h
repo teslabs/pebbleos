@@ -4,10 +4,20 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 typedef const struct AudioDevice AudioDevice;
 //! Invoked on the system task; consumers may refill synchronously.
 typedef void (*AudioTransCB)(uint32_t *free_size);
+
+//! Optional observer of mono 16 kHz PCM committed to DMA, including underrun silence.
+//! sample_time is its presentation time on a wrapping 16 kHz uptime clock.
+//! Runs in the DMA ISR; copy immediately and never block or retain the sample pointer.
+typedef void (*AudioPlaybackCB)(const int16_t *samples, size_t count, uint32_t sample_time,
+                                void *context);
+//! NULL unregisters synchronously. Returns false when timing observation is unsupported.
+bool audio_set_playback_callback(AudioDevice *audio_device, AudioPlaybackCB cb, void *context);
 
 //! Optional board-level power hooks. Either callback may be NULL.
 //! power_up runs before the consumer enables (e.g. raise PMIC discharge limit);

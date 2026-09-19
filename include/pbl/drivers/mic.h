@@ -36,6 +36,10 @@ bool mic_start_polling(MicDevice *this, MicDataHandlerCB data_handler, void *con
                        int16_t *audio_buffer, size_t audio_buffer_len, MicDataReadyCB ready);
 void mic_poll(MicDevice *this);
 
+//! Optional first-sample time on a wrapping MIC_SAMPLE_RATE clock based on uptime.
+//! Valid only inside the data callback; false means no capture timestamp is available.
+bool mic_get_frame_time(MicDevice *this, uint32_t *sample_time);
+
 //! Stop the microphone. If buffer is not full, the remaining samples will be abandoned. No more
 //! callbacks will be executed nor data copied into the buffer after this returns
 void mic_stop(MicDevice *this);

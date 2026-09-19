@@ -9,3 +9,7 @@ bool mic_start_polling(MicDevice *this, MicDataHandlerCB data_handler, void *con
 
 void mic_poll(MicDevice *this) {
 }
+
+bool mic_get_frame_time(MicDevice *this, uint32_t *sample_time) {
+  return false;
+}
