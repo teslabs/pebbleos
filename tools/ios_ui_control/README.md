@@ -88,6 +88,9 @@ successful run. A failed run may leave the test gain selected. Logs and
 screenshots remain under the ignored build directory. Avoid other UI/serial
 clients during the run.
 This is a state/transport smoke test, not an acoustic-quality measurement.
+`--duration` accepts up to 120 seconds, leaving time for setup and teardown
+before the helper's three-minute expiry. The active-call report includes
+microphone capture/backlog counters as well as the HCI audio diagnostics.
 
 To inspect the helper's synthetic downlink tone, add
 `--capture-pcm /tmp/hfp-tone.h4`. After the active interval, the runner arms a

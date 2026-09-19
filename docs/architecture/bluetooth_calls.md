@@ -1261,6 +1261,8 @@ Active calls must consume transmit packets and receive a majority of valid SCO
 payloads; an audio connection containing only missing packets fails the test.
 
 For timed audio-counter samples, add `--audio-interval 10` to the call runner.
+Samples include echo-filter state and capture processing time. Each completed
+active interval also reports the PDM capture, drop and maximum-backlog counters.
 `--max-underrun-bytes 0` additionally fails if DMA underruns increase during
 an active call. Inspect the initial sample too: the delta check deliberately
 separates startup behavior from subsequent playback.

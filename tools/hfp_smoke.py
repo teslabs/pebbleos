@@ -261,6 +261,8 @@ def main():
                                     "speaker DMA refills=",
                                     "local capture ",
                                     "local audio active=",
+                                    "local echo ",
+                                    "local processing ",
                                 )
                             ):
                                 print(line, flush=True)
@@ -281,6 +283,7 @@ def main():
                     audio = command("bt audio probe")
                     for line in audio:
                         print(line, flush=True)
+                    print("Microphone:", command("mic read"), flush=True)
                     if args.max_underrun_bytes is not None:
                         delta = underrun_bytes(audio) - underrun_bytes(initial_audio)
                         if delta < 0 or delta > args.max_underrun_bytes:

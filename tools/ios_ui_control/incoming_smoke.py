@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", required=True, help="iPhone UDID or CoreDevice ID")
     parser.add_argument("--tty", required=True, help="Watch debug serial port")
-    parser.add_argument("--duration", type=int, default=5, choices=range(1, 61))
+    parser.add_argument("--duration", type=int, default=5, choices=range(1, 121))
     parser.add_argument("--gain", type=int, default=7, choices=range(16))
     parser.add_argument(
         "--capture-pcm",
@@ -107,6 +107,7 @@ def main():
                 command("bt audio capture")
                 time.sleep(1)
             print("Audio:", command("bt audio probe"), flush=True)
+            print("Microphone:", command("mic read"), flush=True)
             command("bt hfp hangup")
             idle = wait(
                 lambda s: not (s["call"] or s["setup"] or s["audio"] or s["busy"])
