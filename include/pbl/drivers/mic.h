@@ -28,6 +28,14 @@ void mic_set_volume(MicDevice *this, uint16_t volume);
 bool mic_start(MicDevice *this, MicDataHandlerCB data_handler, void *context, int16_t *audio_buffer,
                size_t audio_buffer_len);
 
+//! Optional realtime dispatch. ready runs from the DMA ISR and must only wake the consumer.
+//! The consumer calls mic_poll() to deliver bounded batches on its own task.
+//! Returns false without starting capture if polling is unsupported or the device is busy.
+typedef void (*MicDataReadyCB)(void *context);
+bool mic_start_polling(MicDevice *this, MicDataHandlerCB data_handler, void *context,
+                       int16_t *audio_buffer, size_t audio_buffer_len, MicDataReadyCB ready);
+void mic_poll(MicDevice *this);
+
 //! Stop the microphone. If buffer is not full, the remaining samples will be abandoned. No more
 //! callbacks will be executed nor data copied into the buffer after this returns
 void mic_stop(MicDevice *this);

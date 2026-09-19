@@ -754,6 +754,23 @@ A thirty-second local outgoing call also passed with S4, without playback
 underruns, clipping or added microphone queue drops.
 The microphone capture queue still dropped some packets in bursts. These are
 digital tone and transport results, not an acoustic speech-quality or echo test.
+
+Subsequent microphone scheduling work found a 111 ms PDM backlog behind the
+shared background task. Fixing its reschedule flag and serializing circular
+buffer consumption against DMA removed two driver races, but a 60-second local
+call still dropped 19 HCI capture packets. Calls now use the optional microphone
+polling interface: the DMA interrupt wakes the HCI task, which drains bounded
+capture batches before entering the controller adapter. Dictation retains its
+background callbacks; drivers without polling support retain that fallback.
+`mic read` reports capture, dispatch, drop and maximum-backlog byte counters.
+
+Three consecutive 60-second iPhone local CallKit calls with encrypted BLE and
+S4 audio then passed with zero capture packet drops, adapter transmit drops,
+speaker DMA underruns, profile errors or host resets. This establishes the
+short-call scheduling improvement; long-call drift and loaded BLE still need
+qualification. A separate startup failure during this work was a resource
+checksum buffer allocation while the splash exhausted the heap. Checksum
+validation now has a tested stack fallback and the debug firmware boots again.
 The [local call runner](../../tools/ios_ui_control/README.md) documents opt-in
 PCM capture and the reproducible tone analyzer.
 

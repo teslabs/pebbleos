@@ -171,6 +171,7 @@ static void receive_task(void *context) {
   uint8_t buffer[256];
   for (;;) {
     pbl_sem_take(&s_received, hci_bridge_audio_active() || s_count ? PBL_MSEC(5) : PBL_FOREVER);
+    hci_local_audio_poll();
     pbl_mutex_lock(&s_io, PBL_FOREVER);
     if (s_port == IPC_QUEUE_INVALID_HANDLE) {
       pbl_mutex_unlock(&s_io);

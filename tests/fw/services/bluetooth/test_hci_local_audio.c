@@ -15,6 +15,8 @@
 #include "fake_system_task.h"
 
 static MicDataHandlerCB s_capture;
+static MicDataReadyCB s_ready;
+static bool s_polling_supported, s_poll_pending;
 static void *s_capture_context;
 static bool s_mic_busy, s_speaker_open;
 static unsigned s_starts, s_stops, s_speaker_bytes, s_tones, s_stream_closes;
@@ -73,8 +75,25 @@ bool mic_start(MicDevice *device, MicDataHandlerCB cb, void *context, int16_t *b
   ++s_starts;
   return true;
 }
+bool mic_start_polling(MicDevice *device, MicDataHandlerCB cb, void *context, int16_t *buffer,
+                       size_t size, MicDataReadyCB ready) {
+  if (!s_polling_supported || !mic_start(device, cb, context, buffer, size)) {
+    return false;
+  }
+  s_ready = ready;
+  return true;
+}
+void mic_poll(MicDevice *device) {
+  if (s_ready && s_poll_pending && s_capture) {
+    s_poll_pending = false;
+    int16_t input[120] = {0};
+    s_capture(input, 120, s_capture_context);
+  }
+}
 void mic_stop(MicDevice *device) {
   s_capture = NULL;
+  s_ready = NULL;
+  s_poll_pending = false;
   s_mic_busy = false;
   ++s_stops;
 }
@@ -129,6 +148,8 @@ void test_hci_local_audio__initialize(void) {
   hci_local_audio_set_controls(100, false);
   s_mic_busy = false;
   s_capture = NULL;
+  s_polling_supported = s_poll_pending = false;
+  s_ready = NULL;
   s_starts = s_stops = s_speaker_bytes = s_tones = s_stream_closes = 0;
 }
 void test_hci_local_audio__cleanup(void) {
@@ -162,6 +183,27 @@ static void prv_capture_frame(void) {
   }
   cl_assert(s_capture);
   s_capture(input, 120, s_capture_context);
+}
+
+void test_hci_local_audio__polling_capture_runs_on_consumer_and_stops_with_call(void) {
+  s_polling_supported = true;
+  prv_connect(true);
+  cl_assert(s_ready);
+  s_poll_pending = true;
+  s_ready(s_capture_context);
+  uint8_t packet[64];
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 0);
+  hci_local_audio_poll();
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 0);
+  s_poll_pending = true;
+  hci_local_audio_stop();
+  fake_system_task_callbacks_invoke_pending();
+  hci_local_audio_poll();
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 0);
+  cl_assert_equal_i(s_starts, 1);
+  cl_assert_equal_i(s_stops, 1);
 }
 
 void test_hci_local_audio__speaker_and_microphone_use_standard_hci(void) {

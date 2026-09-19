@@ -16,6 +16,7 @@
 #include <pbl/services/speaker/speaker_service.h>
 #include <pbl/services/system_task.h>
 #include <pbl/util/math.h>
+#include <pbl/util/size.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,6 +72,14 @@ static uint16_t prv_u16(const uint8_t *p) {
   return p[0] | (uint16_t)p[1] << 8;
 }
 
+static void prv_capture_ready(void *context) {
+  hci_bridge_transport_wake();
+}
+
+void hci_local_audio_poll(void) {
+  mic_poll(MIC);
+}
+
 static void prv_capture(int16_t *samples, size_t count, void *context) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
   if (!s_running) {
@@ -106,7 +115,7 @@ static void prv_capture(int16_t *samples, size_t count, void *context) {
   hci_bridge_transport_wake();
 }
 
-// All microphone start/stop operations run on the same task as capture callbacks.
+// Start/stop run on the system task; the microphone driver serializes capture callbacks.
 static void prv_sync(void *context) {
 #ifdef CONFIG_PROMPT
   if (s_pcm_timer) {
@@ -147,8 +156,11 @@ static void prv_sync(void *context) {
     speaker_service_stream_write_owned(PebbleTask_BTHCI, silence, sizeof(silence));
   }
   if (opened && mic_get_channels(MIC) == 1) {
-    s_mic_owned = mic_start(MIC, prv_capture, NULL, s_mic_buffer,
-                            sizeof(s_mic_buffer) / sizeof(s_mic_buffer[0]));
+    s_mic_owned = mic_start_polling(MIC, prv_capture, NULL, s_mic_buffer,
+                                    ARRAY_LENGTH(s_mic_buffer), prv_capture_ready);
+    if (!s_mic_owned) {
+      s_mic_owned = mic_start(MIC, prv_capture, NULL, s_mic_buffer, ARRAY_LENGTH(s_mic_buffer));
+    }
   }
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
   bool ready = opened && s_mic_owned && generation == s_generation && s_handle != NO_HANDLE;

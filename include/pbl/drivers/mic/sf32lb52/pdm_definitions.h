@@ -22,6 +22,7 @@ typedef struct MicState {
 
   // User interface
   MicDataHandlerCB data_handler;
+  MicDataReadyCB ready_handler;
   void *handler_context;
   int16_t *audio_buffer;
   size_t audio_buffer_len;

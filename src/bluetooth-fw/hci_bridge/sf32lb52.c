@@ -121,6 +121,9 @@ static void prv_receive_task(void *context) {
 #endif
 #ifdef CONFIG_BT_HCI_AUDIO_ADAPTER
     pbl_sem_take(&s_received, PBL_MSEC(10));
+#ifdef CONFIG_BT_HCI_LOCAL_AUDIO
+    hci_local_audio_poll();
+#endif
     H4Packet packet;
     for (unsigned i = 0; i < 16 && pbl_msgq_get(&s_host_queue, &packet, PBL_NO_WAIT) == 0; ++i) {
       prv_send_host_packet(&packet);
