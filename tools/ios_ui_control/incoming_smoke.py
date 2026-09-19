@@ -20,6 +20,11 @@ def main():
     parser.add_argument("--duration", type=int, default=5, choices=range(1, 61))
     parser.add_argument("--gain", type=int, default=7, choices=range(16))
     parser.add_argument(
+        "--capture-pcm",
+        type=Path,
+        help="Save a bounded H4 capture of the helper's received tone",
+    )
+    parser.add_argument(
         "--output", type=Path, default=Path("build-ios-ui-control/smoke")
     )
     args = parser.parse_args()
@@ -98,6 +103,9 @@ def main():
                 if not current["call"] or not current["audio"]:
                     raise RuntimeError(f"Call audio ended unexpectedly: {current}")
                 time.sleep(0.2)
+            if args.capture_pcm:
+                command("bt audio capture")
+                time.sleep(1)
             print("Audio:", command("bt audio probe"), flush=True)
             command("bt hfp hangup")
             idle = wait(
@@ -105,6 +113,15 @@ def main():
             )
             if not idle["ready"] or idle["errors"] != before["errors"]:
                 raise RuntimeError(f"Hangup failed: {idle}")
+            if args.capture_pcm:
+                lines = command("bt audio dump")
+                data = bytes.fromhex(
+                    "".join(line[5:] for line in lines if line.startswith("pcm: "))
+                )
+                if not data:
+                    raise RuntimeError("No received tone was captured")
+                args.capture_pcm.parent.mkdir(parents=True, exist_ok=True)
+                args.capture_pcm.write_bytes(data)
             trigger.wait(timeout=55)
             if trigger.returncode:
                 raise RuntimeError("The iPhone Incoming UI command failed")

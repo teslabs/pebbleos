@@ -87,6 +87,24 @@ sets call gain to 7/15 by default. Logs and screenshots remain under the
 ignored build directory. Avoid other UI/serial clients during the run.
 This is a state/transport smoke test, not an acoustic-quality measurement.
 
+To inspect the helper's synthetic downlink tone, add
+`--capture-pcm /tmp/hfp-tone.h4`. After the active interval, the runner arms a
+bounded capture, waits one second, and exports it after hangup. This contains
+received PCM before playback processing; microphone audio is not exported.
+Keep captures outside version control.
+
+The optional analyzer requires NumPy (`python -m pip install numpy`):
+
+```sh
+python tools/hfp_tone_quality.py /tmp/hfp-tone.h4 --frequency 440
+```
+
+It reports packet-status counts, sample loss and tone-to-error ratios for
+valid samples and the entire capture. It fits amplitude, phase and DC offset
+using valid samples at the known tone frequency. These measurements compare
+digital transport/decoder behavior; they do not score speech quality, echo,
+speaker acoustics or subsequent loss concealment.
+
 ## Pairing
 
 For Bluetooth numeric comparison, inspect the fresh code on both the phone
