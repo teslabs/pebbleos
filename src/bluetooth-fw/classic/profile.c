@@ -60,7 +60,7 @@ static void slc_next(BtClassicHost *s) {
     unsigned step = s->slc_step++;
     if ((step == 4 || step == 6) && !(s->ag_features & 1))
       continue;
-    at_command(s, commands[step]);
+    at_command(s, step == 0 && s->esco_s4 ? "AT+BRSF=566\r" : commands[step]);
     return;
   }
   if ((s->ag_features & 1) && (!s->indicator_held || (s->status.hold_support & 6) != 6)) {

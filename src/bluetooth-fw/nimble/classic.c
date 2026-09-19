@@ -65,14 +65,18 @@ static void reconnect(uint32_t now) {
 
 static void send_command(const uint8_t *p, size_t length, void *context) {
   uint16_t opcode = p[1] | (uint16_t)p[2] << 8;
-  int rc = ble_hs_hci_cmd_tx(opcode, p + 4, p[3], NULL, 0);
+  uint8_t ack[15] = {4, 0x0e, 4, 1, p[1], p[2]};
+  unsigned response_length = opcode == 0x1003 ? 8 : 0; // Read Local Supported Features.
+  int rc =
+      ble_hs_hci_cmd_tx(opcode, p + 4, p[3], response_length ? ack + 7 : NULL, response_length);
   uint8_t status = rc >= BLE_HS_ERR_HCI_BASE && rc < BLE_HS_ERR_HCI_BASE + 256
                        ? rc - BLE_HS_ERR_HCI_BASE
                    : rc ? 0x1f
                         : 0;
   // Adapt NimBLE's completed transaction to the portable profile's work queue.
-  const uint8_t ack[] = {4, 0x0e, 4, 1, p[1], p[2], status};
-  bt_classic_receive(hfp_service_host(), ack, sizeof(ack));
+  ack[6] = status;
+  ack[2] += status ? 0 : response_length;
+  bt_classic_receive(hfp_service_host(), ack, ack[2] + 3);
 }
 
 static bool send_acl(const uint8_t *p, size_t length, void *context) {

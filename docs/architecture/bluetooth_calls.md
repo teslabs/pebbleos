@@ -713,7 +713,7 @@ passed five consecutive sixty-second incoming calls through watch hangup.
 Incoming rejection and a thirty-second local outgoing call also passed.
 Both encrypted links and the CTKD bond remained present, the watch retained
 the peripheral role, and profile errors and host resets stayed at zero.
-Speaker DMA underruns and write drops were zero. The controller still marked
+Speaker DMA underruns and write drops were zero. With CVSD S1, the controller marked
 about 3.3% of received audio packets bad, so these tests establish call-state
 and teardown stability for this run, not acoustic quality.
 
@@ -723,6 +723,39 @@ gates, including peers that retain the peripheral role. Audio transfer on
 iPhone also remains unverified: phone-route and SCO observations disagreed
 during an initial transfer test and the profile error count increased.
 The local incoming smoke runner checks the volume/answer/audio/hangup sequence.
+
+Subsequent sound-quality tests isolated packet loss and CVSD recovery as a
+substantial source of distortion. With S1, a thirty-second local 440 Hz call
+reported 272 bad packets out of 8,326 (3.27%), despite zero speaker underruns
+or clipping. A 480 ms PCM capture had two missing packets and a 16.0 dB
+tone-to-error ratio across the stream (20.7 dB considering only valid samples).
+
+The host now reads the controller's standard supported features and advertises
+HFP S4 support only when 2 Mb/s eSCO is available. When the phone also advertises
+S4, setup and acceptance use CVSD over 2-EV3, 12 ms maximum latency and
+retransmission effort 2. Other peers/controllers retain S1; legacy SCO acceptance
+is unchanged. The NimBLE command adapter preserves the feature-response bytes.
+No vendor command or companion-app change is involved. The
+[standard synchronous connection parameters](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-60/out/en/host-controller-interface/host-controller-interface-functional-specification.html)
+preserve the existing HCI boundary between host and controller.
+
+On Obelix and iPhone, the resulting link used a twelve-slot interval,
+four-slot retransmission window and sixty-byte CVSD frames. The first
+sixty-second call reported five bad packets out of 8,169 (0.061%), with two
+concealed packets during local playback. Its 495 ms capture contained no lost
+packets and measured 35.1 dB tone-to-error ratio. Speaker underruns, write drops,
+clipping, HFP errors and host resets were zero; encrypted BLE remained connected.
+Two further sixty-second calls passed with the same negotiated parameters.
+Across the three runs, the adapter counted 18 bad packets out of 24,529 (0.073%);
+all three half-second tone captures had no flagged packets and measured
+35.1–35.2 dB. These short samples do not establish behavior under sustained RF
+interference or on other phones.
+A thirty-second local outgoing call also passed with S4, without playback
+underruns, clipping or added microphone queue drops.
+The microphone capture queue still dropped some packets in bursts. These are
+digital tone and transport results, not an acoustic speech-quality or echo test.
+The [local call runner](../../tools/ios_ui_control/README.md) documents opt-in
+PCM capture and the reproducible tone analyzer.
 
 HFP enables calling-line identification with `AT+CLIP=1`. The service validates
 the number, handles international numbering and withheld identities, and
@@ -991,7 +1024,8 @@ Use `--controls` with the smoke runner to repeat the watch-side control checks.
 
 The call screen can transfer audio to the phone and back without hanging up.
 The portable host releases only the synchronous link for **Use phone** and
-uses standard HCI Setup Synchronous Connection with CVSD S1 for **Use watch**.
+uses standard HCI Setup Synchronous Connection with CVSD S4 when both sides
+support it, otherwise S1, for **Use watch**.
 Transfers require an encrypted active call, have a deadline and preserve local
 mute and call gain. Failed setup permits retry; timeout retires the profile
 before reconnecting, and a setup completing after call end is released. Tests

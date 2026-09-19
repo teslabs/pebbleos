@@ -64,7 +64,7 @@ typedef struct {
   uint8_t command_credit, startup, signal_id;
   uint8_t peer[6], key_peer[6], key[16];
   char local_name[64];
-  bool name_dirty;
+  bool name_dirty, esco_s4;
   uint8_t active_key[16];
   bool active_key_valid;
   bool key_valid, accepting, accepting_sco, stopping;

@@ -309,28 +309,41 @@ void test_sifli_sco__h4_oversize_and_invalid_types_fail_closed(void) {
 }
 
 void test_sifli_sco__large_native_frame_uses_multiple_uplink_packets(void) {
-  prv_enable_flow();
-  prv_connect();
-  s_sco.pcm_requested = true;
-  s_sco.link->interval = 12;
-  s_sco.link->rx_length = s_sco.link->tx_length = 60;
-  uint8_t event[sizeof(s_connection)];
-  memcpy(event, s_connection, sizeof(event));
-  event[13] = 12;
-  event[15] = event[17] = 60;
-  sifli_sco_event(&s_sco, event, sizeof(event));
-  for (unsigned i = 0; i < 124; ++i) {
-    s_sco.downlink_pool[i] = i < 4 ? 0 : i;
+  for (unsigned software = 0; software < 2; ++software) {
+    test_sifli_sco__initialize();
+    s_sco.software_cvsd = software;
+    prv_enable_flow();
+    prv_connect();
+    s_sco.pcm_requested = true;
+    s_sco.link->interval = 12;
+    s_sco.link->rx_length = s_sco.link->tx_length = 60;
+    uint8_t event[sizeof(s_connection)];
+    memcpy(event, s_connection, sizeof(event));
+    event[13] = 12;
+    event[15] = event[17] = 60;
+    sifli_sco_event(&s_sco, event, sizeof(event));
+    unsigned native_length = software ? 60 : 120;
+    for (unsigned i = 0; i < native_length + 4; ++i) {
+      s_sco.downlink_pool[i] = i < 4 ? 0 : i;
+    }
+    s_sco.downlink_pool[0] = native_length;
+    s_sco.downlink->write_cursor = prv_cursor(native_length + 4);
+    cl_assert_equal_i(sifli_sco_receive(&s_sco, s_output), 124);
+    cl_assert_equal_i(s_output[3], 120);
+    CvsdCodec reference = {0};
+    for (unsigned i = 0; i < 60; ++i) {
+      int16_t actual = s_output[4 + 2 * i] | (uint16_t)s_output[5 + 2 * i] << 8;
+      int16_t expected =
+          software ? cvsd_decode_sample(&reference, i + 4) : (4 + 2 * i) | ((5 + 2 * i) << 8);
+      cl_assert_equal_i(actual, expected);
+    }
+    prv_send(60);
+    prv_send(60);
+    s_sco.uplink->read_cursor = prv_cursor(native_length);
+    cl_assert_equal_i(sifli_sco_completed(&s_sco, s_output), 8);
+    cl_assert_equal_i(s_output[6], 2);
+    cl_assert_equal_i(s_sco.tx_dropped, 0);
   }
-  s_sco.downlink_pool[0] = 120;
-  s_sco.downlink->write_cursor = prv_cursor(124);
-  cl_assert_equal_i(sifli_sco_receive(&s_sco, s_output), 124);
-  cl_assert_equal_i(s_output[3], 120);
-  prv_send(60);
-  prv_send(60);
-  s_sco.uplink->read_cursor = prv_cursor(120);
-  cl_assert_equal_i(sifli_sco_completed(&s_sco, s_output), 8);
-  cl_assert_equal_i(s_output[6], 2);
 }
 
 void test_sifli_sco__controller_sized_acl_packet_preserves_embedded_type_bytes(void) {

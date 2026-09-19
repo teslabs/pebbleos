@@ -20,6 +20,7 @@ def le(*values):
 
 class ClassicHostTest(unittest.TestCase):
     managed = False
+    local_features = bytes(8)
 
     @classmethod
     def setUpClass(cls):
@@ -84,6 +85,8 @@ class ClassicHostTest(unittest.TestCase):
     def complete(self, packet):
         opcode = int.from_bytes(packet[1:3], "little")
         result = le(1021) + bytes([60]) + le(4, 7) if opcode == 0x1005 else b""
+        if opcode == 0x1003:
+            result = self.local_features
         self.event(0x0E, bytes([1]) + le(opcode) + b"\0" + result)
 
     def test_name_changes_update_name_and_eir(self):
@@ -128,6 +131,7 @@ class ClassicHostTest(unittest.TestCase):
             0x0C2F,
             0x0C52,
             0x080F,
+            0x1003,
             0x0C1A,
         ]
         if self.managed:
@@ -236,7 +240,8 @@ class ClassicHostTest(unittest.TestCase):
         self.rf_receive(rfcomm.RFCOMM_Frame.sabm(1, 2))
         frames = self.frames()
         self.assertEqual(frames[0].type, rfcomm.FrameType.UA)
-        self.assertEqual(frames[-1].information, b"AT+BRSF=54\r")
+        features = 566 if self.local_features[5] & 0x20 else 54
+        self.assertEqual(frames[-1].information, f"AT+BRSF={features}\r".encode())
 
     def at(self, text):
         self.rf_receive(
@@ -447,6 +452,39 @@ class ClassicHostTest(unittest.TestCase):
     def active_on_phone(self):
         self.ready(secure=True)
         self.at("+CIEV: 2,1\r\n")
+
+    def test_s4_requires_controller_and_phone_support(self):
+        for controller in (False, True):
+            for phone in (False, True):
+                with self.subTest(controller=controller, phone=phone):
+                    self.local_features = bytes(
+                        [0, 0, 0, 0x80, 0, 0x20 if controller else 0, 0, 0]
+                    )
+                    self.setUp()
+                    self.ready(secure=True, features=str(2048 if phone else 0))
+                    self.at("+CIEV: 2,1\r\n")
+                    self.assertTrue(self.lib.demo_transfer_audio(1))
+                    packet = self.pop()
+                    parameters = (
+                        (12, 0x60, 2, 0x0380)
+                        if controller and phone
+                        else (7, 0x60, 1, 0x03C8)
+                    )
+                    self.assertEqual(packet[14:], struct.pack("<HHBH", *parameters))
+                    self.event(0x0F, bytes([0, 1]) + le(0x0428))
+                    self.audio_complete(status=0x1F)
+                    self.event(4, self.peer + bytes([8, 4, 0x20, 2]))
+                    packet = self.pop()
+                    self.assertEqual(packet[:4], b"\1" + le(0x0429) + b"\x15")
+                    self.assertEqual(packet[18:], struct.pack("<HHBH", *parameters))
+
+    def test_s4_does_not_change_legacy_sco_acceptance(self):
+        self.local_features = bytes([0, 0, 0, 0x80, 0, 0x20, 0, 0])
+        self.setUp()
+        self.ready(secure=True, features="2048")
+        self.event(4, self.peer + bytes([8, 4, 0x20, 0]))
+        packet = self.pop()
+        self.assertEqual(packet[18:], struct.pack("<HHBH", 0xFFFF, 0x60, 0, 4))
 
     def audio_complete(self, status=0, peer=None):
         self.event(

@@ -169,10 +169,11 @@ void command_bt_audio_probe(void) {
       (unsigned long)notifications, (unsigned long)s_soft_cvsd, s_config_status);
   prv_report_ring("downlink", &downlink);
   prv_report_ring("uplink", &uplink);
-  prompt_send_response_fmt(buffer, sizeof(buffer),
-                           "audio link status=%u handle=%u type=%u interval=%u rx=%u tx=%u air=%u",
-                           link.status, link.handle, link.link_type, link.interval, link.rx_length,
-                           link.tx_length, link.air_mode);
+  prompt_send_response_fmt(
+      buffer, sizeof(buffer),
+      "audio link status=%u handle=%u type=%u interval=%u rx=%u tx=%u air=%u retx=%u", link.status,
+      link.handle, link.link_type, link.interval, link.rx_length, link.tx_length, link.air_mode,
+      link.retransmission_window);
   prompt_send_response_fmt(
       buffer, sizeof(buffer),
       "adapter active=%u pcm_allowed=%u header_length=%u header_status=%u malformed=%lu",

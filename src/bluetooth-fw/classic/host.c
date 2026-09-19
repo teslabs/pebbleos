@@ -114,6 +114,9 @@ static void startup(BtClassicHost *s) {
       command(s, 0x080f, data, 2);
       break;
     case 11:
+      command(s, 0x1003, NULL, 0);
+      break;
+    case 12:
       data[0] = 3;
       command(s, 0x0c1a, data, 1);
       break;
@@ -200,14 +203,15 @@ bool bt_classic_transfer_audio(BtClassicHost *s, bool to_watch) {
   s->audio_target = to_watch;
   s->audio_deadline = s->now + 10000;
   if (to_watch) {
+    bool s4 = s->esco_s4 && (s->ag_features & (1u << 11));
     uint8_t data[17] = {0};
     put16(data, s->handle);
     put16(data + 2, 8000);
     put16(data + 6, 8000);
-    put16(data + 10, 7);
+    put16(data + 10, s4 ? 12 : 7);
     put16(data + 12, 0x60);
-    data[14] = 1;
-    put16(data + 15, 0x03c8); // CVSD S1: EV3, 7 ms maximum latency.
+    data[14] = s4 ? 2 : 1;
+    put16(data + 15, s4 ? 0x0380 : 0x03c8); // CVSD S4 (2-EV3) or S1 (EV3).
     s->accepting_sco = true;
     command(s, 0x0428, data, sizeof(data));
   } else {
@@ -455,7 +459,9 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
         return;
       }
     }
-    if (!status && opcode == 0x1005 && n == 11) {
+    if (!status && opcode == 0x1003 && n == 12) {
+      s->esco_s4 = (p[4 + 5] & (1u << 5)) != 0; // EDR eSCO 2 Mb/s.
+    } else if (!status && opcode == 0x1005 && n == 11) {
       s->acl_mtu = u16(p + 4);
       if (s->acl_mtu > BT_CLASSIC_MTU + 4)
         s->acl_mtu = BT_CLASSIC_MTU + 4;
@@ -478,13 +484,14 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
         command(s, 0x0409, data, 7);
       }
     } else if ((p[9] == 0 || p[9] == 2) && s->status.ready && !memcmp(p, s->peer, 6)) {
+      bool s4 = p[9] == 2 && s->esco_s4 && (s->ag_features & (1u << 11));
       memcpy(data, p, 6);
       put16(data + 6, 8000);
       put16(data + 10, 8000);
-      put16(data + 14, p[9] == 2 ? 7 : 0xffff);
+      put16(data + 14, s4 ? 12 : p[9] == 2 ? 7 : 0xffff);
       put16(data + 16, 0x60);
-      data[18] = p[9] == 2 ? 1 : 0;
-      put16(data + 19, p[9] == 2 ? 0x03c8 : 4);
+      data[18] = s4 ? 2 : p[9] == 2 ? 1 : 0;
+      put16(data + 19, s4 ? 0x0380 : p[9] == 2 ? 0x03c8 : 4);
       s->accepting_sco = true;
       command(s, 0x0429, data, 21);
     } else {
