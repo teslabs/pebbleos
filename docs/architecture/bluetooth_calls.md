@@ -774,6 +774,33 @@ validation now has a tested stack fallback and the debug firmware boots again.
 The [local call runner](../../tools/ios_ui_control/README.md) documents opt-in
 PCM capture and the reproducible tone analyzer.
 
+On 2026-09-20, after user-assisted re-pairing, Pixel 8a and CoreApp connected
+with authenticated Secure Connections, CTKD/CT2 and encrypted BLE and Classic.
+At 30% global watch volume, an Android local-call matrix passed incoming,
+rejected and outgoing scenarios, including transfer to the phone and back,
+local mute and volume controls. Both active scenarios ran for 60 seconds
+after the controls. Neither added HCI capture drops, PDM drops, adapter
+transmit drops or watch speaker DMA underruns. Peak PDM backlog was 1,008
+bytes (31.5 ms). CoreApp logs confirmed BLE ping reception during calls, and
+Android reported Bluetooth SCO for both audio directions. Android's playback
+track counted one underrun during the incoming scenario and zero during the
+outgoing scenario; this is separate from the watch DMA counters.
+
+An initial transfer attempt failed the runner's combined gain/mute
+preservation check. Its immediate ten-second retry and both matrix scenarios
+passed. The original transition was not isolated; the runner now includes
+the before/after state in this failure rather than discarding that evidence.
+This intermittent check still needs reproduction before claiming transfer
+qualification.
+
+The subsequent idle host-reset test incremented the reset counter without
+rebooting, but timed out before the encrypted links returned. The watch had
+an unencrypted, unbonded private-address LE connection; Pixel diagnostics
+independently showed no LE or Classic ACL connection to the watch. A competing
+central therefore occupied the connection slot. This run did not validate
+idle recovery or reach the ringing-reset scenario. Recovery qualification
+needs both an isolated retry and a policy for competing unbonded centrals.
+
 ### Experimental acoustic echo cancellation
 
 The project-owned Apache-2.0 echo filter uses the PCM actually committed to
@@ -813,6 +840,15 @@ underruns. Capture processing took 17 seconds of accumulated wall time, with a
 reported HFP errors. These results leave transport scheduling and acoustic
 double-talk qualification open; they do not justify enabling the filter by
 default.
+
+The subsequent Pixel/CoreApp 120-second run requested echo processing but
+reported `enabled=1 active=0 processed=0`: ordinary capture fallback was used.
+It added no HCI capture drops, PDM drops, adapter transmit drops or watch
+speaker underruns, with a 1,056-byte (33 ms) peak PDM backlog. This validates
+fallback call continuity, not echo processing. The optional allocation path
+is a candidate cause; that run did not include heap instrumentation. A
+ten-second repeat with the runner's `--require-echo` check correctly failed
+and cleaned up the local call. Echo processing was then disabled again.
 
 Obelix has two microphones on a stereo PDM connection. Its manufacturing
 firmware captures interleaved left/right samples, while normal firmware
@@ -1263,6 +1299,10 @@ payloads; an audio connection containing only missing packets fails the test.
 For timed audio-counter samples, add `--audio-interval 10` to the call runner.
 Samples include echo-filter state and capture processing time. Each completed
 active interval also reports the PDM capture, drop and maximum-backlog counters.
+For echo-specific tests, first enable the filter while idle with
+`bt audio echo 1`, then add `--require-echo`. This fails when optional echo
+processing never activates or processes no samples, even if ordinary audio
+continues successfully. Restore `bt audio echo 0` after the experiment.
 `--max-underrun-bytes 0` additionally fails if DMA underruns increase during
 an active call. Inspect the initial sample too: the delta check deliberately
 separates startup behavior from subsequent playback.

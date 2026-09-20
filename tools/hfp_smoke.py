@@ -58,6 +58,11 @@ def main():
         type=int,
         help="Fail if speaker DMA underruns grow by more than this during a call",
     )
+    parser.add_argument(
+        "--require-echo",
+        action="store_true",
+        help="Require active echo processing; ordinary capture fallback fails this check",
+    )
     args = parser.parse_args()
     if not 1 <= args.duration <= 240 or not 1 <= args.repeat <= 10:
         parser.error("Duration must be 1..240 seconds and repeat must be 1..10")
@@ -65,6 +70,8 @@ def main():
         parser.error("Audio interval must be 0..240 seconds")
     if args.max_underrun_bytes is not None and args.max_underrun_bytes < 0:
         parser.error("Maximum underrun bytes must be nonnegative")
+    if args.require_echo and args.scenario == "reject":
+        parser.error("Echo processing requires an active-call scenario")
     if not re.fullmatch(r"(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", args.device):
         parser.error("Device must be a Bluetooth address")
 
@@ -211,7 +218,8 @@ def main():
                         state = status()
                         if state.get("gain") != gain or not state.get("mic_muted"):
                             raise RuntimeError(
-                                "Audio transfer lost volume or local mute state"
+                                "Audio transfer lost volume or local mute state: "
+                                f"gain before={gain}, after={state}"
                             )
                         command("bt hfp mute 0")
                         wait_for(
@@ -284,6 +292,17 @@ def main():
                     for line in audio:
                         print(line, flush=True)
                     print("Microphone:", command("mic read"), flush=True)
+                    if args.require_echo:
+                        echo = next(
+                            (
+                                fields(line)
+                                for line in audio
+                                if line.startswith("local echo ")
+                            ),
+                            {},
+                        )
+                        if not (echo.get("active") and echo.get("processed")):
+                            raise RuntimeError(f"Echo processing unavailable: {echo}")
                     if args.max_underrun_bytes is not None:
                         delta = underrun_bytes(audio) - underrun_bytes(initial_audio)
                         if delta < 0 or delta > args.max_underrun_bytes:
