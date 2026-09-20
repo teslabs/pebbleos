@@ -4,31 +4,27 @@
 #include <pbl/drivers/flash.h>
 
 #include "kernel/pbl_malloc.h"
-#include <pbl/logging/logging.h>
 #include "pbl/util/crc32.h"
 #include "util/legacy_checksum.h"
 
 #include <stdint.h>
 
-PBL_LOG_MODULE_DECLARE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
-
-static size_t prv_allocate_crc_buffer(void **buffer) {
+static size_t prv_allocate_crc_buffer(void **buffer, uint8_t fallback[128]) {
   // Try to allocate a big buffer for reading flash data. If we can't,
-  // use a smaller one.
+  // use the caller's stack buffer even when the boot splash exhausts the heap.
   unsigned int chunk_size = 1024;
   *buffer = kernel_malloc(chunk_size);
   if (!*buffer) {
-    PBL_LOG_WRN("Insufficient memory for a large CRC buffer, going slow");
-
     chunk_size = 128;
-    *buffer = kernel_malloc_check(chunk_size);
+    *buffer = fallback;
   }
   return chunk_size;
 }
 
 uint32_t flash_crc32(uint32_t flash_addr, uint32_t num_bytes) {
+  uint8_t fallback[128];
   void *buffer;
-  unsigned int chunk_size = prv_allocate_crc_buffer(&buffer);
+  unsigned int chunk_size = prv_allocate_crc_buffer(&buffer, fallback);
 
   uint32_t crc = CRC32_INIT;
   while (num_bytes > chunk_size) {
@@ -42,14 +38,17 @@ uint32_t flash_crc32(uint32_t flash_addr, uint32_t num_bytes) {
   flash_read_bytes(buffer, flash_addr, num_bytes);
   crc = crc32(crc, buffer, num_bytes);
 
-  kernel_free(buffer);
+  if (buffer != fallback) {
+    kernel_free(buffer);
+  }
 
   return crc;
 }
 
 uint32_t flash_calculate_legacy_defective_checksum(uint32_t flash_addr, uint32_t num_bytes) {
+  uint8_t fallback[128];
   void *buffer;
-  unsigned int chunk_size = prv_allocate_crc_buffer(&buffer);
+  unsigned int chunk_size = prv_allocate_crc_buffer(&buffer, fallback);
 
   LegacyChecksum checksum;
   legacy_defective_checksum_init(&checksum);
@@ -65,7 +64,9 @@ uint32_t flash_calculate_legacy_defective_checksum(uint32_t flash_addr, uint32_t
   flash_read_bytes(buffer, flash_addr, num_bytes);
   legacy_defective_checksum_update(&checksum, buffer, num_bytes);
 
-  kernel_free(buffer);
+  if (buffer != fallback) {
+    kernel_free(buffer);
+  }
 
   return legacy_defective_checksum_finish(&checksum);
 }
