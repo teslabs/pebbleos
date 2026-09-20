@@ -2,6 +2,11 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "pbl/services/phone_call.h"
+#ifdef CONFIG_BT_HFP
+#include "pbl/services/bluetooth/hfp.h"
+#include "pbl/services/phone_call_contacts.h"
+#include "kernel/pbl_malloc.h"
+#endif
 
 #include "applib/event_service_client.h"
 #include "comm/ble/kernel_le_client/ancs/ancs.h"
@@ -44,6 +49,9 @@ static bool s_mobile_app_is_connected;
 // We can't expect iOS to reliably send us phone call events, so we must poll for the current
 // status of the phone call
 static TimerID s_call_watchdog = TIMER_INVALID_ID;
+#ifdef CONFIG_BT_HFP
+static char *s_companion_caller_name;
+#endif
 
 static void prv_handle_call_end(bool disconnected);
 
@@ -87,8 +95,8 @@ static void prv_cancel_call_watchdog(void) {
 }
 
 static bool prv_should_show_ongoing_call_ui(void) {
-  // We only want to show the ongoing call UI on Android
-  return (s_call_source == PhoneCallSource_PP);
+  // Both PP and HFP report the full call lifecycle.
+  return (s_call_source == PhoneCallSource_PP) || (s_call_source == PhoneCallSource_HFP);
 }
 
 // hangup != decline. Decline == reject incoming call, Hangup == stop in progress call
@@ -99,6 +107,10 @@ static bool prv_can_hangup(void) {
 
 // Handles the common things when we hide an incoming call
 static void prv_call_end_common(void) {
+#ifdef CONFIG_BT_HFP
+  kernel_free(s_companion_caller_name);
+  s_companion_caller_name = NULL;
+#endif
   s_call_in_progress = false;
   prv_cancel_call_watchdog();
   PBL_ANALYTICS_TIMER_STOP(phone_call_time_ms);
@@ -119,7 +131,8 @@ static void prv_handle_incoming_call(const PebblePhoneEvent *event) {
 
   // If we're not on iOS9+, we need to be connected to the mobile app since it tells us when
   // the phone has stopped ringing
-  if ((event->source != PhoneCallSource_ANCS) && !s_mobile_app_is_connected) {
+  if ((event->source != PhoneCallSource_ANCS) && (event->source != PhoneCallSource_HFP) &&
+      !s_mobile_app_is_connected) {
     PBL_LOG_DBG("Ignoring incoming call. Mobile app is not connected. Call source: %d ",
                 event->source);
     return;
@@ -213,6 +226,70 @@ PBL_T_STATIC void prv_handle_phone_event(PebbleEvent *e, void *context) {
     return;
   }
 
+#ifdef CONFIG_BT_HFP
+  HfpStatus hfp;
+  hfp_get_status(&hfp);
+  if (hfp.waiting || hfp.call_held) {
+    kernel_free(s_companion_caller_name);
+    s_companion_caller_name = NULL;
+  }
+  if (hfp.ready && !hfp.waiting && !hfp.call_held &&
+      (event.type == PhoneEventType_Incoming ||
+       (event.type == PhoneEventType_CallerID && s_call_in_progress)) &&
+      event.caller) {
+    if (event.source != PhoneCallSource_HFP && event.caller->name && *event.caller->name) {
+      kernel_free(s_companion_caller_name);
+      s_companion_caller_name = kernel_strdup(event.caller->name);
+    } else if (event.source == PhoneCallSource_HFP && s_companion_caller_name) {
+      char *name = kernel_strdup(s_companion_caller_name);
+      if (name) {
+        kernel_free(event.caller->name);
+        event.caller->name = name;
+      }
+    }
+  }
+  if (event.source == PhoneCallSource_HFP && event.caller && event.caller->number &&
+      !event.caller->name) {
+    PhoneContact contact;
+    if (phone_call_contacts_find(event.caller->number, &contact))
+      event.caller->name = kernel_strdup(contact.name);
+  }
+  if (hfp.ready && event.source != PhoneCallSource_HFP) {
+    if (hfp.waiting || hfp.call_held) {
+      phone_call_util_destroy_caller(event.caller);
+      return;
+    }
+    // Companion notifications supply identity; HFP owns the call lifecycle.
+    if (event.type == PhoneEventType_Incoming || event.type == PhoneEventType_CallerID) {
+      event.source = PhoneCallSource_HFP;
+    } else {
+      phone_call_util_destroy_caller(event.caller);
+      return;
+    }
+  }
+  if (s_call_in_progress && event.source == PhoneCallSource_HFP &&
+      event.type == PhoneEventType_Incoming) {
+    if (s_call_source != PhoneCallSource_HFP) {
+      prv_cancel_call_watchdog();
+      s_call_source = PhoneCallSource_HFP;
+      s_call_identifier = 0;
+      phone_ui_handle_incoming_call(event.caller, true, PhoneCallSource_HFP);
+    } else if (hfp.waiting) {
+      phone_ui_handle_incoming_call(event.caller, true, PhoneCallSource_HFP);
+    } else if (event.caller) {
+      prv_handle_caller_id(&event);
+    }
+    phone_call_util_destroy_caller(event.caller);
+    return;
+  }
+#endif
+
+  if (s_call_in_progress &&
+      ((event.source == PhoneCallSource_HFP) != (s_call_source == PhoneCallSource_HFP))) {
+    phone_call_util_destroy_caller(event.caller);
+    return;
+  }
+
   if (!(event.type == PhoneEventType_Incoming && new_timer_scheduled(s_call_watchdog, NULL))) {
     // Be careful not to spam the logs with the new iOS polling implementation
     PBL_LOG_DBG("PebblePhoneEvent: %d, Call in progress: %s, Connected: %s", event.type,
@@ -260,7 +337,8 @@ PBL_T_STATIC void prv_handle_mobile_app_event(PebbleEvent *e, void *context) {
   }
 
   s_mobile_app_is_connected = e->bluetooth.comm_session_event.is_open;
-  if (!s_mobile_app_is_connected && (s_call_source != PhoneCallSource_ANCS)) {
+  if (!s_mobile_app_is_connected && (s_call_source != PhoneCallSource_ANCS) &&
+      (s_call_source != PhoneCallSource_HFP)) {
     prv_handle_call_end(true /* disconnected */);
   }
 }
@@ -304,6 +382,13 @@ void phone_call_service_init() {
 void phone_call_answer(void) {
   PBL_LOG_DBG("Call accepted");
 
+#ifdef CONFIG_BT_HFP
+  if (s_call_source == PhoneCallSource_HFP) {
+    hfp_answer();
+    return;
+  }
+#endif
+
   if (prv_call_is_ancs()) {
     ancs_perform_action(s_call_identifier, ActionIDPositive);
 
@@ -317,6 +402,18 @@ void phone_call_answer(void) {
 
 void phone_call_decline(void) {
   PBL_LOG_DBG("Call declined");
+
+#ifdef CONFIG_BT_HFP
+  if (s_call_source == PhoneCallSource_HFP) {
+    HfpStatus hfp;
+    hfp_get_status(&hfp);
+    if (hfp.waiting || (hfp.incoming && !hfp.call))
+      hfp_reject();
+    else
+      hfp_hangup();
+    return;
+  }
+#endif
 
   if (prv_call_is_ancs()) {
     ancs_perform_action(s_call_identifier, ActionIDNegative);

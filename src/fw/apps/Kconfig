@@ -3,6 +3,11 @@
 
 menu "Applications"
 
+config APP_PHONE
+    bool "Phone dialer"
+    depends on BT_HFP && !SHELL_SDK
+    default y
+
 rsource "demo/Kconfig"
 rsource "watch/Kconfig"
 

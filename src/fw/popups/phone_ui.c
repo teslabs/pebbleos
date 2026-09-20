@@ -3,6 +3,13 @@
 
 #include "phone_ui.h"
 #include "phone_formatting.h"
+#ifdef CONFIG_BT_HFP
+#include <pbl/services/bluetooth/hfp.h>
+#endif
+#ifdef CONFIG_APP_PHONE
+#include "process_management/app_manager.h"
+#include "shell/system_app_ids.auto.h"
+#endif
 
 #include "applib/fonts/fonts.h"
 #include "pbl/util/math.h"
@@ -168,6 +175,7 @@ typedef struct {
   RegularTimerInfo ring_timer;
   time_t ring_start_time;
   bool show_ongoing_call_ui;
+  PhoneCallSource source;
 
   // Incoming call reply data
   TimelineItem *call_response_item;
@@ -544,6 +552,7 @@ static void prv_start_call_duration_timer(void) {
     s_phone_ui_data->call_start_time = rtc_get_time();
   }
 
+  evented_timer_cancel(s_phone_ui_data->call_duration_timer);
   s_phone_ui_data->call_duration_timer =
       evented_timer_register(1000, true /* repeating */, prv_update_call_time, NULL);
 
@@ -663,7 +672,16 @@ static void prv_decline_call(void) {
 }
 
 static void prv_decline_click_handler(ClickRecognizerRef recognizer, void *unused) {
+#ifdef CONFIG_BT_HFP
+  HfpStatus status;
+  hfp_get_status(&status);
+  bool waiting = s_phone_ui_data->source == PhoneCallSource_HFP && status.waiting;
+#endif
   prv_decline_call();
+#ifdef CONFIG_BT_HFP
+  if (waiting)
+    return; // HFP will restore the active call after rejecting the waiting one.
+#endif
   prv_window_pop_with_delay(DECLINE_DELAY_MS);
 }
 
@@ -694,6 +712,16 @@ static void prv_pop_click_handler(ClickRecognizerRef recognizer, void *unused) {
   prv_stop_ringing();
   prv_window_pop();
 }
+
+#ifdef CONFIG_APP_PHONE
+static void prv_call_controls_click_handler(ClickRecognizerRef recognizer, void *unused) {
+  prv_window_pop();
+  app_manager_put_launch_app_event(&(AppLaunchEventConfig){
+    .id = APP_ID_PHONE,
+    .common.reason = APP_LAUNCH_USER,
+  });
+}
+#endif
 
 //! Action bar animation
 static void prv_hide_action_bar(void) {
@@ -756,6 +784,8 @@ static const char *prv_get_app_id(const char *number, PhoneCallSource source) {
 
   // Select appropriate app id
   switch (source) {
+    case PhoneCallSource_HFP:
+      return NULL;
     case PhoneCallSource_PP:
       // We require the this to be a valid number when coming from PP
       if (prv_is_string_a_phone_number(number)) {
@@ -863,6 +893,12 @@ static void prv_action_bar_setup(PhoneCallActions actions) {
       down_icon = RESOURCE_ID_ACTION_BAR_ICON_X;
     }
 
+#ifdef CONFIG_APP_PHONE
+    if (actions == PhoneCallActions_Decline && s_phone_ui_data->source == PhoneCallSource_HFP) {
+      s_phone_ui_data->select_action = prv_call_controls_click_handler;
+      select_icon = RESOURCE_ID_ACTION_BAR_ICON_MORE;
+    }
+#endif
     prv_set_action_bar_icon(BUTTON_ID_UP, up_icon, &s_phone_ui_data->up_bitmap);
     prv_set_action_bar_icon(BUTTON_ID_SELECT, select_icon, &s_phone_ui_data->select_bitmap);
     prv_set_action_bar_icon(BUTTON_ID_DOWN, down_icon, &s_phone_ui_data->down_bitmap);
@@ -1070,6 +1106,7 @@ void phone_ui_handle_incoming_call(PebblePhoneCaller *caller, bool show_ongoing_
 
   prv_phone_ui_init();
   s_phone_ui_data->show_ongoing_call_ui = show_ongoing_call_ui;
+  s_phone_ui_data->source = source;
 
   prv_unfold_icon_resource(TIMELINE_RESOURCE_INCOMING_PHONE_CALL);
 
@@ -1082,6 +1119,14 @@ void phone_ui_handle_incoming_call(PebblePhoneCaller *caller, bool show_ongoing_
   }
 
   uint8_t actions = PhoneCallActions_Decline | PhoneCallActions_Answer;
+#ifdef CONFIG_BT_HFP
+  if (source == PhoneCallSource_HFP) {
+    HfpStatus status;
+    hfp_get_status(&status);
+    if (status.waiting && !(status.hold_support & 1))
+      actions &= ~PhoneCallActions_Decline;
+  }
+#endif
   if (can_reply) {
     actions |= PhoneCallActions_Reply;
   }
@@ -1131,6 +1176,8 @@ void phone_ui_handle_call_start(bool can_decline) {
     return;
   }
 
+  evented_timer_cancel(s_phone_ui_data->window_pop_timer);
+  s_phone_ui_data->window_pop_timer = EVENTED_TIMER_INVALID_ID;
   prv_stop_ringing();
 
 #if PBL_RECT

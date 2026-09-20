@@ -128,13 +128,15 @@ pbl_clar_test(test_phone_pp
   OVERRIDES dummy_board
 )
 
-pbl_clar_test(test_phone_call_contacts
-  SOURCES src/fw/services/phone_call/contacts.c
-)
-
 pbl_clar_test(test_phone_call
+  DEFINES CONFIG_BT_HFP
   SOURCES
     src/fw/services/phone_call/service.c
+)
+
+pbl_clar_test(test_phone_call_contacts
+  SOURCES
+    src/fw/services/phone_call/contacts.c
 )
 
 pbl_clar_test(test_debounced_connection_service
