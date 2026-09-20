@@ -262,6 +262,7 @@ extern void command_bt_audio_pcm_test(void);
 extern void command_bt_audio_capture(void);
 extern void command_bt_audio_dump(void);
 extern void command_bt_audio_gain(const char *);
+extern void command_bt_audio_echo(const char *);
 #ifdef CONFIG_BT_HFP
 extern void command_bt_hfp_status(void);
 extern void command_bt_hfp_volume(const char *);
@@ -511,6 +512,7 @@ static const Command s_prompt_commands[] = {
   {"bt audio capture", command_bt_audio_capture, 0},
   {"bt audio dump", command_bt_audio_dump, 0},
   {"bt audio gain", command_bt_audio_gain, 1},
+  {"bt audio echo", command_bt_audio_echo, 1},
 #ifdef CONFIG_BT_HFP
   {"bt hfp status", command_bt_hfp_status, 0},
   {"bt hfp volume", command_bt_hfp_volume, 1},
