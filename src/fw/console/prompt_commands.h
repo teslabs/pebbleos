@@ -247,6 +247,34 @@ extern void command_ble_rediscover(void);
 extern void command_ble_logging_set_level(const char *level);
 extern void command_ble_logging_get_level(void);
 extern void command_ble_host_reset(void);
+#ifdef CONFIG_BT_CLASSIC
+extern void command_bt_dual_status(void);
+#endif
+#ifdef CONFIG_BT_CONTROLLER_PROBE
+extern void command_bt_controller_probe(void);
+#endif
+#ifdef CONFIG_BT_HCI_AUDIO_PROBE
+extern void command_bt_audio_probe(void);
+#endif
+#ifdef CONFIG_BT_HCI_LOCAL_AUDIO
+extern void command_bt_audio_speaker_test(void);
+extern void command_bt_audio_pcm_test(void);
+extern void command_bt_audio_capture(void);
+extern void command_bt_audio_dump(void);
+extern void command_bt_audio_gain(const char *);
+#ifdef CONFIG_BT_HFP
+extern void command_bt_hfp_status(void);
+extern void command_bt_hfp_volume(const char *);
+extern void command_bt_hfp_mute(const char *);
+extern void command_bt_hfp_audio(const char *);
+extern void command_bt_hfp_contact(const char *, const char *);
+extern void command_bt_hfp_contacts(void);
+extern void command_bt_hfp_dial(const char *);
+extern void command_bt_hfp_answer(void);
+extern void command_bt_hfp_hangup(void);
+extern void command_bt_hfp_hold(const char *);
+#endif
+#endif
 
 extern void command_audit_delay_us(void);
 
@@ -468,6 +496,34 @@ static const Command s_prompt_commands[] = {
   {"ble set log level", command_ble_logging_set_level, 1},
   {"ble get log level", command_ble_logging_get_level, 0},
   {"ble host reset", command_ble_host_reset, 0},
+#ifdef CONFIG_BT_CLASSIC
+  {"bt dual status", command_bt_dual_status, 0},
+#endif
+#ifdef CONFIG_BT_CONTROLLER_PROBE
+  {"bt controller probe", command_bt_controller_probe, 0},
+#endif
+#ifdef CONFIG_BT_HCI_AUDIO_PROBE
+  {"bt audio probe", command_bt_audio_probe, 0},
+#endif
+#ifdef CONFIG_BT_HCI_LOCAL_AUDIO
+  {"bt audio speaker test", command_bt_audio_speaker_test, 0},
+  {"bt audio pcm test", command_bt_audio_pcm_test, 0},
+  {"bt audio capture", command_bt_audio_capture, 0},
+  {"bt audio dump", command_bt_audio_dump, 0},
+  {"bt audio gain", command_bt_audio_gain, 1},
+#ifdef CONFIG_BT_HFP
+  {"bt hfp status", command_bt_hfp_status, 0},
+  {"bt hfp volume", command_bt_hfp_volume, 1},
+  {"bt hfp mute", command_bt_hfp_mute, 1},
+  {"bt hfp audio", command_bt_hfp_audio, 1},
+  {"bt hfp contacts", command_bt_hfp_contacts, 0},
+  {"bt hfp contact", command_bt_hfp_contact, 2},
+  {"bt hfp dial", command_bt_hfp_dial, 1},
+  {"bt hfp answer", command_bt_hfp_answer, 0},
+  {"bt hfp hangup", command_bt_hfp_hangup, 0},
+  {"bt hfp hold", command_bt_hfp_hold, 1},
+#endif
+#endif
 
   /*
   { "stats dump now", command_stats_dump_now, 0 },

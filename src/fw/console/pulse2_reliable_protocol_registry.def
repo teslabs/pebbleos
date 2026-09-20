@@ -6,6 +6,7 @@
 #define PULSE2_RELIABLE_PROMPT_PROTOCOL (0x3e20)
 #define PULSE2_BULKIO_PROTOCOL (0x3e21)
 #define PULSE2_PEBBLE_PROTOCOL (0x3e22)
+#define PULSE2_HCI_PROTOCOL (0x3e23)
 
 #endif
 
@@ -46,5 +47,9 @@ ON_TRANSPORT_STATE_CHANGE(pulse2_bulkio_link_open_handler, pulse2_bulkio_link_cl
 
 ON_PACKET(PULSE2_PEBBLE_PROTOCOL, pulse_pp_transport_handle_received_data)
 ON_TRANSPORT_STATE_CHANGE(pulse_pp_transport_open_handler, pulse_pp_transport_closed_handler)
+
+#ifdef CONFIG_BT_FW_HCI_BRIDGE
+ON_PACKET(PULSE2_HCI_PROTOCOL, pulse_hci_bridge_packet_handler)
+#endif
 
 // vim: filetype=c

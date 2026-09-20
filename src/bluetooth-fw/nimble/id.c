@@ -6,10 +6,16 @@
 
 #include <host/ble_hs_id.h>
 #include <services/gap/ble_svc_gap.h>
+#ifdef CONFIG_BT_CLASSIC
+#include "classic.h"
+#endif
 
 void bt_driver_id_set_local_device_name(const char device_name[BT_DEVICE_NAME_BUFFER_SIZE]) {
   int rc = ble_svc_gap_device_name_set(device_name);
   PBL_ASSERTN(rc == 0);
+#ifdef CONFIG_BT_CLASSIC
+  nimble_classic_set_local_name(device_name);
+#endif
 }
 
 void bt_driver_id_copy_local_identity_address(BTDeviceAddress *addr_out) {

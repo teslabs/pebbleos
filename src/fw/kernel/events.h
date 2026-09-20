@@ -167,6 +167,7 @@ typedef enum PhoneCallSource {
   PhoneCallSource_PP,
   PhoneCallSource_ANCS_Legacy,
   PhoneCallSource_ANCS,
+  PhoneCallSource_HFP,
 } PhoneCallSource;
 
 typedef struct PBL_PACKED PebblePhoneEvent { // 9 bytes

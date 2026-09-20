@@ -23,7 +23,91 @@ config BT_FW_QEMU
 config BT_FW_STUB
     bool "Stub (no backend)"
 
+config BT_FW_HCI_BRIDGE
+    bool "External HCI host over PULSE (development only)"
+    depends on SOC_SF32LB52 && PULSE_EVERYWHERE && !RELEASE
+    select HAL_SIFLI_IPC_QUEUE
+    select HAL_SIFLI_LCPU
+    help
+      Give an external host exclusive access to the Bluetooth controller.
+      For Classic/SCO feasibility experiments; the watch's BLE services
+      are unavailable in this build. PULSE carries an H4 stream.
+
+config BT_FW_CLASSIC_DEMO
+    bool "Embedded Classic HFP demo (development only)"
+    select BT_HFP
+    depends on SOC_SF32LB52 && PROMPT && !RELEASE && MIC_POLLING && SPEAKER_PLAYBACK_OBSERVER && SERVICE_SPEAKER
+    select HAL_SIFLI_IPC_QUEUE
+    select HAL_SIFLI_LCPU
+    select BT_HCI_AUDIO_ADAPTER
+    select BT_HCI_LOCAL_AUDIO
+    select BT_HCI_SOFTWARE_CVSD
+    help
+      Minimal project-owned Classic host for one phone and CVSD calls.
+      Pairing keys and contact edits live only in RAM. No BLE services,
+      phonebook synchronization, multipoint or acoustic echo cancellation.
+
 endchoice
+
+config BT_CLASSIC
+    bool "NimBLE Classic HFP extension (experimental)"
+    depends on BT_FW_NIMBLE && SOC_SF32LB52 && MIC_POLLING && SPEAKER_PLAYBACK_OBSERVER && SERVICE_SPEAKER
+    select BT_HFP
+    select BT_HCI_AUDIO_ADAPTER
+    select BT_HCI_LOCAL_AUDIO
+    select BT_HCI_SOFTWARE_CVSD
+    help
+      Run the project-owned Classic profiles with NimBLE BLE services.
+      NimBLE owns controller startup, HCI commands and ACL credits.
+      Supports one phone and CVSD audio. Pair over BLE using Secure
+      Connections; CTKD shares the persistent bond with Classic.
+
+config BT_HFP
+    bool
+
+config BT_HCI_AUDIO_PROBE
+    bool "SiFli shared audio mailbox diagnostic"
+    depends on (BT_FW_HCI_BRIDGE || BT_HFP) && PROMPT
+    default y if BT_HFP
+    help
+      Initialize the controller's shared audio rings and count mailbox 6
+      notifications. The 'bt audio probe' command reports ring metadata;
+      without the adapter option, no audio payload is read or transmitted.
+
+config BT_HCI_AUDIO_ADAPTER
+    bool "SiFli native audio to HCI SCO adapter"
+    depends on SOC_SF32LB52 && (BT_FW_HCI_BRIDGE || BT_HFP)
+    help
+      Translate the shared audio rings to standard HCI SCO packets for
+      one CVSD link with signed 16-bit PCM. Requires legacy synchronous
+      connection setup. The adapter stays below the portable host's HCI boundary.
+
+config BT_HCI_LOCAL_AUDIO
+    bool "Local HFP microphone and speaker"
+    depends on BT_HCI_AUDIO_ADAPTER && MIC_POLLING && SPEAKER_PLAYBACK_OBSERVER && SERVICE_SPEAKER
+    select SPEAKER_SF32LB_DIAGNOSTICS if SPEAKER_SF32LB
+    help
+      Route HCI SCO PCM through the watch audio services. The external
+      host keeps call control and must enable SCO flow control without
+      transmitting audio (--watch-audio in tools/hfp_probe.py).
+      No acoustic echo cancellation is provided.
+
+config BT_HCI_SOFTWARE_CVSD
+    bool "Experimental project-owned software CVSD codec"
+    depends on BT_HCI_AUDIO_ADAPTER
+    help
+      Use raw CVSD in the SiFli audio mailbox and translate it to the same
+      signed 16-bit HCI PCM interface using the portable Apache-2.0 codec.
+      Bypasses the controller's hardware PCM conversion for comparison.
+
+config BT_CONTROLLER_PROBE
+    bool "Read-only HCI controller capability probe"
+    depends on BT_FW_NIMBLE && PROMPT
+    help
+      Add the 'bt controller probe' console command. Reads controller
+      version, supported commands/features, buffer sizes and voice setting
+      through the active host. This does not enable Classic Bluetooth or
+      prove SCO audio routing. Intended for development builds.
 
 module = BT
 module-str = Bluetooth
