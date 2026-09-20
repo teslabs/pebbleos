@@ -801,6 +801,24 @@ central therefore occupied the connection slot. This run did not validate
 idle recovery or reach the ringing-reset scenario. Recovery qualification
 needs both an isolated retry and a policy for competing unbonded centrals.
 
+After reconnecting the Pixel, idle recovery passed. Ringing recovery then
+exposed a different failure: Android requested synchronous audio after the
+mandatory HFP service-level setup, while caller-ID and call-waiting setup
+were still pending. Gating audio acceptance on completion of those optional
+commands rejected both attempts and counted two audio connection failures.
+The host now tracks mandatory service-level establishment separately and
+accepts audio from the current encrypted peer during optional setup. It
+clears that state on profile teardown and still rejects incomplete mandatory
+setup, other peers, and connections during shutdown or bond revocation.
+
+With this fix, two idle and two ringing host-reset tests passed on Obelix and
+Pixel at 50% global speaker volume. Each restored encrypted BLE and Classic
+with the existing CTKD bond, with no profile errors or watch reboot; both
+ringing cases also restored SCO and cleaned up their local calls. The 183
+portable-host/security tests, the HFP service suite, and debug/release builds
+passed. This resolves the observed early-audio rejection; it does not resolve
+the separate competing-central policy or establish general fault recovery.
+
 ### Experimental acoustic echo cancellation
 
 The project-owned Apache-2.0 echo filter uses the PCM actually committed to

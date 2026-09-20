@@ -483,7 +483,8 @@ void bt_classic_receive(BtClassicHost *s, const uint8_t *p, size_t n) {
         data[6] = 1;
         command(s, 0x0409, data, 7);
       }
-    } else if ((p[9] == 0 || p[9] == 2) && s->status.ready && !memcmp(p, s->peer, 6)) {
+    } else if ((p[9] == 0 || p[9] == 2) && s->slc_established && !s->stopping && !s->revoking &&
+               (!s->get_link_key || s->encrypted) && !memcmp(p, s->peer, 6)) {
       bool s4 = p[9] == 2 && s->esco_s4 && (s->ag_features & (1u << 11));
       memcpy(data, p, 6);
       put16(data + 6, 8000);

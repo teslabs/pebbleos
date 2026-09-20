@@ -60,12 +60,16 @@ static void slc_next(BtClassicHost *s) {
     unsigned step = s->slc_step++;
     if ((step == 4 || step == 6) && !(s->ag_features & 1))
       continue;
+    if (step == 5) {
+      if ((s->ag_features & 1) && (!s->indicator_held || (s->status.hold_support & 6) != 6)) {
+        bt_classic_error(s, "Missing call hold capabilities");
+        bt_classic_disconnect_peer(s);
+        return;
+      }
+      // Audio may arrive before optional caller-ID and call-waiting setup finishes.
+      s->slc_established = true;
+    }
     at_command(s, step == 0 && s->esco_s4 ? "AT+BRSF=566\r" : commands[step]);
-    return;
-  }
-  if ((s->ag_features & 1) && (!s->indicator_held || (s->status.hold_support & 6) != 6)) {
-    bt_classic_error(s, "Missing call hold capabilities");
-    bt_classic_disconnect_peer(s);
     return;
   }
   s->status.ready = true;
@@ -422,6 +426,7 @@ void bt_classic_profile_reset(BtClassicHost *s) {
   s->dlci = s->rx_credits = s->slc_step = 0;
   s->rfcomm_open = s->credit_mode = s->modem_ready = s->at_pending = false;
   s->rfcomm_initiator = false;
+  s->slc_established = false;
   s->at_discard = false;
   s->status.ready = s->status.busy = false;
   s->status.audio_pending = false;

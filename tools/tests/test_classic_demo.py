@@ -453,6 +453,76 @@ class ClassicHostTest(unittest.TestCase):
         self.ready(secure=True)
         self.at("+CIEV: 2,1\r\n")
 
+    def ringing_slc(self, three_way):
+        self.rf_open(secure=True)
+        self.assertEqual(
+            self.at(f"+BRSF: {int(three_way)}\r\nOK\r\n"), [b"AT+CIND=?\r"]
+        )
+        self.assertEqual(
+            self.at(
+                '+CIND: ("call",(0,1)),("callsetup",(0-3)),("callheld",(0-2))\r\nOK\r\n'
+            ),
+            [b"AT+CIND?\r"],
+        )
+        self.assertEqual(self.at("+CIND: 0,1,0\r\nOK\r\n"), [b"AT+CMER=3,0,0,1\r"])
+
+    def test_ringing_audio_accepts_completed_slc_before_optional_commands(self):
+        for three_way in (False, True):
+            with self.subTest(three_way=three_way):
+                self.setUp()
+                self.ringing_slc(three_way)
+                # CMER is still unacknowledged: the mandatory SLC is incomplete.
+                self.event(4, self.peer + bytes([8, 4, 0x20, 2]))
+                rejected = self.pop()
+                self.assertEqual(rejected[1:3], le(0x042A))
+                self.complete(rejected)
+                self.assertEqual(
+                    self.at("OK\r\n"),
+                    [b"AT+CHLD=?\r"] if three_way else [b"AT+CLIP=1\r"],
+                )
+                if three_way:
+                    self.assertEqual(
+                        self.at("+CHLD: (0,1,2,3)\r\nOK\r\n"), [b"AT+CLIP=1\r"]
+                    )
+                self.assertFalse(self.lib.demo_flags() & 4)
+                self.event(4, bytes(6) + bytes([8, 4, 0x20, 2]))
+                rejected = self.pop()
+                self.assertEqual(rejected[1:3], le(0x042A))
+                self.complete(rejected)
+                self.event(4, self.peer + bytes([8, 4, 0x20, 2]))
+                self.assertEqual(self.pop()[1:3], le(0x0429))
+                self.event(0x0F, bytes([0, 1]) + le(0x0429))
+                self.audio_complete()
+                self.assertEqual(self.lib.demo_audio_state(), 1)
+                self.assertEqual(
+                    self.at("OK\r\n"),
+                    [b"AT+CCWA=1\r"] if three_way else [b"AT+VGS=15\r"],
+                )
+                if three_way:
+                    self.rf_receive(rfcomm.RFCOMM_Frame.uih(1, 2, b"\7", p_f=1))
+                    self.frames()
+                    self.assertEqual(self.at("OK\r\n"), [b"AT+VGS=15\r"])
+                self.at("OK\r\n")
+                self.assertTrue(self.lib.demo_flags() & 4)
+                self.assertEqual(self.lib.demo_errors(), 0)
+
+    def test_missing_mandatory_call_hold_support_never_accepts_audio(self):
+        self.ringing_slc(True)
+        self.assertEqual(self.at("OK\r\n"), [b"AT+CHLD=?\r"])
+        self.at("+CHLD: (0,1)\r\nOK\r\n")
+        self.assertEqual(self.lib.demo_errors(), 1)
+        self.assertEqual(self.lib.demo_detail(), b"Missing call hold capabilities")
+        self.assertFalse(self.lib.demo_flags() & 4)
+        self.event(4, self.peer + bytes([8, 4, 0x20, 2]))
+        self.assertEqual(self.pop()[1:3], le(0x042A))
+
+    def test_profile_disconnect_clears_audio_acceptance(self):
+        self.ready(secure=True)
+        self.rf_receive(rfcomm.RFCOMM_Frame.disc(1, 2))
+        self.frames()
+        self.event(4, self.peer + bytes([8, 4, 0x20, 2]))
+        self.assertEqual(self.pop()[1:3], le(0x042A))
+
     def test_s4_requires_controller_and_phone_support(self):
         for controller in (False, True):
             for phone in (False, True):
