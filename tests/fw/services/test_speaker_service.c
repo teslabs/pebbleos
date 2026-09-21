@@ -87,7 +87,6 @@ static void prv_pump_until_idle(void) {
   for (int i = 0; i < 100 && s_trans_cb; i++) {
     uint32_t free_size = 4096;
     s_trans_cb(&free_size);
-    fake_system_task_callbacks_invoke_pending();
   }
 }
 
@@ -136,7 +135,6 @@ void test_speaker_service__same_priority_preempts_during_drain(void) {
 
   uint32_t free_size = 4096;
   s_trans_cb(&free_size);
-  fake_system_task_callbacks_invoke_pending();
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStateDraining);
 
   cl_assert(speaker_service_play_tone(2000, 25, 0, 0, SpeakerPriorityApp, 80));
@@ -153,6 +151,23 @@ void test_speaker_service__same_priority_cannot_preempt_while_playing(void) {
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStatePlaying);
 
   cl_assert(!speaker_service_play_tone(2000, 25, 0, 0, SpeakerPriorityApp, 80));
+}
+
+void test_speaker_service__refill_completes_in_driver_callback(void) {
+  cl_assert(speaker_service_stream_open(SpeakerPriorityApp, 30, SpeakerPcmFormat_16kHz_16bit));
+  int16_t samples[512];
+  for (unsigned i = 0; i < 512; ++i) {
+    samples[i] = 100;
+  }
+  cl_assert_equal_i(speaker_service_stream_write(samples, sizeof(samples)), sizeof(samples));
+  uint32_t free_size = sizeof(samples) - 2;
+  s_trans_cb(&free_size);
+  cl_assert_equal_i(s_samples_written, 0);
+  free_size = sizeof(samples);
+  s_trans_cb(&free_size);
+  cl_assert_equal_i(s_samples_written, 512);
+  cl_assert_equal_i(s_nonzero_samples, 512);
+  cl_assert_equal_i(list_count(s_system_task_callback_head), 0);
 }
 
 #define RESAMPLE_INPUT_SAMPLES 600
@@ -184,7 +199,6 @@ static void prv_resample_partition(const int16_t *input, unsigned partition, int
     cl_assert_equal_i(speaker_service_stream_write(input + offset, count * 2), count * 2);
     uint32_t space = 4096;
     s_trans_cb(&space);
-    fake_system_task_callbacks_invoke_pending();
     offset += count;
   }
   cl_assert_equal_i(s_output_count, 2 * RESAMPLE_INPUT_SAMPLES);
@@ -213,7 +227,6 @@ void test_speaker_service__upsampling_close_flushes_the_last_sample_and_filter_t
   cl_assert_equal_i(speaker_service_stream_write(input, sizeof(input)), sizeof(input));
   uint32_t space = 4096;
   s_trans_cb(&space);
-  fake_system_task_callbacks_invoke_pending();
   speaker_service_stream_close();
   prv_pump_until_idle();
   const int16_t expected[] = {0, 0, 0, 0, 0, -1000, 0, 9000, 16000, 9000, 0, -1000};
@@ -230,11 +243,9 @@ void test_speaker_service__upsampling_underrun_runs_silence_through_the_filter(v
   cl_assert_equal_i(speaker_service_stream_write(input, sizeof(input)), sizeof(input));
   uint32_t space = 4096;
   s_trans_cb(&space);
-  fake_system_task_callbacks_invoke_pending();
   cl_assert_equal_i(s_samples_written, 6);
 
   s_trans_cb(&space);
-  fake_system_task_callbacks_invoke_pending();
   cl_assert_equal_i(s_samples_written, 6 + 512);
   const int16_t expected[] = {0, 0, 0, 0, 0, -1000, 0, 9000, 16000, 9000, 0, -1000, 0, 0};
   cl_assert_equal_m(s_output, expected, sizeof(expected));
