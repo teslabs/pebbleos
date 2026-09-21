@@ -3,11 +3,25 @@
 
 #pragma once
 
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+
+#define AUDIO_PLAYBACK_SAMPLE_RATE (16000) //!< PCM and clock rate seen by AudioPlaybackCB
 
 typedef const struct AudioDevice AudioDevice;
 //! Invoked on the system task; consumers may refill synchronously.
 typedef void (*AudioTransCB)(uint32_t *free_size);
+
+//! Optional observer of mono PCM committed to DMA, including underrun silence. sample_time is
+//! its presentation time on a wrapping AUDIO_PLAYBACK_SAMPLE_RATE clock derived from uptime and
+//! re-anchored whenever it drifts more than 8 ms from it.
+//! Runs in the DMA ISR; copy immediately and never block or retain the sample pointer.
+typedef void (*AudioPlaybackCB)(const int16_t *samples, size_t count, uint32_t sample_time,
+                                void *context);
+//! Provided by drivers that select SPEAKER_PLAYBACK_OBSERVER. NULL unregisters synchronously.
+//! Returns false when the device format cannot be observed.
+bool audio_set_playback_callback(AudioDevice *audio_device, AudioPlaybackCB cb, void *context);
 
 //! Optional board-level power hooks. Either callback may be NULL.
 //! power_up runs before the consumer enables (e.g. raise PMIC discharge limit);

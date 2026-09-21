@@ -5,6 +5,7 @@
 #include <pbl/drivers/gpio.h>
 #include "kernel/util/delay.h"
 #include <pbl/drivers/audio.h>
+#include <pbl/kernel/irq.h>
 #include <pbl/drivers/speaker/sf32lb52/sf32lb_audio.h>
 
 #define PA_POWER_DELAY_TIME (200) /* us */
@@ -44,4 +45,16 @@ void audio_stop(AudioDevice *audio_device) {
   if (audio_device->power_ops && audio_device->power_ops->power_down) {
     audio_device->power_ops->power_down();
   }
+}
+
+bool audio_set_playback_callback(AudioDevice *device, AudioPlaybackCB cb, void *context) {
+  if (device->samplerate != AUDIO_PLAYBACK_SAMPLE_RATE || device->channels != 1) {
+    return false;
+  }
+  pbl_irq_lock();
+  device->state->playback_cb = cb;
+  device->state->playback_context = context;
+  device->state->playback_started = false;
+  pbl_irq_unlock();
+  return true;
 }
