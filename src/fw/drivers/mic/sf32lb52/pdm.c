@@ -10,6 +10,7 @@
 #include <pbl/logging/logging.h>
 #include "pbl/kernel/mutex.h"
 #include "pbl/kernel/irq.h"
+#include "pbl/kernel/sched.h"
 #include "system/passert.h"
 #include "pbl/util/circular_buffer.h"
 #include "pbl/util/heap.h"
@@ -25,6 +26,7 @@ PBL_LOG_MODULE_DEFINE(driver_mic_sf32lb, CONFIG_DRIVER_MIC_LOG_LEVEL);
 #endif
 
 #define PDM_AUDIO_RECORD_PIPE_SIZE    (288)
+#define PDM_CAPTURE_RESYNC_SAMPLES    (MIC_SAMPLE_RATE * 8 / 1000)
 #define PDM_AUDIO_RECORD_GAIN_DEFAULT (90)
 #define PDM_AUDIO_RECORD_GAIN_MAX     (120)
 
@@ -43,6 +45,11 @@ PBL_LOG_MODULE_DEFINE(driver_mic_sf32lb, CONFIG_DRIVER_MIC_LOG_LEVEL);
 // Fallback step. 32 ms shrink per retry gives us ~7 attempts between 320 ms and 128 ms
 #define PDM_CIRCULAR_BUF_STEP_MS      (32)
 #define PDM_CIRCULAR_BUF_STEP_SAMPLES ((MIC_SAMPLE_RATE * PDM_CIRCULAR_BUF_STEP_MS) / 1000)
+
+#define PDM_POLLING_BUF_SIZE_MS          (128)
+#define PDM_POLLING_BUF_SIZE_SAMPLES     ((MIC_SAMPLE_RATE * PDM_POLLING_BUF_SIZE_MS) / 1000)
+#define PDM_POLLING_BUF_MIN_SIZE_MS      (64)
+#define PDM_POLLING_BUF_MIN_SIZE_SAMPLES ((MIC_SAMPLE_RATE * PDM_POLLING_BUF_MIN_SIZE_MS) / 1000)
 
 #define PDM_CIRCULAR_BUF_BYTES(samples, channels) ((size_t)(samples) * sizeof(int16_t) * (channels))
 
@@ -101,11 +108,13 @@ void mic_set_volume(const MicDevice *this, uint16_t volume) {
   state->volume = volume;
 }
 
-static bool prv_allocate_buffers(const MicDevice *this) {
+static bool prv_allocate_buffers(const MicDevice *this, bool polling) {
   MicDeviceState *state = this->state;
   const uint32_t channels = this->channels ? this->channels : 1;
-  const size_t requested = PDM_CIRCULAR_BUF_BYTES(PDM_CIRCULAR_BUF_SIZE_SAMPLES, channels);
-  const size_t floor = PDM_CIRCULAR_BUF_BYTES(PDM_CIRCULAR_BUF_MIN_SIZE_SAMPLES, channels);
+  const size_t requested = PDM_CIRCULAR_BUF_BYTES(
+      polling ? PDM_POLLING_BUF_SIZE_SAMPLES : PDM_CIRCULAR_BUF_SIZE_SAMPLES, channels);
+  const size_t floor = PDM_CIRCULAR_BUF_BYTES(
+      polling ? PDM_POLLING_BUF_MIN_SIZE_SAMPLES : PDM_CIRCULAR_BUF_MIN_SIZE_SAMPLES, channels);
   const size_t step = PDM_CIRCULAR_BUF_BYTES(PDM_CIRCULAR_BUF_STEP_SAMPLES, channels);
 
   size_t try_size = requested;
@@ -151,22 +160,28 @@ static void prv_free_buffers(MicDeviceState *state) {
 // other tasks (especially Bluetooth) to run and prevent send buffer overflow
 #define MAX_FRAMES_PER_SYSTEM_TASK_CALLBACK 5
 
-static void prv_dispatch_samples_system_task(void *data) {
+static void prv_dispatch_samples_system_task(void *data);
+
+static void prv_dispatch_samples(bool polling) {
   // Defensive check
   if (!s_state || !s_state->is_initialized) {
     return;
   }
 
   pbl_mutex_lock(&s_state->mutex, PBL_FOREVER);
+  if (polling != (s_state->ready_handler != NULL)) {
+    pbl_mutex_unlock(&s_state->mutex);
+    return;
+  }
 
   // Process a limited number of frames to provide backpressure
   if (s_state->is_running && s_state->data_handler && s_state->audio_buffer &&
       s_state->circ_buffer_storage) {
     size_t frame_size_bytes = s_state->audio_buffer_len * sizeof(int16_t);
     int frames_processed = 0;
+    int frame_limit = polling ? 1 : MAX_FRAMES_PER_SYSTEM_TASK_CALLBACK;
 
-    while (s_state->is_running && s_state->data_handler &&
-           frames_processed < MAX_FRAMES_PER_SYSTEM_TASK_CALLBACK) {
+    while (s_state->is_running && s_state->data_handler && frames_processed < frame_limit) {
       // Check if we have enough data for a complete frame
       pbl_irq_lock();
       uint16_t available_data = circular_buffer_get_read_space_remaining(&s_state->circ_buffer);
@@ -179,18 +194,24 @@ static void prv_dispatch_samples_system_task(void *data) {
       // Copy one frame
       uint16_t bytes_copied = circular_buffer_copy(
           &s_state->circ_buffer, (uint8_t *)s_state->audio_buffer, frame_size_bytes);
+      s_state->frame_time = s_state->capture_epoch + s_state->timed_samples -
+                            available_data / (sizeof(int16_t) * s_state->channels);
       circular_buffer_consume(&s_state->circ_buffer, bytes_copied);
       pbl_irq_unlock();
 
       if (bytes_copied == frame_size_bytes) {
         // Call callback with the frame
+        s_state->frame_time_valid = true;
         s_state->data_handler(s_state->audio_buffer, s_state->audio_buffer_len,
                               s_state->handler_context);
+        s_state->frame_time_valid = false;
 
         frames_processed++;
 
         // Feed the system task watchdog periodically during long processing
-        system_task_watchdog_feed();
+        if (!polling) {
+          system_task_watchdog_feed();
+        }
       } else {
         break; // Failed to copy, stop processing
       }
@@ -199,23 +220,33 @@ static void prv_dispatch_samples_system_task(void *data) {
     // If we still have data available after processing, reschedule immediately
     pbl_irq_lock();
     uint16_t remaining_data = circular_buffer_get_read_space_remaining(&s_state->circ_buffer);
-    if (remaining_data >= frame_size_bytes && s_state->is_running) {
-      // Keep ownership of the pending callback; never block on our own queue.
-      s_state->main_pending = true;
-      if (!system_task_add_callback_droppable(prv_dispatch_samples_system_task, NULL)) {
+    bool more_frames = remaining_data >= frame_size_bytes && s_state->is_running;
+    if (!polling) {
+      if (more_frames) {
+        // Keep ownership of the pending callback; never block on our own queue.
+        s_state->main_pending = true;
+        if (!system_task_add_callback_droppable(prv_dispatch_samples_system_task, NULL)) {
+          s_state->main_pending = false;
+        }
+      } else {
+        // Clear pending flag only if we're done processing
         s_state->main_pending = false;
       }
-    } else {
-      // Clear pending flag only if we're done processing
-      s_state->main_pending = false;
     }
     pbl_irq_unlock();
+    if (polling && more_frames) {
+      s_state->ready_handler(s_state->handler_context);
+    }
   } else {
     // Clear pending flag if we can't process
     s_state->main_pending = false;
   }
 
   pbl_mutex_unlock(&s_state->mutex);
+}
+
+static void prv_dispatch_samples_system_task(void *data) {
+  prv_dispatch_samples(false);
 }
 
 static void prv_dma_data_processing(uint8_t *data, uint16_t size) {
@@ -254,10 +285,24 @@ static void prv_dma_data_processing(uint8_t *data, uint16_t size) {
   }
   circular_buffer_write(&s_state->circ_buffer, data, size);
 
+  const uint32_t samples = size / (sizeof(int16_t) * s_state->channels);
+  const uint32_t now = pbl_ticks_to_ms(pbl_uptime_ticks()) * (MIC_SAMPLE_RATE / 1000);
+  s_state->timed_samples += samples;
+  const int32_t skew = (int32_t)(now - (s_state->capture_epoch + s_state->timed_samples));
+  if (s_state->timed_samples == samples || skew < -PDM_CAPTURE_RESYNC_SAMPLES ||
+      skew > PDM_CAPTURE_RESYNC_SAMPLES) {
+    s_state->capture_epoch += skew;
+  }
+
   // Check if we have enough data for a complete frame
   size_t frame_size_bytes = s_state->audio_buffer_len * sizeof(int16_t);
   uint16_t available_data = circular_buffer_get_read_space_remaining(&s_state->circ_buffer);
-  if (available_data >= frame_size_bytes && !s_state->main_pending) {
+  if (available_data < frame_size_bytes) {
+    return;
+  }
+  if (s_state->ready_handler) {
+    s_state->ready_handler(s_state->handler_context);
+  } else if (!s_state->main_pending) {
     s_state->main_pending = true;
 
     // Dispatch to system task instead of kernel event queue (matches asterix behavior).
@@ -314,8 +359,8 @@ static bool prv_start_pdm_capture(const MicDevice *this) {
   return !res;
 }
 
-bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *context,
-               int16_t *audio_buffer, size_t audio_buffer_len) {
+static bool prv_start(const MicDevice *this, MicDataHandlerCB data_handler, void *context,
+                      int16_t *audio_buffer, size_t audio_buffer_len, MicDataReadyCB ready) {
   PBL_ASSERTN(this);
   PBL_ASSERTN(this->state);
   PBL_ASSERTN(data_handler);
@@ -342,7 +387,7 @@ bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *conte
   // destroying dirty bytes in lines shared with neighboring allocations.
   const size_t cache_align = dcache_line_size();
   state->raw_dma_buffer = kernel_malloc(hpdm->RxXferSize + cache_align - 1U);
-  if (!state->raw_dma_buffer || !prv_allocate_buffers(this)) {
+  if (!state->raw_dma_buffer || !prv_allocate_buffers(this, ready != NULL)) {
     kernel_free(state->raw_dma_buffer);
     state->raw_dma_buffer = NULL;
     pbl_mutex_unlock(&state->mutex);
@@ -352,10 +397,15 @@ bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *conte
                                  ~(uintptr_t)(cache_align - 1U));
 
   state->data_handler = data_handler;
+  state->ready_handler = ready;
   state->handler_context = context;
   state->audio_buffer = audio_buffer;
   state->audio_buffer_len = audio_buffer_len;
   state->main_pending = false;
+  state->channels = this->channels ? this->channels : 1;
+  state->capture_epoch = 0;
+  state->timed_samples = 0;
+  state->frame_time_valid = false;
 
 #if PDM_POWER_NPM1300_LDO2
   (void)NPM1300_OPS.ldo2_set_enabled(true);
@@ -392,6 +442,28 @@ bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *conte
   return true;
 }
 
+bool mic_start(const MicDevice *this, MicDataHandlerCB data_handler, void *context,
+               int16_t *audio_buffer, size_t audio_buffer_len) {
+  return prv_start(this, data_handler, context, audio_buffer, audio_buffer_len, NULL);
+}
+
+bool mic_start_polling(const MicDevice *this, MicDataHandlerCB data_handler, void *context,
+                       int16_t *audio_buffer, size_t audio_buffer_len, MicDataReadyCB ready) {
+  return ready && prv_start(this, data_handler, context, audio_buffer, audio_buffer_len, ready);
+}
+
+void mic_poll(const MicDevice *this) {
+  prv_dispatch_samples(true);
+}
+
+bool mic_get_frame_time(const MicDevice *this, uint32_t *sample_time) {
+  if (!this->state->frame_time_valid) {
+    return false;
+  }
+  *sample_time = this->state->frame_time;
+  return true;
+}
+
 void mic_stop(const MicDevice *this) {
   PBL_ASSERTN(this);
   PBL_ASSERTN(this->state);
@@ -422,6 +494,7 @@ void mic_stop(const MicDevice *this) {
 
   // Clear state
   state->data_handler = NULL;
+  state->ready_handler = NULL;
   state->handler_context = NULL;
   state->audio_buffer = NULL;
   state->audio_buffer_len = 0;
