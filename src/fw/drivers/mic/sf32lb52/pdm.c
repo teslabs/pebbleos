@@ -18,6 +18,8 @@
 #include <pbl/drivers/mic/sf32lb52/pdm_definitions.h>
 #include "pbl/services/system_task.h"
 
+#include <inttypes.h>
+
 PBL_LOG_MODULE_DEFINE(driver_mic_sf32lb, CONFIG_DRIVER_MIC_LOG_LEVEL);
 
 // HACK alert, we need proper regulator abstraction
@@ -197,6 +199,7 @@ static void prv_dispatch_samples(bool polling) {
       s_state->frame_time = s_state->capture_epoch + s_state->timed_samples -
                             available_data / (sizeof(int16_t) * s_state->channels);
       circular_buffer_consume(&s_state->circ_buffer, bytes_copied);
+      s_state->dispatched_bytes += bytes_copied;
       pbl_irq_unlock();
 
       if (bytes_copied == frame_size_bytes) {
@@ -281,9 +284,10 @@ static void prv_dma_data_processing(uint8_t *data, uint16_t size) {
   if (write_space < size) {
     uint16_t to_drop = size - write_space;
     circular_buffer_consume(&s_state->circ_buffer, to_drop);
-    PBL_LOG_WRN("Dropping %u bytes of old audio", to_drop);
+    s_state->dropped_bytes += to_drop;
   }
   circular_buffer_write(&s_state->circ_buffer, data, size);
+  s_state->capture_bytes += size;
 
   const uint32_t samples = size / (sizeof(int16_t) * s_state->channels);
   const uint32_t now = pbl_ticks_to_ms(pbl_uptime_ticks()) * (MIC_SAMPLE_RATE / 1000);
@@ -297,6 +301,9 @@ static void prv_dma_data_processing(uint8_t *data, uint16_t size) {
   // Check if we have enough data for a complete frame
   size_t frame_size_bytes = s_state->audio_buffer_len * sizeof(int16_t);
   uint16_t available_data = circular_buffer_get_read_space_remaining(&s_state->circ_buffer);
+  if (available_data > s_state->peak_backlog) {
+    s_state->peak_backlog = available_data;
+  }
   if (available_data < frame_size_bytes) {
     return;
   }
@@ -406,6 +413,10 @@ static bool prv_start(const MicDevice *this, MicDataHandlerCB data_handler, void
   state->capture_epoch = 0;
   state->timed_samples = 0;
   state->frame_time_valid = false;
+  state->capture_bytes = 0;
+  state->dispatched_bytes = 0;
+  state->dropped_bytes = 0;
+  state->peak_backlog = 0;
 
 #if PDM_POWER_NPM1300_LDO2
   (void)NPM1300_OPS.ldo2_set_enabled(true);
@@ -519,8 +530,17 @@ void command_mic_start(char *timeout_str, char *sample_size_str, char *sample_ra
 }
 
 void command_mic_read(void) {
-  prompt_send_response("Microphone read command not supported");
-  prompt_send_response("Use the standard microphone API instead");
+  pbl_irq_lock();
+  const uint32_t captured = s_state->capture_bytes;
+  const uint32_t dispatched = s_state->dispatched_bytes;
+  const uint32_t dropped = s_state->dropped_bytes;
+  const unsigned backlog = s_state->peak_backlog;
+  pbl_irq_unlock();
+  char buffer[128];
+  prompt_send_response_fmt(buffer, sizeof(buffer),
+                           "mic captured=%" PRIu32 " dispatched=%" PRIu32 " dropped=%" PRIu32
+                           " peak_backlog=%u",
+                           captured, dispatched, dropped, backlog);
 }
 
 bool mic_is_running(const MicDevice *this) {

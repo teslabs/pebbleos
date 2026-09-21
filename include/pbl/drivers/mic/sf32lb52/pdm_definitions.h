@@ -37,6 +37,10 @@ typedef struct MicState {
   uint32_t timed_samples;
   uint32_t frame_time;
   bool frame_time_valid;
+  uint32_t capture_bytes;
+  uint32_t dispatched_bytes;
+  uint32_t dropped_bytes;
+  uint16_t peak_backlog;
 
   // A mutex is needed to protect against a race condition between
   // mic_stop and the dispatch routine potentially resulting in the
