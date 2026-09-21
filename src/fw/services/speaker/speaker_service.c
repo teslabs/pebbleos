@@ -61,6 +61,7 @@ typedef struct {
   // PCM stream source
   PcmStreamState pcm_stream;
   SpeakerPcmFormat pcm_format;
+  bool stream_realtime;
 
   // Cubic interpolation history, oldest first; two input samples of delay.
   int16_t prev_samples[3];
@@ -115,6 +116,7 @@ static uint32_t s_total_speaker_on_time_ms; // Total speaker on-time tracked
 static void prv_stop_internal(SpeakerFinishReason reason);
 static void prv_audio_trans_cb(uint32_t *free_size);
 static void prv_refill_locked(void);
+static void prv_refill_realtime_locked(void);
 
 static bool prv_is_speaker_muted(void) {
   if (alerts_preferences_get_speaker_muted()) {
@@ -304,7 +306,11 @@ static void prv_audio_trans_cb(uint32_t *free_size) {
     return;
   }
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
-  prv_refill_locked();
+  if (s_state.source_type == SpeakerSourceStream && s_state.stream_realtime) {
+    prv_refill_realtime_locked();
+  } else {
+    prv_refill_locked();
+  }
   pbl_mutex_unlock(&s_lock);
 }
 
@@ -489,6 +495,16 @@ static void prv_refill_locked(void) {
 
   if (samples_generated > 0) {
     audio_write((AudioDevice *)AUDIO, s_state.refill_buf, samples_generated * sizeof(int16_t));
+  }
+}
+
+static void prv_refill_realtime_locked(void) {
+  const uint32_t bytes_needed =
+      prv_pcm_input_samples(SPEAKER_REFILL_SAMPLES) * prv_pcm_bytes_per_sample();
+  while (s_state.state == SpeakerStatePlaying &&
+         pcm_stream_available(&s_state.pcm_stream) >= bytes_needed &&
+         audio_write((AudioDevice *)AUDIO, NULL, 0) >= sizeof(s_state.refill_buf)) {
+    prv_refill_locked();
   }
 }
 
@@ -693,6 +709,11 @@ alloc_fail:
 }
 
 bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
+  return speaker_service_stream_open_owned(pri, vol, fmt, PebbleTask_Unknown);
+}
+
+static bool prv_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
+                            PebbleTask owner, bool realtime) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   if (!s_state.initialized) {
@@ -721,6 +742,8 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
   s_state.priority = pri;
   s_state.volume = vol;
   s_state.pcm_format = fmt;
+  s_state.stream_realtime = realtime;
+  s_state.owner_task = owner;
   memset(s_state.prev_samples, 0, sizeof(s_state.prev_samples));
   s_state.pcm_tail_samples = 0;
 
@@ -730,29 +753,55 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
   return true;
 }
 
+bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
+                                       PebbleTask owner) {
+  return prv_stream_open(pri, vol, fmt, owner, false);
+}
+
+bool speaker_service_stream_open_realtime_owned(SpeakerPriority pri, uint8_t vol,
+                                                SpeakerPcmFormat fmt, PebbleTask owner) {
+  return prv_stream_open(pri, vol, fmt, owner, true);
+}
+
 uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {
+  return speaker_service_stream_write_owned(PebbleTask_Unknown, data, num_bytes);
+}
+
+uint32_t speaker_service_stream_write_owned(PebbleTask owner, const void *data,
+                                            uint32_t num_bytes) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
-  if (s_state.state == SpeakerStateIdle || s_state.source_type != SpeakerSourceStream) {
+  if (s_state.state == SpeakerStateIdle || s_state.source_type != SpeakerSourceStream ||
+      (owner != PebbleTask_Unknown && owner != s_state.owner_task)) {
     pbl_mutex_unlock(&s_lock);
     return 0;
   }
 
   num_bytes -= num_bytes % prv_pcm_bytes_per_sample();
   uint32_t written = pcm_stream_write(&s_state.pcm_stream, data, num_bytes);
+  if (s_state.stream_realtime) {
+    prv_refill_realtime_locked();
+  }
   pbl_mutex_unlock(&s_lock);
   return written;
 }
 
 void speaker_service_stream_close(void) {
+  speaker_service_stream_close_owned(PebbleTask_Unknown);
+}
+
+void speaker_service_stream_close_owned(PebbleTask owner) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
-  if (s_state.source_type != SpeakerSourceStream) {
+  if (s_state.source_type != SpeakerSourceStream ||
+      (owner != PebbleTask_Unknown && owner != s_state.owner_task)) {
     pbl_mutex_unlock(&s_lock);
     return;
   }
 
-  if (s_state.pcm_stream.count > 0 || s_state.pcm_tail_samples > 0) {
+  bool realtime = s_state.stream_realtime;
+  s_state.stream_realtime = false;
+  if (realtime || s_state.pcm_stream.count > 0 || s_state.pcm_tail_samples > 0) {
     // Data remaining - enter draining state
     pcm_stream_mark_closing(&s_state.pcm_stream);
     s_state.state = SpeakerStateDraining;
@@ -770,7 +819,15 @@ void speaker_service_stop(void) {
 }
 
 void speaker_service_set_volume(uint8_t vol) {
+  speaker_service_set_volume_owned(PebbleTask_Unknown, vol);
+}
+
+void speaker_service_set_volume_owned(PebbleTask owner, uint8_t vol) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  if (owner != PebbleTask_Unknown && owner != s_state.owner_task) {
+    pbl_mutex_unlock(&s_lock);
+    return;
+  }
   s_state.volume = vol;
   if (s_state.state != SpeakerStateIdle) {
     const uint8_t effective_vol = prv_effective_volume(vol);
@@ -873,11 +930,29 @@ bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFor
   return false;
 }
 
+bool speaker_service_stream_open_owned(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt,
+                                       PebbleTask owner) {
+  return false;
+}
+
+bool speaker_service_stream_open_realtime_owned(SpeakerPriority pri, uint8_t vol,
+                                                SpeakerPcmFormat fmt, PebbleTask owner) {
+  return false;
+}
+
+uint32_t speaker_service_stream_write_owned(PebbleTask owner, const void *data,
+                                            uint32_t num_bytes) {
+  return 0;
+}
+
 uint32_t speaker_service_stream_write(const void *data, uint32_t num_bytes) {
   return 0;
 }
 
 void speaker_service_stream_close(void) {
+}
+
+void speaker_service_stream_close_owned(PebbleTask owner) {
 }
 void speaker_service_stop(void) {
 }
