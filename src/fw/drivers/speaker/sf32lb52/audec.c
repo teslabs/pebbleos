@@ -333,6 +333,13 @@ void audec_start(AudioDevice *audio_device, AudioTransCB cb) {
   state->trans_cb = cb;
   state->callback_pending = false;
   state->playback_started = false;
+#ifdef CONFIG_SPEAKER_SF32LB_DIAGNOSTICS
+  state->diagnostic_refills = 0;
+  state->diagnostic_underrun_bytes = 0;
+  state->diagnostic_write_drops = 0;
+  state->diagnostic_signal_samples = 0;
+  state->diagnostic_peak = 0;
+#endif
 
   soc_sf32lb_sleep_block(SOC_SF32LB_DEEPWFI);
 
@@ -374,6 +381,9 @@ uint32_t audec_write(AudioDevice *audio_device, void *writeBuf, uint32_t size) {
     pbl_irq_lock();
     uint32_t free_size = circular_buffer_get_write_space_remaining(&state->circ_buffer);
     uint16_t to_write = (size > free_size) ? (uint16_t)free_size : (uint16_t)size;
+#ifdef CONFIG_SPEAKER_SF32LB_DIAGNOSTICS
+    state->diagnostic_write_drops += size - to_write;
+#endif
     if (to_write > 0) {
       circular_buffer_write(&state->circ_buffer, writeBuf, to_write);
     }
@@ -437,7 +447,13 @@ static void prv_dma_request_processing(AudioDeviceState *state) {
 
   uint32_t available_data = circular_buffer_get_read_space_remaining(&state->circ_buffer);
   uint32_t trans_size = CFG_AUDIO_PLAYBACK_PIPE_SIZE;
+#ifdef CONFIG_SPEAKER_SF32LB_DIAGNOSTICS
+  ++state->diagnostic_refills;
+#endif
   if (available_data < CFG_AUDIO_PLAYBACK_PIPE_SIZE) {
+#ifdef CONFIG_SPEAKER_SF32LB_DIAGNOSTICS
+    state->diagnostic_underrun_bytes += CFG_AUDIO_PLAYBACK_PIPE_SIZE - available_data;
+#endif
     PBL_LOG_DBG("audio data not enough remain:%" PRIu32 "", available_data);
     memset(state->queue_buf[HAL_AUDCODEC_DAC_CH0], 0, CFG_AUDIO_PLAYBACK_PIPE_SIZE);
     trans_size = available_data;
@@ -448,6 +464,16 @@ static void prv_dma_request_processing(AudioDeviceState *state) {
     PBL_ASSERT(bytes_copied == trans_size, "circ buffer read err");
     circular_buffer_consume(&state->circ_buffer, bytes_copied);
   }
+#ifdef CONFIG_SPEAKER_SF32LB_DIAGNOSTICS
+  const int16_t *pcm = (const int16_t *)state->queue_buf[HAL_AUDCODEC_DAC_CH0];
+  for (unsigned i = 0; i < CFG_AUDIO_PLAYBACK_PIPE_SIZE / sizeof(*pcm); ++i) {
+    unsigned magnitude = pcm[i] < 0 ? -(int32_t)pcm[i] : pcm[i];
+    state->diagnostic_signal_samples += magnitude > 256;
+    if (magnitude > state->diagnostic_peak) {
+      state->diagnostic_peak = magnitude;
+    }
+  }
+#endif
   // Codec DMA reads this half-buffer next time it wraps; flush the CPU-side
   // writes (memset for underrun and circular_buffer_copy above) so the DAC
   // doesn't replay stale RAM contents. We always flush a full half because
