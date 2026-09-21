@@ -10,6 +10,7 @@
 #include "pbl/services/system_task.h"
 #include "pbl/soc/sf32lb/sleep.h"
 #include <pbl/kernel/irq.h>
+#include <pbl/kernel/sched.h>
 
 PBL_LOG_MODULE_DEFINE(driver_speaker_sf32lb, CONFIG_DRIVER_SPEAKER_LOG_LEVEL);
 
@@ -20,6 +21,8 @@ PBL_LOG_MODULE_DEFINE(driver_speaker_sf32lb, CONFIG_DRIVER_SPEAKER_LOG_LEVEL);
 #else
 #define SINC_GAIN 0x14D
 #endif
+
+#define PLAYBACK_RESYNC_SAMPLES (AUDIO_PLAYBACK_SAMPLE_RATE * 8 / 1000)
 
 #define MIN_VOLUME 0
 #define MAX_VOLUME 100
@@ -329,6 +332,7 @@ void audec_start(AudioDevice *audio_device, AudioTransCB cb) {
   AUDCODEC_HandleTypeDef *haudcodec = &state->audcodec;
   state->trans_cb = cb;
   state->callback_pending = false;
+  state->playback_started = false;
 
   soc_sf32lb_sleep_block(SOC_SF32LB_DEEPWFI);
 
@@ -449,6 +453,26 @@ static void prv_dma_request_processing(AudioDeviceState *state) {
   // doesn't replay stale RAM contents. We always flush a full half because
   // any bytes we didn't touch were already memset() to silence.
   dcache_flush(state->queue_buf[HAL_AUDCODEC_DAC_CH0], CFG_AUDIO_PLAYBACK_PIPE_SIZE);
+  if (state->playback_cb) {
+    const unsigned samples = CFG_AUDIO_PLAYBACK_PIPE_SIZE / sizeof(int16_t);
+    const uint32_t now = pbl_ticks_to_ms(pbl_uptime_ticks()) * (AUDIO_PLAYBACK_SAMPLE_RATE / 1000);
+    const int32_t skew = (int32_t)(now + samples - state->playback_time);
+    if (!state->playback_started) {
+      // The other half is playing now; this newly filled half follows it.
+      uint8_t *base = state->audcodec.buf[HAL_AUDCODEC_DAC_CH0];
+      uint8_t *playing = state->queue_buf[HAL_AUDCODEC_DAC_CH0] == base
+                             ? base + CFG_AUDIO_PLAYBACK_PIPE_SIZE
+                             : base;
+      state->playback_cb((const int16_t *)playing, samples, now, state->playback_context);
+      state->playback_time = now + samples;
+      state->playback_started = true;
+    } else if (skew < -PLAYBACK_RESYNC_SAMPLES || skew > PLAYBACK_RESYNC_SAMPLES) {
+      state->playback_time = now + samples;
+    }
+    state->playback_cb((const int16_t *)state->queue_buf[HAL_AUDCODEC_DAC_CH0], samples,
+                       state->playback_time, state->playback_context);
+    state->playback_time += samples;
+  }
   uint32_t free_size = circular_buffer_get_write_space_remaining(&state->circ_buffer);
   // Only one refill callback may be in flight: this ISR fires every half
   // buffer, and enqueueing on each one floods the system task queue when
