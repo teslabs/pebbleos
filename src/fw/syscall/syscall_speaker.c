@@ -120,10 +120,8 @@ DEFINE_SYSCALL(bool, sys_speaker_stream_open, uint8_t priority, uint8_t volume, 
     format = SpeakerPcmFormat_16kHz_16bit;
   }
 
-  PebbleTask task = pebble_task_get_current();
-  speaker_service_set_owner_task(task);
-
-  return speaker_service_stream_open((SpeakerPriority)priority, volume, (SpeakerPcmFormat)format);
+  return speaker_service_stream_open_owned((SpeakerPriority)priority, volume,
+                                           (SpeakerPcmFormat)format, pebble_task_get_current());
 }
 
 DEFINE_SYSCALL(uint32_t, sys_speaker_stream_write, const void *data, uint32_t num_bytes) {
