@@ -22,6 +22,7 @@ typedef struct MicState {
 
   // User interface
   MicDataHandlerCB data_handler;
+  MicDataReadyCB ready_handler;
   void *handler_context;
   int16_t *audio_buffer;
   size_t audio_buffer_len;
@@ -31,6 +32,11 @@ typedef struct MicState {
   bool main_pending;
   bool bg_pending;
   uint16_t volume;
+  uint8_t channels;
+  uint32_t capture_epoch;
+  uint32_t timed_samples;
+  uint32_t frame_time;
+  bool frame_time_valid;
 
   // A mutex is needed to protect against a race condition between
   // mic_stop and the dispatch routine potentially resulting in the
