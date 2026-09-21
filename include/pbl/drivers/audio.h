@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 typedef const struct AudioDevice AudioDevice;
+//! Invoked on the system task; consumers may refill synchronously.
 typedef void (*AudioTransCB)(uint32_t *free_size);
 
 //! Optional board-level power hooks. Either callback may be NULL.
@@ -18,6 +19,7 @@ typedef struct BoardPowerOps {
 
 extern void audio_init(AudioDevice *audio_device);
 extern void audio_start(AudioDevice *audio_device, AudioTransCB cb);
+//! Returns remaining queue space in bytes; a zero-size write only queries space.
 extern uint32_t audio_write(AudioDevice *audio_device, void *writeBuf, uint32_t size);
 // audio volume from 0~100
 extern void audio_set_volume(AudioDevice *audio_device, int volume);
