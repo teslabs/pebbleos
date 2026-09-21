@@ -23,6 +23,13 @@ config SPEAKER_SF32LB
     help
       Support for the SiFli SF32LB audio codec / DAC speaker output.
 
+config SPEAKER_SF32LB_DIAGNOSTICS
+    bool "SF32LB playback flow diagnostics"
+    depends on SPEAKER_SF32LB
+    help
+      Count DMA refills, underrun bytes and dropped writes, and track the
+      peak level of the PCM committed to the DAC, for audio bring-up tools.
+
 config SPEAKER_QEMU
     bool "QEMU audio"
     default y if SOC_QEMU
