@@ -56,6 +56,16 @@ config BT_GH3X2X_TUNING_SERVICE
       Build the GH3X2X heart-rate sensor tuning GATT service, used to
       tune the sensor over BLE. Off by default.
 
+config BT_CONTROLLER_PROBE
+    bool "Controller capability probe command"
+    depends on PROMPT
+    select NIMBLE_BLE_HS_LOCAL_INFO
+    help
+      Add the 'bt controller probe' console command, which reports the
+      controller version, supported commands, LMP features and buffer
+      sizes that the NimBLE host read while synchronising, without
+      sending HCI commands of its own.
+
 endif
 
 endmenu
