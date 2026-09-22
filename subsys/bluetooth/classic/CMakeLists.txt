@@ -2,4 +2,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 pbl_library()
-pbl_library_sources(host.c l2cap.c profile.c sdp.c)
+pbl_library_sources(cvsd.c host.c l2cap.c profile.c sdp.c)
