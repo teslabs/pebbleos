@@ -20,7 +20,17 @@ pbl_clar_test(test_hci_local_audio
     subsys/bluetooth/classic/local_audio.c
     subsys/bluetooth/classic/voice_resampler.c
     subsys/bluetooth/classic/voice_playback.c
+    subsys/bluetooth/classic/voice_echo.c
+    subsys/bluetooth/classic/voice_echo_reference.c
   OVERRIDES dummy_board
+)
+
+pbl_clar_test(test_voice_echo
+  INCLUDES subsys/bluetooth/classic
+  SOURCES
+    subsys/bluetooth/classic/voice_echo.c
+    subsys/bluetooth/classic/voice_echo_reference.c
+    subsys/bluetooth/classic/voice_resampler.c
 )
 
 pbl_clar_test(test_sifli_sco

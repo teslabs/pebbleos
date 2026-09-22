@@ -2,14 +2,18 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include <clar.h>
 #include <pbl/drivers/mic.h>
+#include <pbl/drivers/audio.h>
+#include <pbl/kernel/sched.h>
 #include <pbl/services/new_timer/new_timer.h>
 #include <pbl/services/speaker/speaker_service.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "local_audio.h"
 #include "voice_resampler.h"
 #include "voice_playback.h"
 #include "stubs_passert.h"
+#include "stubs_irq.h"
 #include "fake_mutex.h"
 #include "fake_msgq.h"
 #include "fake_system_task.h"
@@ -17,6 +21,12 @@
 static MicDataHandlerCB s_capture;
 static MicDataReadyCB s_ready;
 static bool s_polling_supported, s_poll_pending;
+static AudioPlaybackCB s_reference_cb;
+static void *s_reference_context;
+static bool s_no_echo_memory;
+static bool s_frame_time_supported;
+static uint32_t s_frame_time;
+static unsigned s_echo_allocations;
 static void *s_capture_context;
 static bool s_mic_busy, s_speaker_open;
 static unsigned s_starts, s_stops, s_speaker_bytes, s_tones, s_stream_closes;
@@ -25,11 +35,42 @@ extern void command_bt_audio_speaker_test(void);
 extern void command_bt_audio_pcm_test(void);
 extern void command_bt_audio_capture(void);
 extern void command_bt_audio_dump(void);
+extern void command_bt_audio_echo(const char *argument);
 static unsigned s_dump_bytes, s_volume;
 static char s_capture_report[160];
 
 static NewTimerCallback s_timer_cb;
 static void *s_timer_data;
+
+pbl_tick_t pbl_uptime_ticks(void) {
+  return 0;
+}
+uint32_t pbl_ticks_to_ms(pbl_tick_t ticks) {
+  return (uint64_t)ticks * 1000 / PBL_TICK_HZ;
+}
+
+void *kernel_zalloc(size_t size) {
+  if (s_no_echo_memory) {
+    return NULL;
+  }
+  ++s_echo_allocations;
+  return calloc(1, size);
+}
+void kernel_free(void *ptr) {
+  cl_assert(!s_reference_cb);
+  cl_assert(s_echo_allocations);
+  --s_echo_allocations;
+  free(ptr);
+}
+bool audio_set_playback_callback(AudioDevice *device, AudioPlaybackCB cb, void *context) {
+  s_reference_cb = cb;
+  s_reference_context = context;
+  return true;
+}
+bool mic_get_frame_time(MicDevice *device, uint32_t *time) {
+  *time = s_frame_time;
+  return s_frame_time_supported;
+}
 
 TimerID new_timer_create(void) {
   return 1;
@@ -142,6 +183,10 @@ void test_hci_local_audio__initialize(void) {
   const uint8_t reset[] = {1, 3, 0x0c, 0};
   hci_local_audio_command(reset, sizeof(reset));
   fake_system_task_callbacks_invoke_pending();
+  command_bt_audio_echo("0");
+  s_no_echo_memory = false;
+  s_frame_time_supported = false;
+  s_frame_time = 0;
   fake_msgq_reset();
   command_bt_audio_dump();
   s_dump_bytes = 0;
@@ -204,6 +249,60 @@ void test_hci_local_audio__polling_capture_runs_on_consumer_and_stops_with_call(
   cl_assert_equal_i(hci_local_audio_transmit(packet), 0);
   cl_assert_equal_i(s_starts, 1);
   cl_assert_equal_i(s_stops, 1);
+}
+
+void test_hci_local_audio__echo_without_timestamps_passes_audio_and_releases_reference(void) {
+  command_bt_audio_echo("1");
+  prv_connect(true);
+  cl_assert(s_reference_cb);
+  prv_capture_frame();
+  uint8_t packet[64];
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  cl_assert_equal_i((int16_t)(packet[4] | packet[5] << 8), 800);
+  hci_local_audio_stop();
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!s_reference_cb);
+  cl_assert_equal_i(s_echo_allocations, 0);
+}
+
+void test_hci_local_audio__echo_allocation_failure_does_not_disable_call_audio(void) {
+  command_bt_audio_echo("1");
+  s_no_echo_memory = true;
+  prv_connect(true);
+  cl_assert(!s_reference_cb);
+  prv_capture_frame();
+  uint8_t packet[64];
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  cl_assert_equal_i(s_starts, 1);
+}
+
+void test_hci_local_audio__echo_uses_timed_reference_and_bypasses_a_gap(void) {
+  command_bt_audio_echo("1");
+  s_frame_time_supported = true;
+  prv_connect(true);
+  cl_assert(s_reference_cb);
+  int16_t reference[512] = {0};
+  s_reference_cb(reference, 512, 0, s_reference_context);
+  prv_capture_frame();
+  uint8_t packet[64];
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  cl_assert_equal_i((int16_t)(packet[4] | packet[5] << 8), 800);
+  s_frame_time = 9000;
+  prv_capture_frame();
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  cl_assert_equal_i(hci_local_audio_transmit(packet), 64);
+  cl_assert_equal_i((int16_t)(packet[4] | packet[5] << 8), 800);
+}
+
+void test_hci_local_audio__failed_microphone_start_releases_echo_memory(void) {
+  command_bt_audio_echo("1");
+  s_mic_busy = true;
+  prv_connect(true);
+  cl_assert(!s_reference_cb);
+  cl_assert_equal_i(s_echo_allocations, 0);
+  cl_assert_equal_i(s_starts, 0);
 }
 
 void test_hci_local_audio__speaker_and_microphone_use_standard_hci(void) {

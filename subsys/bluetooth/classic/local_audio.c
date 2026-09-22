@@ -5,10 +5,16 @@
 #include "../hci_transport.h"
 #include "voice_resampler.h"
 #include "voice_playback.h"
+#include "voice_echo.h"
+#include "voice_echo_reference.h"
 
 #include <board/board.h>
 #include <console/prompt.h>
 #include <pbl/drivers/mic.h>
+#include <pbl/drivers/audio.h>
+#include <pbl/kernel/irq.h>
+#include <pbl/kernel/sched.h>
+#include "kernel/pbl_malloc.h"
 #include <pbl/kernel/msgq.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/services/notifications/alerts_preferences.h>
@@ -60,6 +66,20 @@ static unsigned s_rx_peak, s_hw_error;
 static uint32_t s_quiet_bytes, s_bad_bytes;
 static uint32_t s_capture_samples, s_produced_samples, s_completed_samples, s_render_samples;
 static unsigned s_peak_capture_queue;
+static pbl_tick_t s_capture_ticks, s_max_capture_ticks;
+typedef struct {
+  VoiceEcho filter;
+  VoiceEchoReference reference;
+  uint32_t next_capture;
+  uint32_t reference_generation;
+  bool aligned;
+} EchoSession;
+static EchoSession *s_echo;
+static bool s_echo_enabled;
+static struct {
+  uint32_t processed, bypassed, discontinuities, promotions;
+  unsigned residual_permille;
+} s_echo_stats;
 #ifdef CONFIG_PROMPT
 static TimerID s_pcm_timer;
 static uint32_t s_pcm_generation, s_pcm_remaining;
@@ -76,6 +96,21 @@ static void prv_capture_ready(void *context) {
   bt_hci_transport_wake();
 }
 
+static void prv_playback_reference(const int16_t *samples, size_t count, uint32_t time,
+                                   void *context) {
+  EchoSession *echo = context;
+  voice_echo_reference_push(&echo->reference, samples, count, time);
+}
+
+// Caller holds s_lock and has stopped microphone callbacks.
+static void prv_echo_stop(void) {
+  if (s_echo) {
+    audio_set_playback_callback(AUDIO, NULL, NULL);
+    kernel_free(s_echo);
+    s_echo = NULL;
+  }
+}
+
 void hci_local_audio_poll(void) {
   mic_poll(MIC);
 }
@@ -86,13 +121,42 @@ static void prv_capture(int16_t *samples, size_t count, void *context) {
     pbl_mutex_unlock(&s_lock);
     return;
   }
+  pbl_tick_t started = pbl_uptime_ticks();
   s_capture_samples += count;
+  int16_t reference[ARRAY_LENGTH(s_mic_buffer) / 2];
+  uint32_t frame_time = 0;
+  bool echo_ready = false;
+  if (s_echo && count <= ARRAY_LENGTH(s_mic_buffer) && !(count & 1) &&
+      mic_get_frame_time(MIC, &frame_time)) {
+    pbl_irq_lock();
+    // Eight milliseconds of lookahead covers timestamp quantization and converter delay.
+    echo_ready =
+        voice_echo_reference_read(&s_echo->reference, frame_time + 128, reference, count / 2);
+    uint32_t reference_generation = s_echo->reference.generation;
+    pbl_irq_unlock();
+    if (s_echo->aligned && (!echo_ready || frame_time != s_echo->next_capture ||
+                            reference_generation != s_echo->reference_generation)) {
+      memset(&s_echo->filter, 0, sizeof(s_echo->filter));
+      ++s_echo_stats.discontinuities;
+    }
+    s_echo->aligned = echo_ready;
+    s_echo->next_capture = frame_time + count;
+    s_echo->reference_generation = reference_generation;
+  }
+  unsigned echo_index = 0;
   for (size_t i = 0; i < count; ++i) {
     int16_t sample;
     if (!voice_resampler_push(&s_resampler, samples[i], &sample)) {
       continue;
     }
     ++s_produced_samples;
+    if (echo_ready && !s_mic_muted) {
+      sample = voice_echo_process(&s_echo->filter, reference[echo_index], sample);
+      ++s_echo_stats.processed;
+    } else if (s_echo) {
+      ++s_echo_stats.bypassed;
+    }
+    ++echo_index;
     if (s_mic_muted)
       sample = 0;
     s_partial.data[s_partial.length++] = (uint16_t)sample & 0xff;
@@ -111,6 +175,16 @@ static void prv_capture(int16_t *samples, size_t count, void *context) {
       s_partial.length = 0;
     }
   }
+  if (s_echo) {
+    s_echo_stats.promotions = s_echo->filter.promotions;
+    float residual = s_echo->filter.input_energy > 0.0001f
+                         ? 1000.0f * s_echo->filter.output_energy / s_echo->filter.input_energy
+                         : 1000.0f;
+    s_echo_stats.residual_permille = MIN(residual, 1000000.0f);
+  }
+  pbl_tick_t elapsed = pbl_uptime_ticks() - started;
+  s_capture_ticks += elapsed;
+  s_max_capture_ticks = MAX(s_max_capture_ticks, elapsed);
   pbl_mutex_unlock(&s_lock);
   bt_hci_transport_wake();
 }
@@ -137,6 +211,7 @@ static void prv_sync(void *context) {
   if (start) {
     s_capture_samples = s_produced_samples = s_completed_samples = s_render_samples = 0;
     s_peak_capture_queue = 0;
+    s_capture_ticks = s_max_capture_ticks = 0;
   }
   pbl_mutex_unlock(&s_lock);
 
@@ -144,6 +219,9 @@ static void prv_sync(void *context) {
     mic_stop(MIC);
     s_mic_owned = false;
   }
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  prv_echo_stop();
+  pbl_mutex_unlock(&s_lock);
   speaker_service_stop_for_task(PebbleTask_BTHCI);
   if (!start) {
     return;
@@ -154,6 +232,9 @@ static void prv_sync(void *context) {
     // One 32 ms refill of headroom absorbs the 3.75 ms SCO packet cadence.
     static const uint8_t silence[512];
     speaker_service_stream_write_owned(PebbleTask_BTHCI, silence, sizeof(silence));
+    pbl_mutex_lock(&s_lock, PBL_FOREVER);
+    memset(&s_echo_stats, 0, sizeof(s_echo_stats));
+    pbl_mutex_unlock(&s_lock);
   }
   if (opened && mic_get_channels(MIC) == 1) {
     s_mic_owned = mic_start_polling(MIC, prv_capture, NULL, s_mic_buffer,
@@ -164,6 +245,13 @@ static void prv_sync(void *context) {
   }
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
   bool ready = opened && s_mic_owned && generation == s_generation && s_handle != NO_HANDLE;
+  if (ready && s_echo_enabled) {
+    s_echo = kernel_zalloc(sizeof(*s_echo));
+    if (s_echo && !audio_set_playback_callback(AUDIO, prv_playback_reference, s_echo)) {
+      kernel_free(s_echo);
+      s_echo = NULL;
+    }
+  }
   s_running = ready;
   if (ready)
     speaker_service_set_volume_owned(PebbleTask_BTHCI, s_speaker_volume);
@@ -174,6 +262,9 @@ static void prv_sync(void *context) {
       mic_stop(MIC);
       s_mic_owned = false;
     }
+    pbl_mutex_lock(&s_lock, PBL_FOREVER);
+    prv_echo_stop();
+    pbl_mutex_unlock(&s_lock);
     speaker_service_stop_for_task(PebbleTask_BTHCI);
   }
 }
@@ -358,6 +449,15 @@ void hci_local_audio_report(void) {
            (unsigned long)s_capture_samples, (unsigned long)s_produced_samples,
            (unsigned long)s_completed_samples, (unsigned long)s_render_samples,
            (unsigned)pbl_msgq_num_used(&s_capture), s_peak_capture_queue);
+  char echo[160];
+  snprintf(
+      echo, sizeof(echo),
+      "local echo enabled=%u active=%u processed=%lu bypassed=%lu gaps=%lu models=%lu residual=%u",
+      s_echo_enabled, s_echo != NULL, (unsigned long)s_echo_stats.processed,
+      (unsigned long)s_echo_stats.bypassed, (unsigned long)s_echo_stats.discontinuities,
+      (unsigned long)s_echo_stats.promotions, s_echo_stats.residual_permille);
+  unsigned capture_ms = pbl_ticks_to_ms(s_capture_ticks);
+  unsigned max_capture_ms = pbl_ticks_to_ms(s_max_capture_ticks);
   unsigned peak = s_rx_peak;
   unsigned call_volume = s_speaker_volume;
   bool mic_muted = s_mic_muted;
@@ -370,6 +470,10 @@ void hci_local_audio_report(void) {
   pbl_mutex_unlock(&s_lock);
   prompt_send_response(buffer);
   prompt_send_response(capture);
+  prompt_send_response(echo);
+  snprintf(buffer, sizeof(buffer), "local processing elapsed_ms=%u max_frame_ms=%u", capture_ms,
+           max_capture_ms);
+  prompt_send_response(buffer);
   snprintf(buffer, sizeof(buffer),
            "local speaker peak=%u muted=%u volume=%u hardware_error=%u call_volume=%u mic_muted=%u",
            peak, speaker_service_is_muted(), alerts_preferences_get_speaker_volume(),
@@ -383,6 +487,20 @@ void hci_local_audio_report(void) {
   prompt_send_response(buffer);
   snprintf(buffer, sizeof(buffer), "local sample bytes=%u armed=%u", sample_length, sample_armed);
   prompt_send_response(buffer);
+}
+
+void command_bt_audio_echo(const char *argument) {
+  if (strcmp(argument, "0") && strcmp(argument, "1")) {
+    prompt_send_response("Echo cancellation must be 0 or 1");
+    return;
+  }
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  bool idle = s_handle == NO_HANDLE;
+  if (idle) {
+    s_echo_enabled = argument[0] == '1';
+  }
+  pbl_mutex_unlock(&s_lock);
+  prompt_send_response(idle ? "Echo setting saved for next call" : "End call before changing echo");
 }
 
 void command_bt_audio_gain(const char *argument) {
