@@ -24,6 +24,14 @@
   ],
   "system_apps": [
     {
+      "id": -194,
+      "enum": "PHONE",
+      "md_fn": "phone_get_app_info",
+      "ifdefs": [
+        "CONFIG_APP_PHONE"
+      ]
+    },
+    {
       "id": -69,
       "enum": "TICTOC",
       "md_fn": "tictoc_get_app_info"
