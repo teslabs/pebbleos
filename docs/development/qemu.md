@@ -112,6 +112,9 @@ pbl feed music --title "Demo" --paused   # a single track of your own
 pbl feed calendar                       # a day of events around now
 pbl feed calendar --title "Dentist" --start 15 --location "Downtown"
 pbl feed calendar --clear               # remove every pin
+pbl feed notifications                  # a few messages from two senders
+pbl feed notifications --sender Anna --body "Lunch?" --app WhatsApp
+pbl feed notifications --clear          # remove every notification
 ```
 
 `pbl feed --help` lists the feeds and `pbl feed <feed> --help` their options.
