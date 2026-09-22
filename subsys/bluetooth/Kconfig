@@ -56,6 +56,12 @@ config BT_GH3X2X_TUNING_SERVICE
       Build the GH3X2X heart-rate sensor tuning GATT service, used to
       tune the sensor over BLE. Off by default.
 
+config BT_HFP
+    bool
+    help
+      The project-owned Classic host with the Hands-Free profile, driven
+      over HCI by whichever transport can carry BR/EDR traffic.
+
 config BT_CONTROLLER_PROBE
     bool "Controller capability probe command"
     depends on PROMPT
