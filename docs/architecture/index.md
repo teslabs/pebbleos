@@ -127,4 +127,6 @@ activity/index.md
 kernel.md
 kernel_internals.md
 task_watchdog.md
+||||||| parent of f71b6cea0 (docs: describe dual-mode calling architecture and qualification)
+bluetooth_calls.md
 ```
