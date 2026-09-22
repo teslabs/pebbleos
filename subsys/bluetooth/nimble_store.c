@@ -16,13 +16,15 @@
 #include <pbl/util/list.h>
 
 #include "nimble_type_conversions.h"
+#include "nimble_store.h"
+#ifdef CONFIG_BT_CLASSIC
+#include <host/ble_sm_ctkd.h>
+#include <mbedtls/platform_util.h>
+#endif
 
 PBL_LOG_MODULE_DECLARE(bt, CONFIG_BT_LOG_LEVEL);
 
 #define KEY_SIZE 16
-
-#define BLE_FLAG_SECURE_CONNECTIONS 0x01
-#define BLE_FLAG_AUTHENTICATED      0x02
 
 typedef struct {
   ListNode node;
@@ -97,6 +99,23 @@ unlock:
 
   return ret;
 }
+
+#ifdef CONFIG_BT_CLASSIC
+bool nimble_store_get_classic_key(const uint8_t peer[6], uint8_t key[16], void *context) {
+  struct ble_store_key_sec lookup = {.peer_addr.type = BLE_ADDR_PUBLIC};
+  struct ble_store_value_sec bond;
+  memcpy(lookup.peer_addr.val, peer, 6);
+  bool valid = !prv_nimble_store_read_sec(BLE_STORE_OBJ_TYPE_PEER_SEC, &lookup, &bond) &&
+               bond.ctkd && bond.sc && bond.authenticated && bond.ltk_present &&
+               bond.key_size == 16;
+  if (key) {
+    memset(key, 0, 16);
+    valid = valid && ble_sm_ctkd_derive(bond.ltk, bond.ct2, key) == 0;
+  }
+  mbedtls_platform_zeroize(&bond, sizeof(bond));
+  return valid;
+}
+#endif
 
 static BleStoreValueSec *prv_nimble_store_upsert_sec(const int obj_type,
                                                      const struct ble_store_value_sec *value_sec) {
@@ -196,11 +215,18 @@ static void prv_notify_host_bonding_changed(const int obj_type,
   }
 
   if (value_sec->sc) {
-    bonding.flags |= BLE_FLAG_SECURE_CONNECTIONS;
+    bonding.flags |= BleBondingFlagSecureConnections;
   }
 
   if (value_sec->authenticated) {
-    bonding.flags |= BLE_FLAG_AUTHENTICATED;
+    bonding.flags |= BleBondingFlagAuthenticated;
+  }
+
+  if (value_sec->ctkd) {
+    bonding.flags |= BleBondingFlagCTKD;
+  }
+  if (value_sec->ct2) {
+    bonding.flags |= BleBondingFlagCT2;
   }
 
   nimble_addr_to_pebble_device(&value_sec->peer_addr, &bonding.pairing_info.identity);
@@ -520,8 +546,10 @@ static void prv_convert_bonding_remote_to_store_val(const struct pbl_bt_bonding 
     memcpy(value_sec->irk, bonding->pairing_info.irk.data, KEY_SIZE);
   }
 
-  value_sec->sc = !!(bonding->flags & BLE_FLAG_SECURE_CONNECTIONS);
-  value_sec->authenticated = !!(bonding->flags & BLE_FLAG_AUTHENTICATED);
+  value_sec->sc = !!(bonding->flags & BleBondingFlagSecureConnections);
+  value_sec->authenticated = !!(bonding->flags & BleBondingFlagAuthenticated);
+  value_sec->ctkd = !!(bonding->flags & BleBondingFlagCTKD);
+  value_sec->ct2 = !!(bonding->flags & BleBondingFlagCT2);
 
   pebble_device_to_nimble_addr(&bonding->pairing_info.identity, &value_sec->peer_addr);
 }
@@ -539,8 +567,10 @@ static void prv_convert_bonding_local_to_store_val(const struct pbl_bt_bonding *
     memcpy(value_sec->ltk, bonding->pairing_info.local_encryption_info.ltk.data, KEY_SIZE);
   }
 
-  value_sec->sc = !!(bonding->flags & BLE_FLAG_SECURE_CONNECTIONS);
-  value_sec->authenticated = !!(bonding->flags & BLE_FLAG_AUTHENTICATED);
+  value_sec->sc = !!(bonding->flags & BleBondingFlagSecureConnections);
+  value_sec->authenticated = !!(bonding->flags & BleBondingFlagAuthenticated);
+  value_sec->ctkd = !!(bonding->flags & BleBondingFlagCTKD);
+  value_sec->ct2 = !!(bonding->flags & BleBondingFlagCT2);
 
   pebble_device_to_nimble_addr(&bonding->pairing_info.identity, &value_sec->peer_addr);
 }

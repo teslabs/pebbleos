@@ -7,6 +7,13 @@
 
 #include <pbl/bluetooth/sm_types.h>
 
+typedef enum {
+  BleBondingFlagSecureConnections = 1 << 0,
+  BleBondingFlagAuthenticated = 1 << 1,
+  BleBondingFlagCTKD = 1 << 2,
+  BleBondingFlagCT2 = 1 << 3,
+} BleBondingFlag;
+
 //! Packed, because this is serialized for the host-controller protocol.
 struct PBL_PACKED pbl_bt_bonding {
   struct pbl_bt_sm_pairing_info pairing_info;

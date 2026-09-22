@@ -21,6 +21,9 @@
 #include <system/passert.h>
 
 #include "nimble_store.h"
+#ifdef CONFIG_BT_CLASSIC
+#include "nimble_classic.h"
+#endif
 
 PBL_LOG_MODULE_DEFINE(bt, CONFIG_BT_LOG_LEVEL);
 
@@ -40,6 +43,7 @@ PBL_THREAD_STACK_DEFINE(s_host_task_stack, 5000);
 static PBL_SEM_DEFINE(s_host_started, 0, 1);
 static PBL_SEM_DEFINE(s_host_stopped, 0, 1);
 static struct pbl_bt_dis_info s_dis_info;
+static unsigned s_host_reset_count;
 static struct ble_hs_stop_listener s_listener;
 
 typedef enum {
@@ -53,13 +57,25 @@ typedef enum {
 // with the vendor's ble_hs_enabled_state (Stopped<->OFF, Started<->ON).
 static DriverState s_driver_state = DriverStateStopped;
 
+unsigned nimble_host_reset_count(void) {
+  return s_host_reset_count;
+}
+
 static void prv_sync_cb(void) {
   PBL_LOG_DBG("NimBLE host synchronized");
+#ifdef CONFIG_BT_CLASSIC
+  nimble_classic_start();
+#endif
   pbl_sem_give(&s_host_started);
   pbl_bt_handle_host_resynced();
 }
 
 static void prv_reset_cb(int reason) {
+  ++s_host_reset_count;
+  if (reason == BLE_HS_EAPP) {
+    PBL_LOG_DBG("NimBLE host reset requested");
+    return;
+  }
   PBL_LOG_WRN("NimBLE host reset (reason: 0x%04x)", (uint16_t)reason);
 #ifdef CONFIG_BT_HCI_SF32LB52
   // Controller stopped answering HCI. Crash so the coredump captures LCPU RAM
@@ -90,6 +106,9 @@ void pbl_bt_init(void) {
 
   nimble_port_init();
   nimble_store_init();
+#ifdef CONFIG_BT_CLASSIC
+  nimble_classic_init();
+#endif
 
   struct pbl_thread_attr host_attr = {
     .name = "NimbleHost",
@@ -172,6 +191,9 @@ bool pbl_bt_start(struct pbl_bt_config *config) {
   return true;
 
 err:
+#ifdef CONFIG_BT_CLASSIC
+  nimble_classic_stop();
+#endif
   s_driver_state = DriverStateStopping;
   (void)(pbl_sem_take(&s_host_stopped, PBL_NO_WAIT) == 0);
   rc = ble_hs_stop(&s_listener, prv_ble_hs_stop_cb, NULL);
@@ -194,6 +216,9 @@ err:
 
 void pbl_bt_stop(void) {
   bool f_rc;
+#ifdef CONFIG_BT_CLASSIC
+  nimble_classic_stop();
+#endif
 
   s_driver_state = DriverStateStopping;
   (void)(pbl_sem_take(&s_host_stopped, PBL_NO_WAIT) == 0);

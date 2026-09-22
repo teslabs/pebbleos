@@ -8,6 +8,14 @@ config NIMBLE_BLE_HOST
     bool "That a BLE host is present"
     default y
 
+config NIMBLE_BLE_CLASSIC
+    bool "BLE classic"
+    help
+      Enable experimental BR/EDR protocol hooks for an external dual-
+      mode controller. The host owns HCI commands, startup and ACL
+      credits; the application supplies Classic profiles through
+      ble_hs_classic.h.
+
 config NIMBLE_BLE_HS_LOCAL_INFO
     bool "BLE HS local info"
     help

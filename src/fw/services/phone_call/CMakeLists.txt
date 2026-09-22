@@ -6,3 +6,4 @@ pbl_library_sources(
   service.c
   util.c
 )
+pbl_library_sources_ifdef(CONFIG_BT_HFP contacts.c)

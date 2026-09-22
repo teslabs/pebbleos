@@ -17,6 +17,10 @@ endchoice
 config NIMBLE_BLE_HS_AUTO_START
     default n
 
+# Classic HCI events carry up to 255 parameter bytes.
+config NIMBLE_BLE_TRANSPORT_EVT_SIZE
+    default 257 if BT_CLASSIC
+
 # LE Secure Connections only, with MITM protection: mode 1 level 4.
 config NIMBLE_BLE_SM_BONDING
     default y

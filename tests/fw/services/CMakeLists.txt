@@ -128,6 +128,10 @@ pbl_clar_test(test_phone_pp
   OVERRIDES dummy_board
 )
 
+pbl_clar_test(test_phone_call_contacts
+  SOURCES src/fw/services/phone_call/contacts.c
+)
+
 pbl_clar_test(test_phone_call
   SOURCES
     src/fw/services/phone_call/service.c

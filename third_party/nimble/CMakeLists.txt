@@ -61,10 +61,13 @@ if(CONFIG_BT_HCI_NRF52)
   list(APPEND defines FREERTOS=1 PEBBLEOS NRF52_SERIES NIMBLE_CFG_CONTROLLER=1)
   pbl_compile_definitions(NIMBLE_CFG_CONTROLLER=1)
 elseif(CONFIG_BT_HCI_SF32LB52)
-  list(APPEND sources
-    transport/hci_sf32lb52.c
-    ../nonfree/pebbleos-nonfree/sf32lb52/lcpu_52x.c
-  )
+  list(APPEND sources ../nonfree/pebbleos-nonfree/sf32lb52/lcpu_52x.c)
+  if(CONFIG_BT_CLASSIC)
+    list(APPEND sources transport/hci_sf32lb52_dual.c)
+    list(APPEND includes ${PBL_BASE}/subsys/bluetooth)
+  else()
+    list(APPEND sources transport/hci_sf32lb52.c)
+  endif()
   if(CONFIG_NIMBLE_HCI_SF32LB52_TRACE_BINARY)
     pbl_compile_definitions(NIMBLE_HCI_SF32LB52_TRACE NIMBLE_HCI_SF32LB52_TRACE_BINARY)
   elseif(CONFIG_NIMBLE_HCI_SF32LB52_TRACE_LOG)

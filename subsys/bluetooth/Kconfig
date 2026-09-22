@@ -56,11 +56,59 @@ config BT_GH3X2X_TUNING_SERVICE
       Build the GH3X2X heart-rate sensor tuning GATT service, used to
       tune the sensor over BLE. Off by default.
 
+config BT_CLASSIC
+    bool "Classic HFP calling alongside NimBLE (experimental)"
+    depends on BT_HCI_SF32LB52 && MIC_POLLING && SPEAKER_PLAYBACK_OBSERVER && SERVICE_SPEAKER
+    select NIMBLE_BLE_CLASSIC
+    select BT_HFP
+    select BT_HCI_AUDIO_ADAPTER
+    select BT_HCI_LOCAL_AUDIO
+    select BT_HCI_SOFTWARE_CVSD
+    help
+      Run the project-owned Classic profiles next to the NimBLE BLE
+      services. NimBLE owns controller startup, HCI commands and ACL
+      credits. Supports one phone and CVSD audio. Pair over BLE using
+      Secure Connections; CTKD shares the persistent bond with Classic.
+
 config BT_HFP
     bool
     help
       The project-owned Classic host with the Hands-Free profile, driven
       over HCI by whichever transport can carry BR/EDR traffic.
+
+config BT_HCI_AUDIO_PROBE
+    bool "SiFli shared audio mailbox diagnostic"
+    depends on BT_HFP && BT_HCI_SF32LB52 && PROMPT
+    default y
+    help
+      Initialize the controller's shared audio rings and count mailbox 6
+      notifications. The 'bt audio probe' command reports ring metadata;
+      without the adapter option, no audio payload is read or transmitted.
+
+config BT_HCI_AUDIO_ADAPTER
+    bool "SiFli native audio to HCI SCO adapter"
+    depends on BT_HFP && BT_HCI_SF32LB52
+    help
+      Translate the shared audio rings to standard HCI SCO packets for
+      one CVSD link with signed 16-bit PCM. Requires legacy synchronous
+      connection setup. The adapter stays below the portable host's HCI
+      boundary.
+
+config BT_HCI_LOCAL_AUDIO
+    bool "Local HFP microphone and speaker"
+    depends on BT_HCI_AUDIO_ADAPTER && MIC_POLLING && SPEAKER_PLAYBACK_OBSERVER && SERVICE_SPEAKER
+    select SPEAKER_SF32LB_DIAGNOSTICS if SPEAKER_SF32LB
+    help
+      Route HCI SCO PCM through the watch audio services. No acoustic
+      echo cancellation is provided.
+
+config BT_HCI_SOFTWARE_CVSD
+    bool "Software CVSD codec"
+    depends on BT_HCI_AUDIO_ADAPTER
+    help
+      Use raw CVSD in the SiFli audio mailbox and translate it to the same
+      signed 16-bit HCI PCM interface with the project's codec, bypassing
+      the controller's hardware PCM conversion.
 
 config BT_CONTROLLER_PROBE
     bool "Controller capability probe command"

@@ -766,6 +766,8 @@ static const char *prv_get_app_id(const char *number, PhoneCallSource source) {
     case PhoneCallSource_ANCS_Legacy:
       return IOS_PHONE_KEY;
       break;
+    case PhoneCallSource_HFP:
+      return NULL;
   }
 
   return NULL;
