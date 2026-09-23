@@ -34,7 +34,23 @@ def results_dir(request):
 
 
 @pytest.fixture(scope="session")
-def device_object(request, build, results_dir):
+def ppk2(request):
+    """The PPK2 powering the watch, if one was given with --ppk2."""
+    port = request.config.getoption("ppk2")
+    if port is None:
+        yield None
+        return
+    from harness.helpers.power import Ppk2
+
+    supply = Ppk2(port, request.config.getoption("ppk2_voltage"))
+    try:
+        yield supply
+    finally:
+        supply.close()
+
+
+@pytest.fixture(scope="session")
+def device_object(request, build, results_dir, ppk2):
     """The device, not launched."""
     config = request.config
     device_type = config.pbl_device_type
@@ -47,8 +63,10 @@ def device_object(request, build, results_dir):
             serial=config.getoption("device_serial"),
             serial_baud=config.getoption("device_serial_baud"),
             flash_before=config.getoption("flash_before"),
+            erase_fs=config.getoption("erase_fs"),
             flash_command=config.getoption("flash_command"),
             qemu_rtc=config.getoption("qemu_rtc"),
+            power_supply=ppk2,
         )
     )
     try:
@@ -150,3 +168,13 @@ def snapshot(request, build, test_results_dir):
         test_results_dir,
         update=request.config.getoption("update_golden"),
     )
+
+
+@pytest.fixture
+def power(ppk2, dut, test_results_dir):
+    """Current measurement through the PPK2."""
+    if ppk2 is None:
+        pytest.skip("no PPK2: pass --ppk2 PORT")
+    from harness.helpers.power import Power
+
+    return Power(ppk2, dut, test_results_dir)
