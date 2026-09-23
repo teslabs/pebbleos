@@ -635,7 +635,8 @@ static void prv_answer_click_handler(ClickRecognizerRef recognizer, void *unused
   phone_call_answer();
 
   // This must be called before prv_set_status_text, otherwise the text will not be centered
-  prv_action_bar_setup(PhoneCallActions_None);
+  prv_action_bar_setup(s_phone_ui_data->show_ongoing_call_ui ? PhoneCallActions_Decline
+                                                             : PhoneCallActions_None);
   prv_set_window_color(ACCEPT_COLOR, false);
   prv_set_icon_resource(TIMELINE_RESOURCE_DURING_PHONE_CALL);
 
