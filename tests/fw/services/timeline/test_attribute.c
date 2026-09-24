@@ -783,3 +783,27 @@ void test_attribute__unknown_attribute_keeps_actions(void) {
       attribute_get_string(&action_group.actions[0].attr_list, AttributeIdTitle, NULL), "Go");
   kernel_free(buffer);
 }
+
+void test_attribute__weather_pin_kind_deserializes(void) {
+  static const uint8_t serialized[] = {
+    0x01, // AttributeIdTitle
+    0x06, 0x00, 'S', 'u', 'n', 's', 'e', 't',
+    0x35, // AttributeIdWeatherPinKind
+    0x01, 0x00, 2,
+  };
+  const uint8_t num_attributes = 2;
+  const uint8_t *end = serialized + sizeof(serialized);
+  bool has_attribute[NumAttributeIds] = {0};
+  cl_assert_equal_b(attribute_check_serialized_list(serialized, end, num_attributes, has_attribute),
+                    true);
+  cl_assert_equal_b(has_attribute[AttributeIdWeatherPinKind], true);
+
+  Attribute attribute_buffer[num_attributes];
+  char data_buffer[16];
+  AttributeList result;
+  cl_assert_equal_b(prv_deserialize(serialized, sizeof(serialized), num_attributes,
+                                    attribute_buffer, data_buffer, sizeof(data_buffer), &result),
+                    true);
+  cl_assert_equal_i(result.num_attributes, 2);
+  cl_assert_equal_i(attribute_get_uint8(&result, AttributeIdWeatherPinKind, 0), 2);
+}
