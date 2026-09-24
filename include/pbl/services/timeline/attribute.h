@@ -123,6 +123,8 @@ typedef enum {
   //! height/width in sixteenths, so the card can reserve a band of the right shape before the
   //! pixels arrive. Absent or 0 means no image.
   AttributeIdImageAspectRatio = 52,
+  //! (uint8_t) Kind of weather pin, see WeatherPinKind in weather_layout.h
+  AttributeIdWeatherPinKind = 53,
   NumAttributeIds,
 } AttributeId;
 
