@@ -312,6 +312,8 @@ int32_t attribute_get_buffer_size_for_serialized_attributes(uint8_t num_attribut
                                                             const uint8_t **cursor,
                                                             const uint8_t *end);
 
-//! true, if successfully transforms a serialized attribute into in-memory representation
+//! true, if successfully transforms a serialized attribute into in-memory representation.
+//! Attributes with an id this firmware doesn't know are skipped, and attr_list->num_attributes is
+//! updated to the number of attributes actually stored.
 bool attribute_deserialize_list(char **buffer, char *const buf_end, const uint8_t **cursor,
-                                const uint8_t *payload_end, AttributeList attr_list);
+                                const uint8_t *payload_end, AttributeList *attr_list);
