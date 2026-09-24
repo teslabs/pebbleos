@@ -16,6 +16,7 @@
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/i18n/i18n.h"
 #include "shell/prefs.h"
+#include "shell/system_theme.h"
 
 typedef struct SettingsWatchfacesData {
   Window window;
@@ -68,9 +69,18 @@ static void select_callback(MenuLayer *menu_layer, MenuIndex *cell_index,
 #if PBL_ROUND
 static int16_t get_cell_height_callback(struct MenuLayer *menu_layer, MenuIndex *cell_index,
                                         SettingsWatchfacesData *data) {
-  return menu_layer_is_index_selected(menu_layer, cell_index)
-             ? MENU_CELL_ROUND_FOCUSED_TALL_CELL_HEIGHT
-             : MENU_CELL_ROUND_UNFOCUSED_SHORT_CELL_HEIGHT;
+  const int16_t focused_cell_height =
+      (system_theme_get_content_size() == PreferredContentSizeExtraLarge)
+          ? 100
+          : MENU_CELL_ROUND_FOCUSED_TALL_CELL_HEIGHT;
+  if (menu_layer_is_index_selected(menu_layer, cell_index)) {
+    return focused_cell_height;
+  }
+#if PBL_DISPLAY_HEIGHT >= 200
+  return ((DISP_ROWS - STATUS_BAR_LAYER_HEIGHT * 2) - focused_cell_height) / 4;
+#else
+  return MENU_CELL_ROUND_UNFOCUSED_SHORT_CELL_HEIGHT;
+#endif
 }
 #endif
 
@@ -89,15 +99,17 @@ static void draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex 
   const GCompOp op = (gbitmap_get_format(bitmap) == GBitmapFormat1Bit) ? GCompOpTint : GCompOpSet;
   graphics_context_set_compositing_mode(ctx, op);
 
-  // TODO: PBL-22652 extract common way to configure simple lists on S4
-  PBL_UNUSED const bool selected = (cell_index->row == data->menu_layer.selection.index.row);
+#if PBL_ROUND
   // used for a fish-eye effect in the menus, also conveniently prevents us from clipping
   // during the animation
-  GFont const title_font = fonts_get_system_font(PBL_IF_RECT_ELSE(
-      FONT_KEY_GOTHIC_24_BOLD, selected ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD));
-  GFont const subtitle_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
-  menu_cell_basic_draw_custom(ctx, cell_layer, title_font, node->name, NULL, NULL, subtitle_font,
-                              subtitle, bitmap, false, GTextOverflowModeTrailingEllipsis);
+  const bool selected = (cell_index->row == data->menu_layer.selection.index.row);
+  const GFont title_font =
+      system_theme_get_font(selected ? TextStyleFont_MenuCellTitle : TextStyleFont_Header);
+#else
+  const GFont title_font = NULL;
+#endif
+  menu_cell_basic_draw_custom(ctx, cell_layer, title_font, node->name, NULL, NULL, NULL, subtitle,
+                              bitmap, false, GTextOverflowModeTrailingEllipsis);
 }
 
 ///////////////////
