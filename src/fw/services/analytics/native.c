@@ -7,6 +7,8 @@
 #include <pbl/drivers/rtc.h>
 #include "pbl/kernel/mutex.h"
 #include "pbl/services/analytics/backend.h"
+#include "pbl/services/comm_session/protocol.h"
+#include "pbl/services/data_logging/dls_private.h"
 #include "pbl/services/data_logging/data_logging_service.h"
 #include <pbl/logging/logging.h>
 #include "pbl/kernel/compiler.h"
@@ -60,6 +62,11 @@ _Static_assert(sizeof(struct native_heartbeat_record) ==
 #undef PBL_ANALYTICS_METRIC_DEFINE_STRING
                ,
                "native_heartbeat_record must be packed (no padding)");
+
+/* Larger records make dls_create() fail, dropping every heartbeat. */
+_Static_assert(sizeof(struct native_heartbeat_record) <=
+                   COMM_MAX_OUTBOUND_PAYLOAD_SIZE - sizeof(DataLoggingSendDataMessage),
+               "native_heartbeat_record exceeds the DLS item size limit");
 
 /* Type-specific internal index enums (dense, no gaps) */
 
