@@ -76,6 +76,7 @@ void test_alarm_smart__initialize(void) {
   timeline_item_destroy(s_last_timeline_item_added);
   s_last_timeline_item_added = NULL;
   s_last_timeline_item_removed_uuid = (Uuid){};
+  memset(s_fake_pin_records, 0, sizeof(s_fake_pin_records));
 
   fake_spi_flash_init(0, 0x1000000);
   pfs_init(false);

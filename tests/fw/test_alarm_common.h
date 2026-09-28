@@ -7,6 +7,7 @@
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/alarms/alarm.h"
 #include "pbl/services/alarms/alarm_pin.h"
+#include "pbl/services/blob_db/pin_db.h"
 
 #include <pbl/drivers/rtc.h>
 #include "resource/timeline_resource_ids.auto.h"
@@ -16,7 +17,9 @@
 #include "pbl/services/filesystem/pfs.h"
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/timeline/item.h"
+#include "pbl/services/timeline/timeline.h"
 #include "pbl/kernel/compiler.h"
+#include "pbl/util/size.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -116,6 +119,45 @@ static const int s_wednesday = 1426636800;
 static TimelineItem *s_last_timeline_item_added = NULL;
 static Uuid s_last_timeline_item_removed_uuid = {};
 
+typedef struct {
+  Uuid id;
+  SerializedTimelineItemHeader header;
+  bool exists;
+} FakePinRecord;
+
+static FakePinRecord s_fake_pin_records[4];
+static FakePinRecord *s_current_fake_pin_record;
+
+static void prv_fake_pin_get_key(SettingsFile *file, void *buf, size_t len) {
+  (void)file;
+  memcpy(buf, &s_current_fake_pin_record->id, len);
+}
+
+static void prv_fake_pin_get_val(SettingsFile *file, void *buf, size_t len) {
+  (void)file;
+  memcpy(buf, &s_current_fake_pin_record->header, len);
+}
+
+static void prv_fake_pin_record_add(Uuid id, Uuid parent, time_t timestamp, LayoutId layout) {
+  for (size_t i = 0; i < ARRAY_LENGTH(s_fake_pin_records); ++i) {
+    if (!s_fake_pin_records[i].exists) {
+      s_fake_pin_records[i] = (FakePinRecord){
+        .id = id,
+        .header.common =
+            {
+              .parent_id = parent,
+              .timestamp = timestamp,
+              .type = TimelineItemTypePin,
+              .layout = layout,
+            },
+        .exists = true,
+      };
+      return;
+    }
+  }
+  cl_assert(false);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! Counter variables
 static int s_num_timeline_adds = 0;
@@ -150,13 +192,38 @@ status_t pin_db_insert_item_without_event(TimelineItem *item) {
   s_num_timeline_adds++;
   timeline_item_destroy(s_last_timeline_item_added);
   s_last_timeline_item_added = timeline_item_copy(item);
-  return true;
+  return S_SUCCESS;
 }
 
 status_t pin_db_delete(const uint8_t *key, int key_len) {
   s_num_timeline_removes++;
   s_last_timeline_item_removed_uuid = *(Uuid *)key;
-  return true;
+  for (size_t i = 0; i < ARRAY_LENGTH(s_fake_pin_records); ++i) {
+    if (s_fake_pin_records[i].exists && uuid_equal(&s_fake_pin_records[i].id, (Uuid *)key)) {
+      s_fake_pin_records[i].exists = false;
+    }
+  }
+  return S_SUCCESS;
+}
+
+status_t pin_db_each(TimelineItemStorageEachCallback each, void *data) {
+  for (size_t i = 0; i < ARRAY_LENGTH(s_fake_pin_records); ++i) {
+    if (!s_fake_pin_records[i].exists) {
+      continue;
+    }
+    s_current_fake_pin_record = &s_fake_pin_records[i];
+    SettingsRecordInfo info = {
+      .get_key = prv_fake_pin_get_key,
+      .key_len = UUID_SIZE,
+      .get_val = prv_fake_pin_get_val,
+      .val_len = sizeof(SerializedTimelineItemHeader),
+    };
+    if (!each(NULL, &info, data)) {
+      break;
+    }
+  }
+  s_current_fake_pin_record = NULL;
+  return S_SUCCESS;
 }
 
 void event_put(PebbleEvent *event) {

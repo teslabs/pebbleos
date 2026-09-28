@@ -75,6 +75,7 @@ void test_alarm__initialize(void) {
   timeline_item_destroy(s_last_timeline_item_added);
   s_last_timeline_item_added = NULL;
   s_last_timeline_item_removed_uuid = (Uuid){};
+  memset(s_fake_pin_records, 0, sizeof(s_fake_pin_records));
 
   fake_spi_flash_init(0, 0x1000000);
   pfs_init(false);
@@ -509,6 +510,37 @@ void test_alarm__pin_remove(void) {
   alarm_pin_add(s_monday, dummy_alarm_id, AlarmType_Basic, ALARM_KIND_WEEKENDS, &pin_uuid);
   alarm_pin_remove(&pin_uuid);
   cl_assert(uuid_equal(&pin_uuid, &s_last_timeline_item_removed_uuid));
+}
+
+void test_alarm__reload_removes_untracked_future_pins(void) {
+  AlarmId id = alarm_create(&(AlarmInfo){.hour = 7, .minute = 0, .kind = ALARM_KIND_EVERYDAY});
+  AlarmStorageKey key = {.id = id, .type = ALARM_DATA_PINS};
+  Uuid tracked[3];
+  SettingsFile file;
+  cl_must_pass(settings_file_open(&file, "alarms", 1024));
+  cl_must_pass(settings_file_get(&file, &key, sizeof(key), tracked, sizeof(tracked)));
+  settings_file_close(&file);
+
+  const Uuid alarm_source = UUID_ALARMS_DATA_SOURCE;
+  const Uuid other_source = UUID_REMINDERS_DATA_SOURCE;
+  const Uuid orphan = {.byte0 = 1};
+  const Uuid past = {.byte0 = 2};
+  const Uuid unrelated = {.byte0 = 3};
+  prv_fake_pin_record_add(orphan, alarm_source, rtc_get_time() + SECONDS_PER_HOUR, LayoutIdAlarm);
+  prv_fake_pin_record_add(past, alarm_source, rtc_get_time() - SECONDS_PER_HOUR, LayoutIdAlarm);
+  prv_fake_pin_record_add(unrelated, other_source, rtc_get_time() + SECONDS_PER_HOUR,
+                          LayoutIdAlarm);
+  prv_fake_pin_record_add(tracked[0], alarm_source, rtc_get_time() + SECONDS_PER_HOUR,
+                          LayoutIdAlarm);
+
+  const int removes_before = s_num_timeline_removes;
+  alarm_handle_clock_change();
+
+  cl_assert(!s_fake_pin_records[0].exists);
+  cl_assert(s_fake_pin_records[1].exists);
+  cl_assert(s_fake_pin_records[2].exists);
+  cl_assert(!s_fake_pin_records[3].exists);
+  cl_assert_equal_i(s_num_timeline_removes - removes_before, 4);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
