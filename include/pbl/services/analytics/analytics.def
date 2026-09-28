@@ -152,3 +152,6 @@ PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(touch_gated_touchdown_count)
 // heartbeat, and its share of total CPU time.
 PBL_ANALYTICS_METRIC_DEFINE_STRING(app_cpu_top_uuid, 39)
 PBL_ANALYTICS_METRIC_DEFINE_SCALED_UNSIGNED(app_cpu_top_pct, 100)
+// Compositor frames pushed to the display and time spent flushing them.
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(display_flush_count)
+PBL_ANALYTICS_METRIC_DEFINE_TIMER(display_flush_time_ms)

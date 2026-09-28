@@ -6,6 +6,7 @@
 #include "applib/graphics/framebuffer.h"
 #include "applib/graphics/gcolor_definitions.h"
 #include "applib/graphics/gtypes.h"
+#include "pbl/services/analytics/analytics.h"
 #include "util/bitset.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
@@ -134,6 +135,8 @@ static void prv_flush_complete_cb(void) {
   s_current_flush_line = 0;
   framebuffer_reset_dirty(compositor_get_framebuffer());
 
+  PBL_ANALYTICS_TIMER_STOP(display_flush_time_ms);
+
   if (s_update_complete_handler) {
     s_update_complete_handler();
   }
@@ -155,6 +158,9 @@ void compositor_display_update(void (*handle_update_complete_cb)(void)) {
 #endif
   s_update_complete_handler = handle_update_complete_cb;
   s_current_flush_line = 0;
+
+  PBL_ANALYTICS_ADD(display_flush_count, 1);
+  PBL_ANALYTICS_TIMER_START(display_flush_time_ms);
 
   display_update(&prv_flush_get_next_line_cb, &prv_flush_complete_cb);
 }
