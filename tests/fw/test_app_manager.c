@@ -270,6 +270,9 @@ void pebble_task_register(PebbleTask task, struct pbl_thread *thread) {
 void pebble_task_unregister(PebbleTask task) {
 }
 
+void pebble_task_set_app_uuid(const Uuid *uuid) {
+}
+
 const char *pebble_task_get_name(PebbleTask task) {
   return "?";
 }

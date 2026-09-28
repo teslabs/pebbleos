@@ -9,6 +9,7 @@
 
 #include "pbl/kernel/msgq.h"
 #include "pbl/kernel/thread.h"
+#include "pbl/util/uuid.h"
 
 //! This is an enumeration of different tasks we've had in our system. Please don't rearrange
 //! these numbers! For example, the value of PebbleTask_Timers is hardcoded into our syscall
@@ -40,6 +41,9 @@ _Static_assert((1 << (8 * sizeof(PebbleTaskBitset))) >= (1 << NumPebbleTask),
 
 void pebble_task_register(PebbleTask task, struct pbl_thread *thread);
 void pebble_task_unregister(PebbleTask task);
+
+//! Set the UUID of the process about to run in the App task, used to attribute its CPU usage.
+void pebble_task_set_app_uuid(const Uuid *uuid);
 
 const char *pebble_task_get_name(PebbleTask task);
 

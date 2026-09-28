@@ -148,3 +148,7 @@ PBL_ANALYTICS_METRIC_DEFINE_SCALED_UNSIGNED(battery_soc_pct_min, 100)
 // Touchdowns latched non-navigational by the interaction session gate
 // (unarmed contact on the idle watchface): the accidental-touch measure.
 PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(touch_gated_touchdown_count)
+// App or watchface that used the most App task CPU since the previous
+// heartbeat, and its share of total CPU time.
+PBL_ANALYTICS_METRIC_DEFINE_STRING(app_cpu_top_uuid, 39)
+PBL_ANALYTICS_METRIC_DEFINE_SCALED_UNSIGNED(app_cpu_top_pct, 100)

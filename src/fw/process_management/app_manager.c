@@ -12,6 +12,7 @@
 #include "applib/ui/dialogs/simple_dialog.h"
 #include "console/prompt.h"
 #include "kernel/event_loop.h"
+#include "kernel/pebble_tasks.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/ui/kernel_ui.h"
 #include "kernel/ui/modals/modal_manager.h"
@@ -359,6 +360,7 @@ static bool prv_app_start(const PebbleProcessMd *app_md, const void *args,
     PBL_ANALYTICS_SET_UNSIGNED(app_tick_timer_second_subscribed, 0);
   }
 #endif
+  pebble_task_set_app_uuid(&app_md->uuid);
 
   // Store slot of launched app for reboot support (flash apps only)
   reboot_set_slot_of_last_launched_app((app_md->process_storage == ProcessStorageFlash)

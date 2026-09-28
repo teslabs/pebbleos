@@ -3,6 +3,8 @@
 
 #include "pebble_tasks.h"
 
+#include <string.h>
+
 #include "kernel/memory_layout.h"
 #include "system/reboot_reason.h"
 #include "system/die.h"
@@ -13,9 +15,11 @@
 #include "pbl/services/analytics/analytics.h"
 #include "syscall/syscall_internal.h"
 #include "system/passert.h"
+#include "pbl/util/math.h"
 #include "pbl/util/size.h"
 
 #include "pbl/kernel/debug.h"
+#include "pbl/kernel/irq.h"
 
 static struct pbl_thread s_threads[NumPebbleTask];
 struct pbl_thread *g_task_threads[NumPebbleTask] KERNEL_READONLY_DATA = {0};
@@ -24,6 +28,52 @@ struct pbl_thread *g_task_threads[NumPebbleTask] KERNEL_READONLY_DATA = {0};
 // Captured at unregister time so the analytics heartbeat can keep accounting
 // for App/Worker activity across short-lived task instances.
 static uint32_t s_dead_task_cycles[NumPebbleTask];
+
+// App task CPU per process UUID since the previous heartbeat. When all slots
+// are in use, the least used one is evicted and its run time inherited
+// (Space-Saving), so the reported top value is an upper bound.
+#define APP_CPU_SLOTS 4
+
+static struct {
+  Uuid uuid;
+  uint32_t run_time;
+} s_app_cpu[APP_CPU_SLOTS];
+
+// Process running in the App task and how much of its run time was already
+// credited to s_app_cpu. Protected by the IRQ lock.
+static Uuid s_app_uuid;
+static uint32_t s_app_credited_run_time;
+
+static void prv_app_cpu_credit(uint32_t run_time) {
+  if ((run_time <= s_app_credited_run_time) || uuid_is_invalid(&s_app_uuid)) {
+    s_app_credited_run_time = run_time;
+    return;
+  }
+
+  uint32_t delta = run_time - s_app_credited_run_time;
+  s_app_credited_run_time = run_time;
+
+  size_t min = 0;
+  for (size_t i = 0; i < APP_CPU_SLOTS; i++) {
+    if ((s_app_cpu[i].run_time != 0) && uuid_equal(&s_app_cpu[i].uuid, &s_app_uuid)) {
+      s_app_cpu[i].run_time += delta;
+      return;
+    }
+    if (s_app_cpu[i].run_time < s_app_cpu[min].run_time) {
+      min = i;
+    }
+  }
+
+  s_app_cpu[min].uuid = s_app_uuid;
+  s_app_cpu[min].run_time += delta;
+}
+
+void pebble_task_set_app_uuid(const Uuid *uuid) {
+  pbl_irq_lock();
+  s_app_uuid = *uuid;
+  s_app_credited_run_time = 0;
+  pbl_irq_unlock();
+}
 
 static void prv_task_register(PebbleTask task, struct pbl_thread *thread) {
   g_task_threads[task] = thread;
@@ -49,8 +99,14 @@ void pebble_task_unregister(PebbleTask task) {
   // Clear the handle before crediting the cycles: the collector reads
   // s_dead_task_cycles before walking the task list, so this ordering
   // ensures cycles are never seen in both buckets simultaneously.
+  pbl_irq_lock();
   g_task_threads[task] = NULL;
   s_dead_task_cycles[task] += cycles;
+  if (task == PebbleTask_App) {
+    prv_app_cpu_credit(cycles);
+    s_app_uuid = UUID_INVALID;
+  }
+  pbl_irq_unlock();
 }
 
 const char *pebble_task_get_name(PebbleTask task) {
@@ -156,6 +212,38 @@ static const enum pbl_analytics_key s_task_cpu_pct_keys[NumPebbleTask] = {
   [PebbleTask_PULSE] = PBL_ANALYTICS_KEY(task_cpu_pulse_pct),
 };
 
+static void prv_collect_app_cpu_top(struct pbl_thread *app_thread, uint32_t app_run_time,
+                                    uint32_t delta_total) {
+  Uuid top_uuid = UUID_INVALID;
+  uint32_t top_run_time = 0;
+
+  pbl_irq_lock();
+  // Skip crediting if the App task died since the snapshot, unregister did it
+  if ((app_thread != NULL) && (g_task_threads[PebbleTask_App] == app_thread)) {
+    prv_app_cpu_credit(app_run_time);
+  }
+  for (size_t i = 0; i < APP_CPU_SLOTS; i++) {
+    if (s_app_cpu[i].run_time > top_run_time) {
+      top_run_time = s_app_cpu[i].run_time;
+      top_uuid = s_app_cpu[i].uuid;
+    }
+  }
+  memset(s_app_cpu, 0, sizeof(s_app_cpu));
+  pbl_irq_unlock();
+
+  char uuid_str[UUID_STRING_BUFFER_LENGTH] = "";
+  if (top_run_time != 0) {
+    uuid_to_string(&top_uuid, uuid_str);
+  }
+  uint32_t top_pct = 0;
+  if (delta_total != 0) {
+    top_pct = (uint32_t)(((uint64_t)MIN(top_run_time, delta_total) * 10000U) / delta_total);
+  }
+
+  PBL_ANALYTICS_SET_STRING(app_cpu_top_uuid, uuid_str);
+  PBL_ANALYTICS_SET_UNSIGNED(app_cpu_top_pct, top_pct);
+}
+
 void pbl_analytics_external_collect_task_cpu_stats(void) {
   static uint32_t s_prev_total_task_cycles[NumPebbleTask];
   static uint32_t s_prev_idle_run_time;
@@ -179,6 +267,7 @@ void pbl_analytics_external_collect_task_cpu_stats(void) {
   s_prev_total_run_time = total_run_time;
 
   struct pbl_thread *idle_thread = pbl_thread_idle();
+  struct pbl_thread *app_thread = NULL;
   uint32_t curr_task_run_time[NumPebbleTask] = {0};
   uint32_t curr_idle_run_time = 0;
 
@@ -190,8 +279,13 @@ void pbl_analytics_external_collect_task_cpu_stats(void) {
     PebbleTask task = pebble_task_get_task_for_thread(stats[i].thread);
     if (task < NumPebbleTask) {
       curr_task_run_time[task] = stats[i].run_time;
+      if (task == PebbleTask_App) {
+        app_thread = stats[i].thread;
+      }
     }
   }
+
+  prv_collect_app_cpu_top(app_thread, curr_task_run_time[PebbleTask_App], delta_total);
 
   for (int task = 0; task < NumPebbleTask; task++) {
     uint32_t total = dead_cycles[task] + curr_task_run_time[task];
