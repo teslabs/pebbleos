@@ -14,6 +14,7 @@
 #include "pbl/kernel/compiler.h"
 #include "pbl/util/build_id.h"
 #include "pbl/util/math.h"
+#include "pbl/util/size.h"
 #include "pbl/util/uuid.h"
 
 PBL_LOG_MODULE_DEFINE(service_analytics, CONFIG_SERVICE_ANALYTICS_LOG_LEVEL);
@@ -230,6 +231,32 @@ static const uint8_t s_string_lens[] = {
 #undef PBL_ANALYTICS_METRIC_DEFINE_STRING
 };
 
+/* State metrics are only set when the state changes, so they are kept across
+ * heartbeats instead of being reset. */
+static const enum pbl_analytics_key s_persistent_keys[] = {
+  PBL_ANALYTICS_KEY(watchface_name),
+  PBL_ANALYTICS_KEY(watchface_uuid),
+  PBL_ANALYTICS_KEY(app_tick_timer_second_subscribed),
+};
+
+static bool prv_is_persistent_integer(size_t idx) {
+  for (size_t i = 0; i < ARRAY_LENGTH(s_persistent_keys); i++) {
+    if (s_key_to_integer[s_persistent_keys[i]] == (int8_t)idx) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool prv_is_persistent_string(size_t idx) {
+  for (size_t i = 0; i < ARRAY_LENGTH(s_persistent_keys); i++) {
+    if (s_key_to_string[s_persistent_keys[i]] == (int8_t)idx) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static PBL_MUTEX_DEFINE(s_mutex);
 static DataLoggingSession *s_dls_session;
 
@@ -284,12 +311,18 @@ static void prv_record_metrics(struct native_heartbeat_record *record, bool rese
 
   if (reset) {
     /* Reset storage for next heartbeat period, keeping running timers active */
-    memset(s_integer_values, 0, sizeof(s_integer_values));
+    for (size_t i = 0; i < NATIVE_INTEGER_COUNT; i++) {
+      if (!prv_is_persistent_integer(i)) {
+        s_integer_values[i] = 0;
+      }
+    }
     for (size_t i = 0; i < NATIVE_TIMER_COUNT; i++) {
       s_timers[i].value_ms = 0;
     }
     for (size_t i = 0; i < NATIVE_STRING_COUNT; i++) {
-      s_string_ptrs[i][0] = '\0';
+      if (!prv_is_persistent_string(i)) {
+        s_string_ptrs[i][0] = '\0';
+      }
     }
   }
 }
