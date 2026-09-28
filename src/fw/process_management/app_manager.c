@@ -353,6 +353,13 @@ static bool prv_app_start(const PebbleProcessMd *app_md, const void *args,
 
   PBL_LOG_DBG("Starting %s", task_name);
 
+#if !defined(CONFIG_RECOVERY_FW) && !defined(CONFIG_SHELL_SDK)
+  // Set before the task runs: the face updates it when it subscribes
+  if (app_md->process_type == ProcessTypeWatchface) {
+    PBL_ANALYTICS_SET_UNSIGNED(app_tick_timer_second_subscribed, 0);
+  }
+#endif
+
   // Store slot of launched app for reboot support (flash apps only)
   reboot_set_slot_of_last_launched_app((app_md->process_storage == ProcessStorageFlash)
                                            ? process_metadata_get_code_bank_num(app_md)
