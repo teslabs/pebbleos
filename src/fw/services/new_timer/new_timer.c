@@ -8,6 +8,7 @@
 #include "kernel/util/task_init.h"
 #include "kernel/pebble_tasks.h"
 #include <pbl/logging/logging.h>
+#include "pbl/services/analytics/analytics.h"
 
 #include "pbl/kernel/msgq.h"
 #include "pbl/kernel/thread.h"
@@ -85,10 +86,21 @@ static void new_timer_service_loop(void *data) {
     NewTimerWorkItem work;
     if (pbl_msgq_get(&s_work_queue, &work, PBL_NO_WAIT) == 0) {
       s_current_work_cb = work.cb;
+      pbl_analytics_top_add(&s_task_timer_manager.cb_top, (uintptr_t)work.cb);
       work.cb(work.data);
       s_current_work_cb = NULL;
     }
   }
+}
+
+void pbl_analytics_external_collect_new_timer_stats(void) {
+  uint32_t total;
+  uintptr_t callback;
+  uint32_t count;
+
+  pbl_analytics_top_take(&s_task_timer_manager.cb_top, &total, &callback, &count);
+  PBL_ANALYTICS_SET_UNSIGNED(new_timer_top_callback, (uint32_t)callback);
+  PBL_ANALYTICS_SET_UNSIGNED(new_timer_top_callback_count, count);
 }
 
 // -----------------------------------------------------------------------------------------------

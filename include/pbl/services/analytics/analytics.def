@@ -155,3 +155,9 @@ PBL_ANALYTICS_METRIC_DEFINE_SCALED_UNSIGNED(app_cpu_top_pct, 100)
 // Compositor frames pushed to the display and time spent flushing them.
 PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(display_flush_count)
 PBL_ANALYTICS_METRIC_DEFINE_TIMER(display_flush_time_ms)
+// Most frequent KernelMain callback event and NewTimers callback (function
+// address, resolve against the firmware ELF) and how often each ran.
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(kernel_main_top_callback)
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(kernel_main_top_callback_count)
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(new_timer_top_callback)
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(new_timer_top_callback_count)

@@ -30,6 +30,7 @@
 #include "process_management/process_manager.h"
 #include "process_management/worker_manager.h"
 #include "pbl/services/analytics/analytics.h"
+#include "pbl/services/analytics/top.h"
 #include "pbl/services/battery/battery_state.h"
 #include "pbl/services/battery/battery_monitor.h"
 #include "pbl/services/clock.h"
@@ -231,6 +232,18 @@ static void launcher_handle_button_event(PebbleEvent *e) {
 
 // This function should handle very basic events (Button clicks, app launching, battery events,
 // crashes, etc.
+static struct pbl_analytics_top s_callback_top;
+
+void pbl_analytics_external_collect_kernel_main_stats(void) {
+  uint32_t total;
+  uintptr_t callback;
+  uint32_t count;
+
+  pbl_analytics_top_take(&s_callback_top, &total, &callback, &count);
+  PBL_ANALYTICS_SET_UNSIGNED(kernel_main_top_callback, (uint32_t)callback);
+  PBL_ANALYTICS_SET_UNSIGNED(kernel_main_top_callback_count, count);
+}
+
 static PBL_NOINLINE void prv_minimal_event_handler(PebbleEvent *e) {
   switch (e->type) {
     case PEBBLE_BUTTON_DOWN_EVENT:
@@ -403,6 +416,7 @@ static PBL_NOINLINE void prv_minimal_event_handler(PebbleEvent *e) {
       return;
 
     case PEBBLE_CALLBACK_EVENT:
+      pbl_analytics_top_add(&s_callback_top, (uintptr_t)e->callback.callback);
       e->callback.callback(e->callback.data);
       return;
 

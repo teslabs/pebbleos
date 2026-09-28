@@ -6,6 +6,7 @@
 #include "task_timer.h"
 
 #include "pbl/kernel/sem.h"
+#include "pbl/services/analytics/top.h"
 #include "pbl/util/list.h"
 
 //! Internal state object. Each task that wants to execute timers should allocate their own
@@ -26,6 +27,9 @@ typedef struct TaskTimerManager {
 
   //! The callback we're currently executing, useful for debugging.
   void *current_cb;
+
+  //! Most frequently executed callbacks, for analytics.
+  struct pbl_analytics_top cb_top;
 } TaskTimerManager;
 
 //! Initialize a passed in manager object.

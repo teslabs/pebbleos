@@ -345,6 +345,7 @@ pbl_tick_t task_timer_manager_execute_expired_timers(TaskTimerManager *manager) 
 
     // Run the timer callback now
     manager->current_cb = next_timer->cb_data;
+    pbl_analytics_top_add(&manager->cb_top, (uintptr_t)next_timer->cb);
     next_timer->cb(next_timer->cb_data);
     manager->current_cb = NULL;
 
