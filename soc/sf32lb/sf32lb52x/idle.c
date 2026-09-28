@@ -40,6 +40,8 @@ static RtcTicks s_analytics_deepwfi_ticks;
 static RtcTicks s_analytics_deepsleep_ticks;
 static RtcTicks s_last_ticks;
 static uint32_t s_analytics_ipc_not_idle_count;
+static uint32_t s_analytics_deepsleep_wake_count;
+static uint32_t s_analytics_deepsleep_wake_timer_count;
 static bool s_force_wfi;
 
 //! Early wake-up ticks (to avoid over-sleeping due to wake-up latency)
@@ -222,6 +224,12 @@ void pbl_soc_idle(pbl_tick_t max_ticks) {
 
         prv_enter_deepslep();
 
+        // IRQs are still masked, so AON_IRQHandler has not cleared WSR yet
+        s_analytics_deepsleep_wake_count++;
+        if ((HAL_HPAON_GET_WSR() & HPSYS_AON_WSR_LPTIM1) != 0U) {
+          s_analytics_deepsleep_wake_timer_count++;
+        }
+
         // NOTE: GTIMER needs at least 1 LP clock cycle to be updated after sleep,
         // so spin until we see a change
         do {
@@ -398,10 +406,14 @@ void pbl_analytics_external_collect_cpu_stats(void) {
   PBL_ANALYTICS_SET_UNSIGNED(cpu_sleep1_pct, deepwfi_pct);
   PBL_ANALYTICS_SET_UNSIGNED(cpu_sleep2_pct, deepsleep_pct);
   PBL_ANALYTICS_SET_UNSIGNED(sifli_ipc_not_idle_count, s_analytics_ipc_not_idle_count);
+  PBL_ANALYTICS_SET_UNSIGNED(deepsleep_wake_count, s_analytics_deepsleep_wake_count);
+  PBL_ANALYTICS_SET_UNSIGNED(deepsleep_wake_timer_count, s_analytics_deepsleep_wake_timer_count);
 
   s_last_ticks = now_ticks;
   s_analytics_wfi_ticks = 0;
   s_analytics_deepwfi_ticks = 0;
   s_analytics_deepsleep_ticks = 0;
   s_analytics_ipc_not_idle_count = 0;
+  s_analytics_deepsleep_wake_count = 0;
+  s_analytics_deepsleep_wake_timer_count = 0;
 }

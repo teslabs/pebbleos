@@ -161,3 +161,7 @@ PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(kernel_main_top_callback)
 PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(kernel_main_top_callback_count)
 PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(new_timer_top_callback)
 PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(new_timer_top_callback_count)
+// Deep sleep exits, and those caused by the scheduled wake-up timer (the rest
+// are interrupts: buttons, sensors, radio core, ...).
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(deepsleep_wake_count)
+PBL_ANALYTICS_METRIC_DEFINE_UNSIGNED(deepsleep_wake_timer_count)
