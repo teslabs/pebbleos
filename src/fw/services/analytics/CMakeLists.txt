@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-set(sources analytics.c)
+set(sources analytics.c top.c)
 if(NOT CONFIG_RECOVERY_FW)
   list(APPEND sources native.c)
   pbl_compile_definitions(ANALYTICS_NATIVE)
