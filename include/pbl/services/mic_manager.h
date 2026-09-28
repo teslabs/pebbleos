@@ -15,7 +15,8 @@
 //!
 //! Dictation (the system voice UI) has priority over app capture: acquiring for dictation while an
 //! app owns the mic preempts the app, which is told through its preempted callback before the mic
-//! is restarted. An app cannot acquire the mic while dictation owns it.
+//! is restarted. An app cannot acquire the mic while dictation owns it. The OS mic banner is shown
+//! while an app client owns the running mic.
 
 typedef enum MicClient {
   MicClientNone = 0,

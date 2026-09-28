@@ -45,6 +45,19 @@ void mic_stop(MicDevice *this) {
   s_buffer = nullptr;
 }
 
+// Fake banner
+////////////////////////////////////////////////////////////////
+
+static bool s_banner_visible;
+
+void mic_banner_show(void) {
+  s_banner_visible = true;
+}
+
+void mic_banner_hide(void) {
+  s_banner_visible = false;
+}
+
 // Clients
 ////////////////////////////////////////////////////////////////
 
@@ -97,6 +110,7 @@ void test_mic_manager__initialize(void) {
   s_owner_seen_in_preempt = MicClientNone;
   s_reacquire_in_preempt = false;
   s_reacquire_result = true;
+  s_banner_visible = false;
   mic_manager_init();
 }
 
@@ -224,6 +238,23 @@ void test_mic_manager__dictation_ignores_reservation(void) {
   mic_manager_release(MicClientAppStream);
   mic_manager_release(MicClientVoiceDictation);
   cl_assert(!mic_manager_is_busy());
+}
+
+void test_mic_manager__banner_follows_app_ownership(void) {
+  // A pending reservation doesn't run the mic, so no banner
+  cl_assert(mic_manager_reserve(MicClientAppStream));
+  cl_assert(!s_banner_visible);
+  cl_assert(prv_acquire_app());
+  cl_assert(s_banner_visible);
+  mic_manager_release(MicClientAppStream);
+  cl_assert(!s_banner_visible);
+
+  // Dictation has its own UI
+  cl_assert(prv_acquire_app());
+  cl_assert(prv_acquire_dictation());
+  cl_assert(!s_banner_visible);
+  mic_manager_release(MicClientVoiceDictation);
+  cl_assert(!s_banner_visible);
 }
 
 void test_mic_manager__dictation_session_holds_off_apps(void) {
