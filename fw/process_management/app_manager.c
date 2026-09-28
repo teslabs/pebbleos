@@ -42,6 +42,9 @@
 #include <resource/resource_ids.auto.h>
 #ifndef CONFIG_RECOVERY_FW
 #include <pbl/services/speaker/speaker_service.h>
+#ifdef CONFIG_SERVICE_MIC_STREAM
+#include <pbl/services/mic_stream.h>
+#endif
 #endif
 #include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
@@ -463,6 +466,9 @@ static void prv_app_cleanup(void) {
   vibe_pattern_clear_for_owner(VibePatternOwner_App);
 #ifndef CONFIG_RECOVERY_FW
   speaker_service_stop_for_task(PebbleTask_App);
+#ifdef CONFIG_SERVICE_MIC_STREAM
+  mic_stream_service_stop(PebbleTask_App);
+#endif
 #endif
 
   app_comm_set_sniff_interval(SNIFF_INTERVAL_NORMAL);

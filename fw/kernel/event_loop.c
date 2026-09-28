@@ -47,6 +47,9 @@
 #include <process_management/app_run_state.h>
 #include <process_management/process_manager.h>
 #include <process_management/worker_manager.h>
+#ifdef CONFIG_SERVICE_MIC_STREAM
+#include <pbl/services/mic_stream.h>
+#endif
 #ifdef CONFIG_TOUCH
 #include <pbl/services/touch/touch.h>
 #include <pbl/services/touch/touch_session.h>
@@ -535,6 +538,9 @@ static PBL_NOINLINE void prv_extended_event_handler(PebbleEvent *e) {
       PebbleCommSessionEvent *comm_session_event = &e->bluetooth.comm_session_event;
       debounced_connection_service_handle_event(comm_session_event);
       put_bytes_handle_comm_session_event(comm_session_event);
+#ifdef CONFIG_SERVICE_MIC_STREAM
+      mic_stream_service_handle_comm_session_event(comm_session_event);
+#endif
 #ifndef CONFIG_RECOVERY_FW
       if (comm_session_event->is_system) {
         // tell the phone which app is running
