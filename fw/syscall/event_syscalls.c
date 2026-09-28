@@ -154,6 +154,7 @@ static bool prv_event_type_subscribable_from_user(PebbleEventType type) {
     case PEBBLE_UNOBSTRUCTED_AREA_EVENT:
     case PEBBLE_SPEAKER_EVENT:
     case PEBBLE_BACKLIGHT_EVENT:
+    case PEBBLE_MIC_STREAM_EVENT:
       return true;
     default:
       return false;

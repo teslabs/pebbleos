@@ -19,6 +19,7 @@
 #include <applib/graphics/gtypes.h>
 #include <applib/graphics/text_render.h>
 #include <applib/health_service_private.h>
+#include <applib/mic_stream_private.h>
 #include <applib/pbl_std/locale.h>
 #include <applib/plugin_service_private.h>
 #include <applib/tick_timer_service.h>
@@ -113,6 +114,8 @@ TickTimerServiceState *app_state_get_tick_timer_service_state(void);
 TouchServiceState *app_state_get_touch_service_state(void);
 
 ConnectionServiceState *app_state_get_connection_service_state(void);
+
+MicStreamState *app_state_get_mic_stream_state(void);
 
 LocaleInfo *app_state_get_locale_info(void);
 
