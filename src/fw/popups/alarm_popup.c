@@ -34,6 +34,8 @@
 #include "services/alarms/alarm_tones.h"
 #endif
 
+PBL_LOG_MODULE_DECLARE(service_alerts, CONFIG_SERVICE_ALERTS_LOG_LEVEL);
+
 #define DIALOG_TIMEOUT_SNOOZE  2000
 #define DIALOG_TIMEOUT_DISMISS DIALOG_TIMEOUT_SNOOZE
 

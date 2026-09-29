@@ -8,6 +8,9 @@ config SERVICE_VIBES
 
 if SERVICE_VIBES
 
+config SERVICE_VIBES_LOG_LEVEL_RUNTIME
+    default y if !RECOVERY_FW
+
 module = SERVICE_VIBES
 module-str = Vibes
 source "subsys/logging/Kconfig.template.log_level"

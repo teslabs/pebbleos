@@ -62,6 +62,8 @@
 #include "pbl/services/vibes/vibe_score.h"
 #include "pbl/util/testing.h"
 
+PBL_LOG_MODULE_DECLARE(service_alerts, CONFIG_SERVICE_ALERTS_LOG_LEVEL);
+
 #define NOTIFICATION_PRIORITY (ModalPriorityNotification)
 
 #define NUM_MOOOK_SOFT_MID_FRAMES PBL_IF_RECT_ELSE(6, 4)

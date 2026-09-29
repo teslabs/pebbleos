@@ -8,6 +8,9 @@ config SERVICE_VIBE_PATTERN
 
 if SERVICE_VIBE_PATTERN
 
+config SERVICE_VIBE_PATTERN_LOG_LEVEL_RUNTIME
+    default y if !RECOVERY_FW
+
 module = SERVICE_VIBE_PATTERN
 module-str = Vibe pattern
 source "subsys/logging/Kconfig.template.log_level"

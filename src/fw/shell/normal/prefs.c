@@ -862,6 +862,18 @@ static bool prv_set_s_accel_shake_log_info_enabled(bool *enabled) {
 
 static bool prv_set_s_vibe_log_info_enabled(bool *enabled) {
   s_vibe_log_info_enabled = *enabled;
+#ifdef CONFIG_SERVICE_ALERTS_LOG_LEVEL_RUNTIME
+  PBL_LOG_MODULE_LEVEL_SET(service_alerts,
+                           *enabled ? LOG_LEVEL_DEBUG : CONFIG_SERVICE_ALERTS_LOG_LEVEL);
+#endif
+#ifdef CONFIG_SERVICE_VIBES_LOG_LEVEL_RUNTIME
+  PBL_LOG_MODULE_LEVEL_SET(service_vibes,
+                           *enabled ? LOG_LEVEL_DEBUG : CONFIG_SERVICE_VIBES_LOG_LEVEL);
+#endif
+#ifdef CONFIG_SERVICE_VIBE_PATTERN_LOG_LEVEL_RUNTIME
+  PBL_LOG_MODULE_LEVEL_SET(service_vibe_pattern,
+                           *enabled ? LOG_LEVEL_DEBUG : CONFIG_SERVICE_VIBE_PATTERN_LOG_LEVEL);
+#endif
   return true;
 }
 
@@ -1105,6 +1117,9 @@ void shell_prefs_init(void) {
   }
 
   settings_file_close(&file);
+
+  // Loading preferences bypasses their setters.
+  prv_set_s_vibe_log_info_enabled(&s_vibe_log_info_enabled);
 
   if (!prv_backlight_intensity_is_valid(s_backlight_intensity)) {
     s_backlight_intensity = BACKLIGHT_INTENSITY_DEFAULT;

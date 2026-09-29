@@ -43,10 +43,6 @@ void vibe_set_strength(int8_t strength) {
   s_strength_set_count++;
 }
 
-bool shell_prefs_get_vibe_log_info_enabled(void) {
-  return false;
-}
-
 uint32_t accel_get_max_num_samples(void) {
   return 32;
 }

@@ -12,4 +12,11 @@ module = SERVICE_NOTIFICATIONS
 module-str = Notifications
 source "subsys/logging/Kconfig.template.log_level"
 
+config SERVICE_ALERTS_LOG_LEVEL_RUNTIME
+    default y if !RECOVERY_FW
+
+module = SERVICE_ALERTS
+module-str = Alert UI
+source "subsys/logging/Kconfig.template.log_level"
+
 endif

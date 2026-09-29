@@ -30,22 +30,6 @@
 
 PBL_LOG_MODULE_DEFINE(service_vibe_pattern, CONFIG_SERVICE_VIBE_PATTERN_LOG_LEVEL);
 
-// Pattern lifecycle logs are DBG by default, elevated to INFO when the
-// Vibe Log Info debugging toggle is on so field captures include them.
-#if !defined(CONFIG_RECOVERY_FW)
-extern bool shell_prefs_get_vibe_log_info_enabled(void);
-#define VIBE_PATTERN_LOG(fmt, ...)                 \
-  do {                                             \
-    if (shell_prefs_get_vibe_log_info_enabled()) { \
-      PBL_LOG_INFO(fmt, ##__VA_ARGS__);            \
-    } else {                                       \
-      PBL_LOG_DBG(fmt, ##__VA_ARGS__);             \
-    }                                              \
-  } while (0)
-#else
-#define VIBE_PATTERN_LOG(fmt, ...) PBL_LOG_DBG(fmt, ##__VA_ARGS__)
-#endif
-
 typedef struct {
   ListNode list_node;
   uint64_t time_start;
@@ -320,7 +304,7 @@ static void prv_timer_callback(void *data) {
     prv_vibes_set_vibe_strength(VIBE_STRENGTH_OFF);
     s_pattern_in_progress = false;
     s_pattern_owner = VibePatternOwner_Other;
-    VIBE_PATTERN_LOG("vibe_pattern: pattern complete");
+    PBL_LOG_DBG("vibe_pattern: pattern complete");
   }
 
   pbl_mutex_unlock(&s_vibe_pattern_mutex);
@@ -408,7 +392,7 @@ DEFINE_SYSCALL(void, sys_vibe_pattern_trigger_start, void) {
   }
 
 #if !defined(CONFIG_RECOVERY_FW)
-  {
+  if (PBL_SHOULD_LOG(LOG_LEVEL_DEBUG)) {
     unsigned int step_count = 0;
     uint32_t total_duration_ms = 0;
     VibePatternStep *step = s_vibe_queue_head;
@@ -417,9 +401,8 @@ DEFINE_SYSCALL(void, sys_vibe_pattern_trigger_start, void) {
       total_duration_ms += step->duration_ms;
       step = (VibePatternStep *)list_get_next((ListNode *)step);
     }
-    VIBE_PATTERN_LOG("vibe_pattern: trigger_start, %u steps, %" PRIu32
-                     "ms total, strength=%" PRId32,
-                     step_count, total_duration_ms, s_vibe_queue_head->strength);
+    PBL_LOG_DBG("vibe_pattern: trigger_start, %u steps, %" PRIu32 "ms total, strength=%" PRId32,
+                step_count, total_duration_ms, s_vibe_queue_head->strength);
   }
 #endif
 
@@ -446,8 +429,8 @@ static void prv_clear_pattern_locked(void) {
   }
   // Log whether a pattern was still live and whether the motor was on: a
   // clear that finds the motor on with no active pattern is a wedged vibe.
-  VIBE_PATTERN_LOG("vibe_pattern: clear, in_progress=%d, strength=%" PRId32 ", %u steps dropped",
-                   s_pattern_in_progress, s_vibe_strength, dropped_steps);
+  PBL_LOG_DBG("vibe_pattern: clear, in_progress=%d, strength=%" PRId32 ", %u steps dropped",
+              s_pattern_in_progress, s_vibe_strength, dropped_steps);
   prv_vibes_set_vibe_strength(VIBE_STRENGTH_OFF);
   s_pattern_in_progress = false;
   s_pattern_owner = VibePatternOwner_Other;

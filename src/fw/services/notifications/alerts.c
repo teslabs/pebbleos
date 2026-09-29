@@ -11,6 +11,9 @@
 #include "pbl/services/firmware_update.h"
 #include "pbl/services/notifications/do_not_disturb.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
+#include <pbl/logging/logging.h>
+
+PBL_LOG_MODULE_DEFINE(service_alerts, CONFIG_SERVICE_ALERTS_LOG_LEVEL);
 
 static const int NOTIFICATION_VIBE_HOLDOFF_MS = 3000;
 static RtcTicks s_notification_vibe_tick_timestamp = 0;

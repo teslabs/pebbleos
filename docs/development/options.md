@@ -92,5 +92,11 @@ with `PBL_LOG_MODULE_LEVEL_SET(name, level)` and read with
 `PBL_LOG_MODULE_DEFINE`. Messages accepted by the module level skip the
 serial and flash log level filters. This will increase ROM usage for that module.
 
+The **Settings → System → Debugging → Vibe Log Info** preference sets the alert UI,
+vibe score, and vibe pattern modules to DEBUG, so their traces reach bug reports.
+Normal firmware enables runtime levels for these modules by default. Disabling
+the preference restores each module's configured level; the preference is also
+applied at boot. Recovery firmware keeps compile-time logging by default.
+
 These and many more options can also be browsed and changed interactively with
 `pbl menuconfig` after configuring.
