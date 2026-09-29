@@ -387,6 +387,8 @@ DEFINE_SYSCALL(void, sys_vibe_pattern_trigger_start, void) {
   pbl_mutex_lock(&s_vibe_pattern_mutex, PBL_FOREVER);
   if (s_vibe_queue_head == NULL || s_pattern_in_progress) {
     // either no vibes queued or I've already started
+    PBL_LOG_DBG("vibe_pattern: start ignored, queued=%d, in_progress=%d, enabled=%d",
+                s_vibe_queue_head != NULL, s_pattern_in_progress, s_vibe_service_enabled);
     pbl_mutex_unlock(&s_vibe_pattern_mutex);
     return;
   }
@@ -401,8 +403,9 @@ DEFINE_SYSCALL(void, sys_vibe_pattern_trigger_start, void) {
       total_duration_ms += step->duration_ms;
       step = (VibePatternStep *)list_get_next((ListNode *)step);
     }
-    PBL_LOG_DBG("vibe_pattern: trigger_start, %u steps, %" PRIu32 "ms total, strength=%" PRId32,
-                step_count, total_duration_ms, s_vibe_queue_head->strength);
+    PBL_LOG_DBG("vibe_pattern: trigger_start, %u steps, %" PRIu32 "ms total, strength=%" PRId32
+                ", enabled=%d",
+                step_count, total_duration_ms, s_vibe_queue_head->strength, s_vibe_service_enabled);
   }
 #endif
 

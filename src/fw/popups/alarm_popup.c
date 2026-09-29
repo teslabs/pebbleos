@@ -116,6 +116,8 @@ static void prv_stop_animation_kernel_main_cb(void *callback_context) {
 }
 
 static void prv_stop_vibes(void) {
+  PBL_LOG_DBG("Alarm vibe: stop, played=%d/%d", s_alarm_popup_data->vibe_count,
+              s_alarm_popup_data->max_vibes);
   if (s_alarm_popup_data->vibe_timer != TIMER_INVALID_ID) {
     new_timer_stop(s_alarm_popup_data->vibe_timer);
     new_timer_delete(s_alarm_popup_data->vibe_timer);
@@ -213,6 +215,8 @@ static void prv_vibe_kernel_main_cb(void *callback_context) {
   if (s_alarm_popup_data) {
     if (s_alarm_popup_data->vibe_count < s_alarm_popup_data->max_vibes) {
       s_alarm_popup_data->vibe_count++;
+      PBL_LOG_DBG("Alarm vibe: play %d/%d, fixed_pulse=%d", s_alarm_popup_data->vibe_count,
+                  s_alarm_popup_data->max_vibes, s_alarm_popup_data->vibe_score == NULL);
       vibes_cancel();
       if (s_alarm_popup_data->vibe_score) {
         vibe_score_do_vibe(s_alarm_popup_data->vibe_score);
@@ -265,6 +269,8 @@ static void prv_start_vibes(void) {
                               : TINTIN_VIBE_REPEAT_INTERVAL_MS;
   }
   s_alarm_popup_data->max_vibes = DIVIDE_CEIL(VIBE_DURATION, vibe_repeat_interval_ms);
+  PBL_LOG_DBG("Alarm vibe: start, low_power=%d, interval=%ums, max=%d", low_power_is_active(),
+              vibe_repeat_interval_ms, s_alarm_popup_data->max_vibes);
   s_alarm_popup_data->vibe_timer = new_timer_create();
   prv_vibe(NULL);
   new_timer_start(s_alarm_popup_data->vibe_timer, vibe_repeat_interval_ms, prv_vibe, NULL,

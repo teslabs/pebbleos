@@ -19,12 +19,14 @@ static VibeScoreId prv_get_resource_for_client(VibeClient client) {
 
 VibeScore *vibe_client_get_score(VibeClient client) {
   VibeScoreId id = prv_get_resource_for_client(client);
+  PBL_LOG_DBG("Vibe score: client=%d, score=%d, disabled=%d", client, id,
+              id == VibeScoreId_Disabled);
   if (id == VibeScoreId_Disabled) {
     return NULL;
   }
   VibeScore *score = vibe_score_create_with_resource(vibe_score_info_get_resource_id(id));
   if (!score) {
-    PBL_LOG_ERR("Got a null VibeScore resource!");
+    PBL_LOG_ERR("Got a null VibeScore resource: client=%d, score=%d", client, id);
   }
   return score;
 }

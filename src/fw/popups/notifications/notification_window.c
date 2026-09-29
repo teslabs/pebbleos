@@ -91,6 +91,15 @@ static void prv_do_notification_vibe(NotificationWindowData *data, Uuid *id);
 // Helpers
 /////////////////////
 
+static void prv_log_notification_vibe(const char *event, const Uuid *id) {
+  if (!PBL_SHOULD_LOG(LOG_LEVEL_DEBUG)) {
+    return;
+  }
+  char id_str[UUID_STRING_BUFFER_LENGTH];
+  uuid_to_string(id, id_str);
+  PBL_LOG_DBG("Notification vibe %s: %s", id_str, event);
+}
+
 static AlertType prv_alert_type_for_notification_type(NotificationType type) {
   switch (type) {
     case NotificationMobile:
@@ -301,6 +310,8 @@ static void prv_peek_anim_stopped(Animation *animation, bool finished, void *con
   // notification arrived after prv_hide_peek_layer ran but before this callback),
   // trigger it now
   if (data->pending_vibe) {
+    prv_log_notification_vibe(finished ? "peek finished" : "peek interrupted",
+                              &data->pending_vibe_id);
     data->pending_vibe = false;
     prv_do_notification_vibe(data, &data->pending_vibe_id);
   }
@@ -320,6 +331,7 @@ static void prv_hide_peek_layer(void *context) {
   // Execute pending vibration and backlight if delayed vibe was requested - do it as the
   // notification starts sliding up to reveal the text
   if (data->pending_vibe) {
+    prv_log_notification_vibe("peek reveal", &data->pending_vibe_id);
     data->pending_vibe = false;
     prv_do_notification_vibe(data, &data->pending_vibe_id);
   }
@@ -1104,6 +1116,10 @@ static void prv_window_unload(Window *window) {
     return;
   }
 
+  PBL_LOG_DBG("Notification vibe: window unload, pending=%d", data->pending_vibe);
+  if (data->pending_vibe) {
+    prv_log_notification_vibe("dropped on unload", &data->pending_vibe_id);
+  }
   vibes_cancel();
   data->pending_vibe = false;
   if (data->color_preempted) {
@@ -1299,6 +1315,9 @@ static void prv_init_notification_window(bool is_modal, bool allow_dismiss_all) 
   };
   data->action_menu = NULL;
   data->dnd_icon_visible = false;
+  if (data->pending_vibe) {
+    prv_log_notification_vibe("dropped on init", &data->pending_vibe_id);
+  }
   data->pending_vibe = false;
 
   Window *window = &data->window;
@@ -1503,7 +1522,7 @@ static void prv_handle_notification_acted_upon(Uuid *id) {
 }
 
 static void prv_do_notification_vibe(NotificationWindowData *data, Uuid *id) {
-  PBL_LOG_DBG("Notification vibe: do_vibe called");
+  prv_log_notification_vibe("play requested", id);
   TimelineItem *item = prv_get_current_notification(data);
   // Check if the current notification is the one we want to vibe for - if not then reload to make
   // sure it is, before reading the attributes.
@@ -1512,7 +1531,11 @@ static void prv_do_notification_vibe(NotificationWindowData *data, Uuid *id) {
     item = prv_get_current_notification(data);
   }
   if (!item) {
+    prv_log_notification_vibe("skipped: no item after reload", id);
     return;
+  }
+  if (!uuid_equal(&item->header.id, id)) {
+    prv_log_notification_vibe("current item differs from requested", &item->header.id);
   }
   bool did_vibrate = false;
   Uint32List *vibeDurations =
@@ -1520,7 +1543,7 @@ static void prv_do_notification_vibe(NotificationWindowData *data, Uuid *id) {
   if (vibeDurations && vibeDurations->num_values > 0) {
     VibePattern patt;
 
-    PBL_LOG_DBG("Notification vibe: using CUSTOM pattern from phone, %" PRIu16 " segments",
+    PBL_LOG_DBG("Notification vibe: custom pattern, %" PRIu16 " segments",
                 vibeDurations->num_values);
 
     patt.durations = vibeDurations->values;
@@ -1531,12 +1554,13 @@ static void prv_do_notification_vibe(NotificationWindowData *data, Uuid *id) {
     VibeScore *score = vibe_client_get_score(VibeClient_Notifications);
     if (score) {
       VibeScoreId id = alerts_preferences_get_vibe_score_for_client(VibeClient_Notifications);
-      PBL_LOG_DBG("Notification vibe: using alerts preferences (%d, %s)", (int)id,
-                  vibe_score_info_get_name(id));
+      PBL_LOG_DBG("Notification vibe: using score=%d (%s)", (int)id, vibe_score_info_get_name(id));
 
       vibe_score_do_vibe(score);
       vibe_score_destroy(score);
       did_vibrate = true;
+    } else {
+      prv_log_notification_vibe("skipped: no score", id);
     }
   }
   // Timestamp set after call to vibrate since if something fails,
@@ -1548,6 +1572,7 @@ static void prv_do_notification_vibe(NotificationWindowData *data, Uuid *id) {
 
 static void prv_handle_notification_added_common(Uuid *id, NotificationType type) {
   NotificationWindowData *data = &s_notification_window_data;
+  prv_log_notification_vibe("received", id);
 
   if (!alerts_should_notify_for_type(prv_alert_type_for_notification_type(type))) {
     return;
@@ -1557,6 +1582,7 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
 
   if (do_not_disturb_is_active() &&
       alerts_preferences_dnd_get_show_notifications() == DndNotificationModeHide) {
+    prv_log_notification_vibe("skipped: hidden by DND", id);
     return;
   }
 
@@ -1564,6 +1590,7 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
   prv_init_notification_window(true /*is_modal*/, true /*allow_dismiss_all*/);
 
   if (!data->is_modal) {
+    prv_log_notification_vibe("skipped: history window", id);
     return;
   }
 
@@ -1601,6 +1628,10 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
     // Check if we should delay the vibration until the animation completes
     if (alerts_preferences_get_notification_vibe_delay() && data->peek_layer) {
       // Delay vibration until peek animation finishes
+      if (data->pending_vibe) {
+        prv_log_notification_vibe("replaced by newer notification", &data->pending_vibe_id);
+      }
+      prv_log_notification_vibe("deferred until peek reveal", id);
       data->pending_vibe = true;
       data->pending_vibe_id = *id;
     } else {

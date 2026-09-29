@@ -41,14 +41,20 @@ void alerts_incoming_alert_analytics() {
 
 bool alerts_should_notify_for_type(AlertType type) {
   if (low_power_is_active()) {
+    PBL_LOG_DBG("Alert suppressed: type=%d, low power", type);
     return false;
   }
 
   if (firmware_update_is_in_progress()) {
+    PBL_LOG_DBG("Alert suppressed: type=%d, firmware update", type);
     return false;
   }
 
-  return alerts_preferences_get_alert_mask() & type;
+  const AlertMask mask = alerts_preferences_get_alert_mask();
+  if (!(mask & type)) {
+    PBL_LOG_DBG("Alert suppressed: type=%d, mask=%d", type, mask);
+  }
+  return mask & type;
 }
 
 bool alerts_should_enable_backlight_for_type(AlertType type) {
@@ -65,6 +71,7 @@ bool alerts_should_enable_backlight_for_type(AlertType type) {
 
 bool alerts_should_vibrate_for_type(AlertType type) {
   if (do_not_disturb_is_active() && !(alerts_preferences_dnd_get_mask() & type)) {
+    PBL_LOG_DBG("Alert vibe suppressed: type=%d, DND", type);
     return false;
   }
 
@@ -73,14 +80,19 @@ bool alerts_should_vibrate_for_type(AlertType type) {
   }
 
   if (battery_is_usb_connected()) {
+    PBL_LOG_DBG("Alert vibe suppressed: type=%d, USB connected", type);
     return false;
   }
 
-  if (prv_get_ms_since_last_notification_vibe() < NOTIFICATION_VIBE_HOLDOFF_MS) {
+  const int64_t elapsed_ms = prv_get_ms_since_last_notification_vibe();
+  if (elapsed_ms < NOTIFICATION_VIBE_HOLDOFF_MS) {
+    PBL_LOG_DBG("Alert vibe suppressed: type=%d, holdoff elapsed=%dms", type, (int)elapsed_ms);
     return false;
   }
 
-  return alerts_preferences_get_vibrate();
+  const bool vibrate = alerts_preferences_get_vibrate();
+  PBL_LOG_DBG("Alert vibe decision: type=%d, vibrate=%d", type, vibrate);
+  return vibrate;
 }
 
 bool alerts_get_vibrate(void) {
