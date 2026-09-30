@@ -16,6 +16,7 @@
 #include "pbl/services/system_task.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
+#include "util/math.h"
 
 #include "cst816_fw.h"
 
@@ -292,8 +293,14 @@ static void prv_process_pending_messages(void *context) {
 
   // Count interrupts spaced >=2s apart as sleep->awake transitions.
   RtcTicks now = rtc_get_ticks();
-  if (now - s_last_irq_ticks >= pbl_ms_to_ticks(CST816_WAKE_SPACING_MS)) {
+  const RtcTicks wake_spacing = pbl_ms_to_ticks(CST816_WAKE_SPACING_MS);
+  const RtcTicks gap = now - s_last_irq_ticks;
+  if (gap >= wake_spacing) {
     PBL_ANALYTICS_ADD(touch_driver_wake_cnt, 1);
+  }
+  // Each interrupt keeps the chip in active scan for the wake window.
+  if (s_last_irq_ticks != 0) {
+    PBL_ANALYTICS_ADD(touch_driver_awake_time_ms, pbl_ticks_to_ms(MIN(gap, wake_spacing)));
   }
   s_last_irq_ticks = now;
 
