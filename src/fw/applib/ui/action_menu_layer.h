@@ -53,6 +53,8 @@ typedef struct {
 
   const ActionMenuItem *short_items;
   int num_short_items;
+  //! @internal
+  bool glyph_grid;
   void *context;
 } ActionMenuLayer;
 
@@ -77,6 +79,10 @@ void action_menu_layer_destroy(ActionMenuLayer *aml);
 
 void action_menu_layer_set_short_items(ActionMenuLayer *aml, const ActionMenuItem *items,
                                        int num_items, unsigned default_selected_item);
+
+//! Show short items as enlarged single glyphs where the display supports it.
+//! Takes effect on the next call to action_menu_layer_set_short_items().
+void action_menu_layer_set_glyph_grid(ActionMenuLayer *aml, bool glyph_grid);
 
 void action_menu_layer_init(ActionMenuLayer *aml, const GRect *frame);
 

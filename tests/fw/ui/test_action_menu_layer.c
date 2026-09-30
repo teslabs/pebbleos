@@ -103,12 +103,20 @@ void graphics_context_set_text_color(GContext *ctx, GColor color) {
 }
 void graphics_context_set_compositing_mode(GContext *ctx, GCompOp mode) {
 }
+
+void graphics_fill_radial_internal(GContext *ctx, GPoint center, uint16_t radius_inner,
+                                   uint16_t radius_outer, int32_t angle_start, int32_t angle_end) {
+}
 void graphics_draw_bitmap_in_rect(GContext *ctx, const GBitmap *bitmap, const GRect *rect) {
 }
 void graphics_draw_horizontal_line_dotted(GContext *ctx, GPoint p, uint16_t length) {
 }
 
 // Every item lays out as a single stub-font line.
+int16_t fonts_get_font_cap_offset(GFont font) {
+  return FONT_HEIGHT * 22 / 100;
+}
+
 uint16_t graphics_text_layout_get_text_height(GContext *ctx, const char *text, GFont const font,
                                               uint16_t bounds_width,
                                               const GTextOverflowMode overflow_mode,
@@ -177,6 +185,11 @@ ContentIndicator *content_indicator_get_or_create_for_scroll_layer(ScrollLayer *
 }
 void content_indicator_set_content_available(ContentIndicator *content_indicator,
                                              ContentIndicatorDirection direction, bool available) {
+}
+
+void content_indicator_draw_arrow(GContext *ctx, const GRect *rect,
+                                  ContentIndicatorDirection direction, GColor foreground,
+                                  GColor background, GAlign alignment) {
 }
 
 // Observation

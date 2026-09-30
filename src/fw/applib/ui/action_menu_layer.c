@@ -11,6 +11,7 @@
 #include "applib/ui/animation.h"
 #include "applib/ui/menu_layer.h"
 #include "applib/ui/property_animation.h"
+#include "board/display.h"
 #include "kernel/ui/kernel_ui.h"
 #include "resource/resource_ids.auto.h"
 #include "shell/system_theme.h"
@@ -18,7 +19,18 @@
 #include "pbl/util/math.h"
 #include "pbl/util/testing.h"
 
-#define INDICATOR "»"
+#define INDICATOR             "»"
+#define GLYPH_SCRATCH_SIZE    32
+#define GLYPH_CELL_SIZE       48
+#define GLYPH_CELL_GAP        4
+#define GLYPHS_PER_ROUND_PAGE 10
+
+// The enlarged glyph grid needs a color framebuffer and a large display.
+#if !defined(CONFIG_RECOVERY_FW) && CONFIG_SCREEN_COLOR_DEPTH_BITS == 8 && DISP_COLS >= 200
+#define GLYPH_GRID_SUPPORTED 1
+#else
+#define GLYPH_GRID_SUPPORTED 0
+#endif
 
 #if !PBL_ROUND || (!defined(CONFIG_RECOVERY_FW) && CONFIG_SCREEN_COLOR_DEPTH_BITS == 8)
 static const int VERTICAL_PADDING = PBL_IF_COLOR_ELSE(2, 4);
@@ -36,6 +48,35 @@ static GFont prv_get_item_font(void) {
   return system_theme_get_font(TextStyleFont_MenuCellTitle);
 }
 
+static bool prv_is_glyph_grid(const ActionMenuLayer *aml) {
+#if GLYPH_GRID_SUPPORTED
+  return aml->glyph_grid;
+#else
+  return false;
+#endif
+}
+
+static bool prv_is_honeycomb(const ActionMenuLayer *aml) {
+  return PBL_IF_ROUND_ELSE(prv_is_glyph_grid(aml), false);
+}
+
+static int prv_short_row_count(const ActionMenuLayer *aml) {
+  const int capacity = prv_is_honeycomb(aml) ? GLYPHS_PER_ROUND_PAGE : SHORT_COL_COUNT;
+  return (aml->num_short_items + capacity - 1) / capacity;
+}
+
+static int prv_short_row_start(const ActionMenuLayer *aml, int row) {
+  if (!prv_is_honeycomb(aml)) {
+    return row * SHORT_COL_COUNT;
+  }
+  const int pages = prv_short_row_count(aml);
+  if (!pages) {
+    return 0;
+  }
+  // Distribute the remainder across the first pages instead of leaving an orphan page.
+  return row * (aml->num_short_items / pages) + MIN(row, aml->num_short_items % pages);
+}
+
 #if PBL_ROUND
 //! Only used on round displays to achieve a fish-eye effect
 static GFont prv_get_unfocused_item_font(void) {
@@ -46,8 +87,127 @@ static GFont prv_get_unfocused_item_font(void) {
 static uint16_t prv_get_num_rows(MenuLayer *menu_layer, uint16_t section_index,
                                  void *callback_context) {
   ActionMenuLayer *aml = callback_context;
-  return (uint16_t)(aml->num_items +
-                    (aml->num_short_items + SHORT_COL_COUNT - 1) / SHORT_COL_COUNT);
+  return aml->num_items + prv_short_row_count(aml);
+}
+
+static void prv_draw_scaled_glyph(GContext *ctx, const char *label, GFont font, const GRect *cell,
+                                  uint8_t *pixels) {
+#if CONFIG_SCREEN_COLOR_DEPTH_BITS == 8
+  // Reuse the context's font cache while rendering into a small transparent tile.
+  memset(pixels, 0, GLYPH_SCRATCH_SIZE * GLYPH_SCRATCH_SIZE);
+  const GBitmap saved_bitmap = ctx->dest_bitmap;
+  const GDrawState saved_state = ctx->draw_state;
+  FrameBuffer *saved_framebuffer = ctx->parent_framebuffer;
+  const GRect bounds = GRect(0, 0, GLYPH_SCRATCH_SIZE, GLYPH_SCRATCH_SIZE);
+  ctx->dest_bitmap = (GBitmap){
+    .addr = pixels,
+    .row_size_bytes = GLYPH_SCRATCH_SIZE,
+    .info = {.format = GBitmapFormat8Bit},
+    .bounds = bounds,
+  };
+  ctx->parent_framebuffer = NULL;
+  ctx->draw_state.clip_box = bounds;
+  ctx->draw_state.drawing_box = bounds;
+  ctx->draw_state.text_color = GColorWhite;
+  graphics_draw_text(ctx, label, font, bounds, GTextOverflowModeTrailingEllipsis,
+                     GTextAlignmentCenter, NULL);
+  ctx->dest_bitmap = saved_bitmap;
+  ctx->draw_state = saved_state;
+  ctx->parent_framebuffer = saved_framebuffer;
+
+  int min_x = GLYPH_SCRATCH_SIZE;
+  int min_y = GLYPH_SCRATCH_SIZE;
+  int max_x = -1;
+  int max_y = -1;
+  for (int y = 0; y < GLYPH_SCRATCH_SIZE; ++y) {
+    for (int x = 0; x < GLYPH_SCRATCH_SIZE; ++x) {
+      if (pixels[y * GLYPH_SCRATCH_SIZE + x] >> 6) {
+        min_x = MIN(min_x, x);
+        min_y = MIN(min_y, y);
+        max_x = MAX(max_x, x);
+        max_y = MAX(max_y, y);
+      }
+    }
+  }
+  if (max_x < min_x) {
+    return;
+  }
+  const GPoint origin = GPoint(cell->origin.x + (cell->size.w - 2 * (max_x - min_x + 1)) / 2,
+                               cell->origin.y + (cell->size.h - 2 * (max_y - min_y + 1)) / 2);
+  // Add a one-pixel edge so black glyph outlines remain visible on the menu background.
+  graphics_context_set_fill_color(ctx, GColorLightGray);
+  for (int y = min_y; y <= max_y; ++y) {
+    for (int x = min_x; x <= max_x;) {
+      if (!(pixels[y * GLYPH_SCRATCH_SIZE + x] >> 6)) {
+        ++x;
+        continue;
+      }
+      const int start = x++;
+      while (x <= max_x && pixels[y * GLYPH_SCRATCH_SIZE + x] >> 6) {
+        ++x;
+      }
+      const GRect edge = GRect(origin.x + 2 * (start - min_x) - 1, origin.y + 2 * (y - min_y) - 1,
+                               2 * (x - start) + 2, 4);
+      graphics_fill_rect(ctx, &edge);
+    }
+  }
+  for (int y = min_y; y <= max_y; ++y) {
+    for (int x = min_x; x <= max_x;) {
+      const uint8_t color = pixels[y * GLYPH_SCRATCH_SIZE + x];
+      const int start = x++;
+      while (x <= max_x && pixels[y * GLYPH_SCRATCH_SIZE + x] == color) {
+        ++x;
+      }
+      if (color >> 6) {
+        graphics_context_set_fill_color(ctx, (GColor){.argb = color});
+        const GRect run =
+            GRect(origin.x + 2 * (start - min_x), origin.y + 2 * (y - min_y), 2 * (x - start), 2);
+        graphics_fill_rect(ctx, &run);
+      }
+    }
+  }
+  ctx->draw_state = saved_state;
+#endif
+}
+
+static void prv_get_honeycomb_rows(int num_items, int row_counts[3]) {
+  const int middle = num_items <= 4 ? num_items : (num_items >= 8 || num_items % 2 == 0 ? 4 : 3);
+  const int outer = num_items - middle;
+  row_counts[0] = (outer + 1) / 2;
+  row_counts[1] = middle;
+  row_counts[2] = outer / 2;
+}
+
+static GRect prv_get_glyph_column_rect(const GRect *bounds, int num_items, int index,
+                                       int column_width) {
+  GRect cell = *bounds;
+  cell.origin.x += (cell.size.w - num_items * column_width) / 2 + index * column_width;
+  cell.size.w = column_width;
+  return cell;
+}
+
+static void prv_draw_glyph_columns(GContext *ctx, const GRect *bounds, GFont font,
+                                   ActionMenuItem *items, int num_items, int selected,
+                                   int column_width, uint8_t *pixels) {
+  for (int i = 0; i < num_items; ++i) {
+    GRect cell = prv_get_glyph_column_rect(bounds, num_items, i, column_width);
+    if (selected == i) {
+      const GRect highlight = GRect(cell.origin.x + (column_width - GLYPH_CELL_SIZE) / 2,
+                                    cell.origin.y, GLYPH_CELL_SIZE, GLYPH_CELL_SIZE);
+      graphics_context_set_fill_color(ctx, GColorDarkGray);
+      graphics_fill_round_rect(ctx, &highlight, 8, GCornersAll);
+    }
+    if (pixels) {
+      prv_draw_scaled_glyph(ctx, items[i].label, font, &cell, pixels);
+    } else {
+      GRect text = cell;
+      text.origin.y +=
+          (cell.size.h - fonts_get_font_height(font)) / 2 - fonts_get_font_cap_offset(font);
+      graphics_context_set_text_color(ctx, GColorWhite);
+      graphics_draw_text(ctx, items[i].label, font, text, GTextOverflowModeTrailingEllipsis,
+                         GTextAlignmentCenter, NULL);
+    }
+  }
 }
 
 static void prv_cell_column_draw(GContext *ctx, struct Layer const *cell_layer,
@@ -57,6 +217,31 @@ static void prv_cell_column_draw(GContext *ctx, struct Layer const *cell_layer,
   const int16_t font_height = fonts_get_font_height(font);
   const GRect *layer_bounds = &cell_layer->bounds;
   GRect r = *layer_bounds;
+  if (prv_is_glyph_grid(aml)) {
+    uint8_t *pixels = applib_malloc(GLYPH_SCRATCH_SIZE * GLYPH_SCRATCH_SIZE);
+    if (prv_is_honeycomb(aml)) {
+      // Keep a packed, staggered page with the widest row at screen center.
+      const int column_width = (r.size.w - 16) / 4;
+      int row_counts[3];
+      prv_get_honeycomb_rows(num_items, row_counts);
+      int first = 0;
+      r.size.h = GLYPH_CELL_SIZE;
+      for (int row = 0; row < 3; ++row) {
+        const int count = row_counts[row];
+        if (count) {
+          prv_draw_glyph_columns(ctx, &r, font, &items[first], count, sel_idx - first, column_width,
+                                 pixels);
+        }
+        first += count;
+        r.origin.y += GLYPH_CELL_SIZE + GLYPH_CELL_GAP;
+      }
+    } else {
+      const int column_width = r.size.w / SHORT_COL_COUNT;
+      prv_draw_glyph_columns(ctx, &r, font, items, num_items, sel_idx, column_width, pixels);
+    }
+    applib_free(pixels);
+    return;
+  }
 #if PBL_ROUND
   // more narrow on round
   r = grect_inset_internal(r, 25, 0);
@@ -444,9 +629,11 @@ static void prv_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell
     const bool selected = menu_layer_is_index_selected(&aml->menu_layer, cell_index);
     prv_cell_item_draw(ctx, cell_layer, aml, item, selected);
   } else {
-    const int base_idx = (cell_index->row - aml->num_items) * SHORT_COL_COUNT;
+    const int short_row = cell_index->row - aml->num_items;
+    const int base_idx = prv_short_row_start(aml, short_row);
     const int sel_idx = aml->selected_index - (base_idx + aml->num_items);
-    const int num_items = CLIP(aml->num_short_items - base_idx, 0, SHORT_COL_COUNT);
+    const int num_items =
+        MIN(aml->num_short_items, prv_short_row_start(aml, short_row + 1)) - base_idx;
     prv_cell_column_draw(ctx, cell_layer, aml, (ActionMenuItem *)&aml->short_items[base_idx],
                          num_items, sel_idx);
   }
@@ -456,7 +643,15 @@ static int prv_get_menu_layer_row(ActionMenuLayer *aml, int item_index) {
   if (item_index < aml->num_items) {
     return item_index;
   } else {
-    return aml->num_items + (item_index - aml->num_items) / SHORT_COL_COUNT;
+    if (!prv_is_honeycomb(aml)) {
+      return aml->num_items + (item_index - aml->num_items) / SHORT_COL_COUNT;
+    }
+    int row = 0;
+    const int short_index = item_index - aml->num_items;
+    while (row + 1 < prv_short_row_count(aml) && short_index >= prv_short_row_start(aml, row + 1)) {
+      ++row;
+    }
+    return aml->num_items + row;
   }
 }
 
@@ -523,6 +718,9 @@ static bool prv_aml_is_short(ActionMenuLayer *aml) {
 }
 
 static int16_t prv_get_cell_padding(ActionMenuLayer *aml) {
+  if (prv_is_glyph_grid(aml)) {
+    return GLYPH_CELL_GAP;
+  }
   const int16_t default_sep_height = 10;
 #if PBL_ROUND
   // when showing columns, set cells further apart
@@ -543,6 +741,10 @@ static int16_t prv_get_cell_height_cb(struct MenuLayer *menu_layer, MenuIndex *c
   const int16_t line_height = fonts_get_font_height(aml->layout_cache.font);
   // If we have short items, just return the line height.
   if (prv_aml_is_short(aml)) {
+    if (prv_is_glyph_grid(aml)) {
+      const int rows = PBL_IF_ROUND_ELSE(3, 1);
+      return rows * GLYPH_CELL_SIZE + (rows - 1) * GLYPH_CELL_GAP;
+    }
     return line_height;
   }
 
@@ -661,7 +863,7 @@ static void prv_selection_changed_cb(struct MenuLayer *menu_layer, MenuIndex new
     // A touch tap moves the menu selection directly, bypassing prv_set_selected_index, so no
     // column index was pre-set for this short-item row; adopt its first column.
     prv_unschedule_item_animation(aml);
-    aml->selected_index = aml->num_items + (new_index.row - aml->num_items) * SHORT_COL_COUNT;
+    aml->selected_index = aml->num_items + prv_short_row_start(aml, new_index.row - aml->num_items);
     prv_selection_changed(aml);
   }
 }
@@ -670,10 +872,16 @@ static void prv_changed_proc(Layer *layer) {
   ActionMenuLayer *aml = (ActionMenuLayer *)layer;
   const GRect *aml_bounds = &layer->bounds;
   GRect menu_layer_frame = *aml_bounds;
+  if (prv_is_honeycomb(aml)) {
+    MenuIndex index = MenuIndex(0, 0);
+    menu_layer_frame.size.h = prv_get_cell_height_cb(&aml->menu_layer, &index, aml);
+    grect_align(&menu_layer_frame, aml_bounds, GAlignCenter, true);
+  }
 #if PBL_ROUND
-  if (prv_aml_is_short(aml)) {
+  else if (prv_aml_is_short(aml)) {
     // clip the menu layer to show exactly SHORT_ITEM_MAX_ROWS_SPALDING lines at a time
-    const int16_t font_height = fonts_get_font_height(aml->layout_cache.font);
+    MenuIndex index = MenuIndex(0, 0);
+    const int16_t font_height = prv_get_cell_height_cb(&aml->menu_layer, &index, aml);
     const int16_t cell_padding = prv_get_cell_padding(aml);
     const int num_visible_rows =
         MIN(prv_get_num_rows(&aml->menu_layer, 0, aml), SHORT_ITEM_MAX_ROWS_SPALDING);
@@ -689,7 +897,9 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
 #if PBL_ROUND
   ActionMenuLayer *aml = (ActionMenuLayer *)layer;
   const int num_rows = prv_get_num_rows(&aml->menu_layer, 0, aml);
-  if (prv_aml_is_short(aml) && (num_rows > SHORT_ITEM_MAX_ROWS_SPALDING)) {
+  const bool paged = prv_is_honeycomb(aml);
+  const int max_visible_rows = SHORT_ITEM_MAX_ROWS_SPALDING;
+  if (prv_aml_is_short(aml) && (num_rows > (paged ? 1 : max_visible_rows))) {
     // draw some "content indicator" arrows
     const GRect *aml_bounds = &layer->bounds;
     const GRect *menu_layer_frame = &menu_layer_get_layer(&aml->menu_layer)->frame;
@@ -700,12 +910,12 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
     const GColor fg_color = PBL_IF_COLOR_ELSE(GColorDarkGray, GColorWhite);
 
     GRect arrow_rect = (GRect){.size = GSize(aml_bounds->size.w, arrow_layer_height)};
-    if (row >= SHORT_ITEM_MAX_ROWS_SPALDING - 1) {
+    if (paged ? row > 0 : row >= max_visible_rows - 1) {
       grect_align(&arrow_rect, aml_bounds, GAlignTop, true /* clip */);
       content_indicator_draw_arrow(ctx, &arrow_rect, ContentIndicatorDirectionUp, fg_color,
                                    bg_color, GAlignTop);
     }
-    if (num_rows - row >= SHORT_ITEM_MAX_ROWS_SPALDING) {
+    if (paged ? row + 1 < num_rows : num_rows - row >= max_visible_rows) {
       grect_align(&arrow_rect, aml_bounds, GAlignBottom, true /* clip */);
       content_indicator_draw_arrow(ctx, &arrow_rect, ContentIndicatorDirectionDown, fg_color,
                                    bg_color, GAlignBottom);
@@ -716,6 +926,10 @@ static void prv_update_proc(Layer *layer, GContext *ctx) {
 
 static void prv_update_aml_cache(ActionMenuLayer *aml, int selected_index) {
   prv_unschedule_item_animation(aml);
+#if GLYPH_GRID_SUPPORTED
+  aml->layout_cache.font = prv_is_glyph_grid(aml) ? fonts_get_system_font(FONT_KEY_GOTHIC_28_EMOJI)
+                                                  : prv_get_item_font();
+#endif
 
   if (aml->layout_cache.item_heights != NULL) {
     applib_free(aml->layout_cache.item_heights);
@@ -740,6 +954,7 @@ static void prv_update_aml_cache(ActionMenuLayer *aml, int selected_index) {
   // the plain menus' tap-to-activate.
   menu_layer_set_tap_select_only(&aml->menu_layer, prv_aml_is_short(aml));
 
+  prv_changed_proc(&aml->layer);
   layer_mark_dirty(&aml->layer);
   menu_layer_reload_data(&aml->menu_layer);
   prv_set_selected_index(aml, selected_index, false /* animated */);
@@ -863,7 +1078,13 @@ void action_menu_layer_set_items(ActionMenuLayer *aml, const ActionMenuItem *ite
   aml->items = items;
   aml->num_items = num_items;
   aml->separator_index = separator_index;
+  // Wide items never use the glyph grid, e.g. after returning from a glyph grid level.
+  aml->glyph_grid = false;
   prv_update_aml_cache(aml, default_selected_item);
+}
+
+void action_menu_layer_set_glyph_grid(ActionMenuLayer *aml, bool glyph_grid) {
+  aml->glyph_grid = glyph_grid;
 }
 
 void action_menu_layer_set_short_items(ActionMenuLayer *aml, const ActionMenuItem *items,

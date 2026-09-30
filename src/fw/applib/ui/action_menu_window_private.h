@@ -54,6 +54,11 @@ struct ActionMenuItem {
   };
 };
 
+//! Firmware-only display mode: a grid of enlarged single-glyph items, e.g. emoji replies.
+//! Displays without room for it render the level like ActionMenuLevelDisplayModeThin.
+#define ActionMenuLevelDisplayModeGlyphGrid \
+  ((ActionMenuLevelDisplayMode)(ActionMenuLevelDisplayModeThin + 1))
+
 struct ActionMenuLevel {
   ActionMenuLevel *parent_level;
   uint16_t max_items;

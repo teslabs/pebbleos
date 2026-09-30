@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "applib/fonts/fonts.h"
 #include "applib/graphics/framebuffer.h"
 #include "applib/graphics/graphics.h"
 #include "applib/ui/action_menu_hierarchy.h"
@@ -199,7 +200,9 @@ static void prv_render_action_menu_window(const ActionMenuLevel *root_level,
                                           unsigned int additional_crumbs) {
   ActionMenuConfig config = {
     .root_level = root_level,
-    .colors.background = GColorChromeYellow,
+    .colors.background = (root_level->display_mode == ActionMenuLevelDisplayModeGlyphGrid)
+                             ? GColorFolly
+                             : GColorChromeYellow,
     .did_close = prv_action_menu_did_close_cb,
   };
 
@@ -304,6 +307,9 @@ void prv_prepare_canvas_and_render_action_menus_animated(const ActionMenuLevel *
 //////////////////////
 
 void test_action_menu_window__wide_display_mode_with_just_titles(void) {
+  if (!PBL_COLOR) {
+    return; // no monochrome baseline
+  }
   ActionMenuLevel *root_level = action_menu_level_create(3);
   action_menu_level_add_action(root_level, "I will text back", prv_noop_action_callback, NULL);
   action_menu_level_add_action(root_level,
@@ -316,7 +322,7 @@ void test_action_menu_window__wide_display_mode_with_just_titles(void) {
   cl_check(gbitmap_pbi_eq(s_dest_bitmap, TEST_PBI_FILE));
 }
 
-void test_action_menu_window__thin_display_mode_with_emoji(void) {
+static void prv_render_emoji_picker(unsigned int selected_index, bool glyph_grid) {
   // Copied from prv_create_emoji_level_from_action() in timeline_actions.c; it wouldn't work that
   // well to just make the array PBL_T_STATIC in that function because we need to know its length
   // too
@@ -325,17 +331,78 @@ void test_action_menu_window__thin_display_mode_with_emoji(void) {
     "😭", "😴", "😐", "😯", "👍", "👎",           "👌", "💩", "🎉", "🍺",
   };
   ActionMenuLevel *root_level = action_menu_level_create(ARRAY_LENGTH(thin_values));
-  action_menu_level_set_display_mode(root_level, ActionMenuLevelDisplayModeThin);
+  root_level->display_mode =
+      glyph_grid ? ActionMenuLevelDisplayModeGlyphGrid : ActionMenuLevelDisplayModeThin;
   for (size_t i = 0; i < ARRAY_LENGTH(thin_values); i++) {
     action_menu_level_add_action(root_level, thin_values[i], prv_noop_action_callback, NULL);
   }
 
-  const unsigned int selected_index = 0;
   prv_prepare_canvas_and_render_action_menus_static(root_level, selected_index, 0);
-  cl_check(gbitmap_pbi_eq(s_dest_bitmap, TEST_PBI_FILE));
+}
+
+static void prv_check_emoji_picker(unsigned int selected_index, const char *filename) {
+#if !PBL_COLOR
+  // The glyph grid must fall back to the legacy thin rendering on monochrome displays.
+  prv_render_emoji_picker(selected_index, false);
+  GBitmap *legacy = s_dest_bitmap;
+  s_dest_bitmap = NULL;
+  prv_render_emoji_picker(selected_index, true);
+  cl_check(gbitmap_eq(s_dest_bitmap, legacy, filename));
+  gbitmap_destroy(legacy);
+#else
+  prv_render_emoji_picker(selected_index, true);
+#endif
+  cl_check(gbitmap_pbi_eq(s_dest_bitmap, filename));
+}
+
+void test_action_menu_window__thin_display_mode_with_emoji(void) {
+  prv_check_emoji_picker(0, TEST_PBI_FILE);
+  const GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_28_EMOJI);
+  cl_assert_equal_i(HAS_FEATURE(font->base.md.version, VERSION_FIELD_FEATURE_COLOR) != 0,
+                    PBL_IF_COLOR_ELSE(true, false));
+}
+
+void test_action_menu_window__emoji_picker_snooze(void) {
+  prv_check_emoji_picker(12, TEST_PBI_FILE);
+}
+
+void test_action_menu_window__emoji_picker_last_page(void) {
+  prv_check_emoji_picker(20, TEST_PBI_FILE);
+}
+
+void test_action_menu_window__glyph_grid_not_settable_from_sdk(void) {
+  ActionMenuLevel *level = action_menu_level_create(1);
+  action_menu_level_set_display_mode(level, ActionMenuLevelDisplayModeGlyphGrid);
+  cl_assert_equal_i(level->display_mode, ActionMenuLevelDisplayModeWide);
+  action_menu_hierarchy_destroy(level, NULL, NULL);
+}
+
+void test_action_menu_window__wide_items_reset_glyph_grid(void) {
+  ActionMenuLevel *root_level = action_menu_level_create(3);
+  root_level->display_mode = ActionMenuLevelDisplayModeGlyphGrid;
+  for (int i = 0; i < 3; ++i) {
+    action_menu_level_add_action(root_level, "😃", prv_noop_action_callback, NULL);
+  }
+  ActionMenuConfig config = {
+    .root_level = root_level,
+    .did_close = prv_action_menu_did_close_cb,
+  };
+  ActionMenu *action_menu = app_action_menu_open(&config);
+  window_set_on_screen(&action_menu->window, true, true);
+  ActionMenuData *data = window_get_user_data(&action_menu->window);
+  ActionMenuLayer *aml = &data->action_menu_layer;
+  cl_assert(aml->glyph_grid);
+
+  action_menu_layer_set_short_items(aml, NULL, 0, 0);
+  action_menu_layer_set_items(aml, root_level->items, 3, 0, 0);
+  cl_assert(!aml->glyph_grid);
+  cl_assert(aml->layout_cache.font != fonts_get_system_font(FONT_KEY_GOTHIC_28_EMOJI));
 }
 
 void test_action_menu_window__thin_display_mode_two_row(void) {
+  if (!PBL_COLOR) {
+    return; // no monochrome baseline
+  }
   static const char *thin_values[] = {"a", "b", "c", "d", "e"};
   ActionMenuLevel *root_level = action_menu_level_create(ARRAY_LENGTH(thin_values));
   action_menu_level_set_display_mode(root_level, ActionMenuLevelDisplayModeThin);
@@ -349,6 +416,9 @@ void test_action_menu_window__thin_display_mode_two_row(void) {
 }
 
 void test_action_menu_window__thin_display_mode_one_row(void) {
+  if (!PBL_COLOR) {
+    return; // no monochrome baseline
+  }
   static const char *thin_values[] = {"Y", "N"};
   ActionMenuLevel *root_level = action_menu_level_create(ARRAY_LENGTH(thin_values));
   action_menu_level_set_display_mode(root_level, ActionMenuLevelDisplayModeThin);
@@ -362,6 +432,9 @@ void test_action_menu_window__thin_display_mode_one_row(void) {
 }
 
 void test_action_menu_window__thin_display_mode_one_item(void) {
+  if (!PBL_COLOR) {
+    return; // no monochrome baseline
+  }
   static const char *thin_values[] = {"Y"};
   ActionMenuLevel *root_level = action_menu_level_create(ARRAY_LENGTH(thin_values));
   action_menu_level_set_display_mode(root_level, ActionMenuLevelDisplayModeThin);
@@ -375,6 +448,9 @@ void test_action_menu_window__thin_display_mode_one_item(void) {
 }
 
 void test_action_menu_window__wide_display_mode_with_chevron(void) {
+  if (!PBL_COLOR) {
+    return; // no monochrome baseline
+  }
   ActionMenuLevel *root_level = action_menu_level_create(3);
   ActionMenuLevel *voice_level = action_menu_level_create(1);
   action_menu_level_add_action(voice_level, "This won't be seen", prv_noop_action_callback, NULL);
@@ -395,6 +471,9 @@ void test_action_menu_window__wide_display_mode_with_chevron(void) {
 }
 
 void test_action_menu_window__wide_display_mode_with_chevron_and_long_labels(void) {
+  if (!PBL_COLOR) {
+    return; // no monochrome baseline
+  }
   ActionMenuLevel *root_level = action_menu_level_create(3);
   ActionMenuLevel *voice_level = action_menu_level_create(1);
   action_menu_level_add_action(voice_level, "This won't be seen", prv_noop_action_callback, NULL);
@@ -416,6 +495,9 @@ void test_action_menu_window__wide_display_mode_with_chevron_and_long_labels(voi
 }
 
 void test_action_menu_window__wide_display_mode_with_chevron_and_long_labels_hyphenated(void) {
+  if (!PBL_COLOR) {
+    return; // no monochrome baseline
+  }
   ActionMenuLevel *root_level = action_menu_level_create(3);
   ActionMenuLevel *voice_level = action_menu_level_create(1);
   action_menu_level_add_action(voice_level, "This won't be seen", prv_noop_action_callback, NULL);
@@ -437,6 +519,9 @@ void test_action_menu_window__wide_display_mode_with_chevron_and_long_labels_hyp
 }
 
 void test_action_menu_window__wide_display_mode_with_separator(void) {
+  if (!PBL_COLOR) {
+    return; // no monochrome baseline
+  }
   ActionMenuLevel *root_level = action_menu_level_create(3);
   action_menu_level_add_action(root_level, "Change Time", prv_noop_action_callback, NULL);
 
@@ -454,6 +539,76 @@ void test_action_menu_window__wide_display_mode_with_separator(void) {
 }
 
 static int s_freezing_action_count;
+static const ActionMenuItem *s_last_emoji_action;
+
+static void prv_emoji_action_callback(ActionMenu *action_menu, const ActionMenuItem *action,
+                                      void *context) {
+  s_last_emoji_action = action;
+  action_menu_freeze(action_menu);
+}
+
+void test_action_menu_window__emoji_picker_selection(void) {
+  ActionMenuLevel *root_level = action_menu_level_create(21);
+  root_level->display_mode = ActionMenuLevelDisplayModeGlyphGrid;
+  for (int i = 0; i < 21; ++i) {
+    action_menu_level_add_action(root_level, "😃", prv_emoji_action_callback, NULL);
+  }
+  ActionMenuConfig config = {
+    .root_level = root_level,
+    .did_close = prv_action_menu_did_close_cb,
+  };
+  ActionMenu *action_menu = app_action_menu_open(&config);
+  window_set_on_screen(&action_menu->window, true, true);
+  ActionMenuData *data = window_get_user_data(&action_menu->window);
+  ActionMenuLayer *aml = &data->action_menu_layer;
+  MenuLayer *menu = &aml->menu_layer;
+#if PBL_COLOR
+  cl_assert_equal_i(fonts_get_font_height(aml->layout_cache.font), 28);
+#else
+  const GFont font = aml->layout_cache.font;
+  const PreferredContentSize size = system_theme_get_content_size();
+  system_theme_set_content_size(PreferredContentSizeSmall);
+  action_menu_layer_set_short_items(aml, root_level->items, 21, 0);
+  cl_assert(aml->layout_cache.font == font);
+  system_theme_set_content_size(size);
+#endif
+
+  PBL_UNUSED static const int round_rows[] = {0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1,
+                                              1, 1, 1, 2, 2, 2, 2, 2, 2, 2};
+  for (int count = 0; count <= 21; ++count) {
+    action_menu_layer_set_short_items(aml, root_level->items, count, 0);
+    const int expected_rows = PBL_IF_ROUND_ELSE((count + 9) / 10, (count + 2) / 3);
+    cl_assert_equal_i(menu->callbacks.get_num_rows(menu, 0, aml), expected_rows);
+#if PBL_ROUND
+    int page_counts[3] = {0};
+    for (int i = 0; i < count; ++i) {
+      prv_set_selected_index(aml, i, false);
+      const int page = menu_layer_get_selected_index(menu).row;
+      cl_assert(page >= 0 && page < expected_rows);
+      ++page_counts[page];
+    }
+    for (int page = 0; page < expected_rows; ++page) {
+      cl_assert(page_counts[page] > 0 && page_counts[page] <= 10);
+      cl_assert(page_counts[page] >= page_counts[0] - 1);
+      cl_assert(page_counts[page] <= page_counts[0] + 1);
+    }
+#endif
+  }
+
+  for (int i = 0; i < 21; ++i) {
+    prv_set_selected_index(aml, i, false);
+    MenuIndex selected = menu_layer_get_selected_index(menu);
+    cl_assert_equal_i(selected.row, PBL_IF_ROUND_ELSE(round_rows[i], i / 3));
+    s_last_emoji_action = NULL;
+    menu->callbacks.select_click(menu, &selected, menu->callback_context);
+    cl_assert(s_last_emoji_action == &root_level->items[i]);
+    action_menu_unfreeze(action_menu);
+  }
+  prv_set_selected_index(aml, 21, false);
+  cl_assert_equal_i(aml->selected_index, 20);
+  prv_set_selected_index(aml, -1, false);
+  cl_assert_equal_i(aml->selected_index, 0);
+}
 
 static void prv_freezing_action_callback(ActionMenu *action_menu, const ActionMenuItem *action,
                                          void *context) {

@@ -41,7 +41,8 @@ ActionMenuLevel *action_menu_level_create(uint16_t max_items) {
 
 void action_menu_level_set_display_mode(ActionMenuLevel *level,
                                         ActionMenuLevelDisplayMode display_mode) {
-  if (!level)
+  // Firmware-only modes are set directly on the level, never through the SDK.
+  if (!level || display_mode > ActionMenuLevelDisplayModeThin)
     return;
   level->display_mode = display_mode;
 }

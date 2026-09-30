@@ -402,9 +402,11 @@ pbl_clar_test(test_action_menu_window
     src/fw/applib/ui/inverter_layer.c
     src/fw/applib/ui/content_indicator.c
     tests/fakes/fake_fonts.c
+    tests/fakes/fake_firmware_emoji_resources.c
     src/fw/shell/system_theme.c
     src/fw/applib/ui/shadows.c
-  PLATFORMS obelix gabbro
+  DEFINES "FIRMWARE_EMOJI_DIR=\"${PBL_BASE}/resources/normal/base/pbf\""
+  PLATFORMS obelix gabbro asterix
   OVERRIDES dummy_board
   TEST_IMAGES
 )

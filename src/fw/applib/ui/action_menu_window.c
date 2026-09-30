@@ -74,8 +74,10 @@ static void prv_view_model_did_change(ActionMenuData *data) {
   GRect frame = grect_inset(data->action_menu.window.layer.frame, vm->menu_insets);
   layer_set_frame(&data->action_menu_layer.layer, &frame);
   prv_set_action_menu_layer_callbacks(data, false);
-  if (cur_level->display_mode == ActionMenuLevelDisplayModeThin) {
+  const bool glyph_grid = (cur_level->display_mode == ActionMenuLevelDisplayModeGlyphGrid);
+  if (glyph_grid || cur_level->display_mode == ActionMenuLevelDisplayModeThin) {
     action_menu_layer_set_items(&data->action_menu_layer, NULL, 0, 0, 0);
+    action_menu_layer_set_glyph_grid(&data->action_menu_layer, glyph_grid);
     action_menu_layer_set_short_items(&data->action_menu_layer, cur_level->items,
                                       cur_level->num_items, cur_level->default_selected_item);
   } else {
