@@ -128,7 +128,8 @@ static void prv_expandable_dialog_load(Window *window) {
   // Ownership of icon is taken over by KinoLayer in dialog_init_icon_layer() call below
   KinoReel *icon = dialog_create_icon(dialog);
   const GSize icon_size = icon ? kino_reel_get_size(icon) : GSizeZero;
-  uint16_t icon_offset = (icon ? ICON_TOP_MARGIN_PX - status_layer_offset : 0);
+  uint16_t icon_offset =
+      icon ? MAX((int16_t)ICON_TOP_MARGIN_PX - (int16_t)status_layer_offset, 0) : 0;
 
   x = 0;
   y = status_layer_offset;
