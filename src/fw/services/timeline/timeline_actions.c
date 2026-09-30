@@ -822,7 +822,7 @@ static ActionMenuLevel *prv_create_emoji_level_from_action(ActionMenuLevel *pare
   const uint16_t num_items = ARRAY_LENGTH(short_strings);
 
   ActionMenuLevel *emoji_level = prv_create_level(num_items, parent_level);
-  emoji_level->display_mode = ActionMenuLevelDisplayModeThin;
+  emoji_level->display_mode = ActionMenuLevelDisplayModeGlyphGrid;
 
   for (size_t i = 0; i < num_items; i++) {
     action_menu_level_add_action(emoji_level, short_strings[i], prv_action_menu_cb, action);
