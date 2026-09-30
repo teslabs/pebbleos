@@ -469,7 +469,14 @@ static const PropertyAnimationImplementation s_content_offset_animation_impl = {
   },
 };
 
-void scroll_layer_set_content_offset(ScrollLayer *scroll_layer, GPoint offset, bool animated) {
+#ifdef CONFIG_TOUCH
+static void prv_touch_settle_stopped(Animation *animation, bool finished, void *context) {
+  scroll_layer_touch_fling_cleanup(context);
+}
+#endif
+
+static void prv_set_content_offset(ScrollLayer *scroll_layer, GPoint offset, bool animated,
+                                   uint32_t settle_duration_ms) {
   // Note: animation_is_scheduled() returns false and property_animation_destroy does nothing
   // if the argument is NULL
   Animation *animation = property_animation_get_animation(scroll_layer->animation);
@@ -497,13 +504,29 @@ void scroll_layer_set_content_offset(ScrollLayer *scroll_layer, GPoint offset, b
       }
       animation_set_auto_destroy(animation, false);
     }
+    if (settle_duration_ms) {
+      animation_set_duration(animation, settle_duration_ms);
+      animation_set_curve(animation, AnimationCurveEaseOut);
+#ifdef CONFIG_TOUCH
+      animation_set_handlers(animation, (AnimationHandlers){.stopped = prv_touch_settle_stopped},
+                             scroll_layer);
+#endif
+    }
     animation_schedule(animation);
   } else {
     prv_scroll_layer_set_content_offset_internal(scroll_layer, offset);
   }
 }
 
+void scroll_layer_set_content_offset(ScrollLayer *scroll_layer, GPoint offset, bool animated) {
+  prv_set_content_offset(scroll_layer, offset, animated, 0);
+}
+
 #ifdef CONFIG_TOUCH
+void scroll_layer_touch_settle(ScrollLayer *scroll_layer, GPoint offset, uint32_t duration_ms) {
+  prv_set_content_offset(scroll_layer, offset, true, duration_ms);
+}
+
 //! Apply a touch-overscrolled content offset, bypassing the clamp that
 //! prv_scroll_layer_set_content_offset_internal applies when offset clipping is enabled (the
 //! clamp would swallow the rubber-band excess every frame).

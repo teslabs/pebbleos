@@ -8,6 +8,9 @@
 #ifdef CONFIG_TOUCH
 #include "applib/ui/recognizer/swipe.h"
 
+//! Settle to a touch page boundary with a timed ease-out animation.
+void scroll_layer_touch_settle(ScrollLayer *scroll_layer, GPoint offset, uint32_t duration_ms);
+
 //! @internal
 //! Touch-navigation (Tier-1) gesture handlers for a bare ScrollLayer, split out so they can be unit
 //! tested directly without driving the full recognizer stack. A ScrollLayer is a pure scroll
