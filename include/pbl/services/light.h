@@ -100,6 +100,10 @@ uint8_t light_get_current_brightness_percent(void);
 //! fading out). Returns false only when the backlight is fully off.
 bool light_is_on(void);
 
+//! @return true if the backlight is on and its current lit period was last
+//! started or refreshed by touch contact alone.
+bool light_is_lit_by_touch(void);
+
 //! Ambient light level in lux: screen-compensated and converted with the
 //! board's calibration (raw counts pass through unchanged on boards without
 //! lux coefficients). Served from a short-lived cache; while the backlight is

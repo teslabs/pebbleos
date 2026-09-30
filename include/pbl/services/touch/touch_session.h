@@ -12,8 +12,9 @@
 //! button press. Use extends it; it expires after the backlight timeout, as if
 //! the light had come on — tracked as its own deadline because bright ambient
 //! (or DnD) keeps the actual backlight off. The idle watchface is the only
-//! guarded surface: any other foreground UI, a focused modal, or a lit
-//! backlight counts as active.
+//! guarded surface: any other foreground UI, a focused modal, or a backlight
+//! lit by anything other than touch counts as active. Only contact that moved
+//! or formed a gesture extends the session.
 //!
 //! All entry points run on KernelMain (event-loop handlers); the module is
 //! unlocked by design.
@@ -34,7 +35,8 @@ void touch_session_extend(void);
 
 //! @return true while touch may navigate: within the armed deadline, the
 //! foreground UI is not a watchface, a focused modal is up, or the backlight
-//! is on. Always true in recovery firmware (mfg touch test).
+//! is on for a reason other than touch. Always true in recovery firmware (mfg
+//! touch test).
 bool touch_session_is_active(void);
 
 //! Close the session deadline immediately. The environmental overrides in

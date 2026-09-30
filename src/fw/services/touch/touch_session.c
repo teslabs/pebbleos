@@ -52,8 +52,9 @@ bool touch_session_is_active(void) {
     return true;
   }
   // A lit backlight means something (button, shake, wake gesture) already
-  // signalled engagement.
-  return light_is_on();
+  // signalled engagement. One kept on by touch alone doesn't, or a stream of
+  // false contacts would keep itself alive.
+  return light_is_on() && !light_is_lit_by_touch();
 #endif
 }
 

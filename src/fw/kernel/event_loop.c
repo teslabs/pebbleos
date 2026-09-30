@@ -128,6 +128,11 @@ bool launcher_popups_are_blocked(void) {
 // got processed between the NewTimer firing and KernelMain waking up to do the kill.
 static bool s_force_quit_was_cancelled = false;
 
+#ifdef CONFIG_TOUCH
+//! Whether the current contact moved or formed a gesture.
+static bool s_touch_contact_engaged;
+#endif
+
 void launcher_cancel_force_quit(void) {
   s_force_quit_was_cancelled = true;
   new_timer_stop(s_back_hold_timer);
@@ -312,13 +317,20 @@ static PBL_NOINLINE void prv_minimal_event_handler(PebbleEvent *e) {
         if (!armed) {
           PBL_ANALYTICS_ADD(touch_gated_touchdown_count, 1);
         }
-        touch_session_extend();
+        s_touch_contact_engaged = false;
         // A finger on the screen is ongoing interaction: halt the app idle timeout until liftoff.
         // A motionless hold emits no further touch events, so a timer refresh alone can't cover it.
         app_idle_timeout_touch_down();
+      } else if (e->touch.event.type == TouchEvent_PositionUpdate) {
+        s_touch_contact_engaged = true;
+        touch_session_extend();
       } else if (e->touch.event.type == TouchEvent_Liftoff) {
         light_touch_up();
-        touch_session_extend();
+        // A contact that neither moved nor formed a gesture is indistinguishable from a false
+        // trigger; letting it extend the session would let a stream of them sustain itself.
+        if (s_touch_contact_engaged) {
+          touch_session_extend();
+        }
         app_idle_timeout_touch_up();
       }
       if (compositor_is_animating() || is_modal_focused) {
@@ -336,6 +348,9 @@ static PBL_NOINLINE void prv_minimal_event_handler(PebbleEvent *e) {
 #endif
 
     case PEBBLE_GESTURE_EVENT: {
+#ifdef CONFIG_TOUCH
+      s_touch_contact_engaged = true;
+#endif
       bool wake_on_gesture = false;
       switch (backlight_get_touch_wake()) {
         case BacklightTouchWake_Tap:
