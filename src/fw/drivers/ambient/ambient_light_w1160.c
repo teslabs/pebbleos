@@ -247,6 +247,10 @@ void ambient_light_driver_set_state(bool active, bool sampling) {
     return;
   }
   pbl_mutex_lock(&s_state_mutex, PBL_FOREVER);
+  if (!s_active && active) {
+    // A new window must not reuse an earlier idle one-shot sample.
+    s_cache_valid = false;
+  }
   if (sampling != s_sampling_active) {
     const uint8_t reg = sampling ? W1160_SAMPLING_EN : W1160_SAMPLING_DIS;
     if (prv_write_register(W1160_STATE_REG, reg)) {

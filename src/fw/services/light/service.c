@@ -191,6 +191,9 @@ static void prv_als_prime_release_callback(void *data) {
 //! consulting ALS. Caller must hold s_mutex.
 static void prv_als_prime_for_interaction(void) {
   if (!s_als_primed) {
+    if (s_current_brightness == 0) {
+      s_als_cached_ticks = 0;
+    }
     s_als_primed = true;
     ambient_light_prime();
   }
