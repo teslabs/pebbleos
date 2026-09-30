@@ -516,18 +516,97 @@ void test_menu_layer_system_cells__third_party_app_keeps_platform_default(void) 
   cl_assert_equal_i(default_small_cell_height, 42);
   cl_assert_equal_i(default_horizontal_inset, 10);
 
+  for (PreferredContentSize size = PreferredContentSizeSmall; size < NumPreferredContentSizes;
+       size++) {
+    system_theme_set_content_size(size);
+    cl_assert_equal_i(menu_cell_basic_cell_height(), default_basic_cell_height);
+    cl_assert_equal_i(menu_cell_small_cell_height(), default_small_cell_height);
+    cl_assert_equal_i(menu_cell_basic_horizontal_inset(), default_horizontal_inset);
+  }
+
+  // Positive control: a system process follows the content size
   system_theme_set_content_size(PreferredContentSizeExtraLarge);
-
-  // The third-party app still sees the platform default dimensions
-  cl_assert_equal_i(menu_cell_basic_cell_height(), default_basic_cell_height);
-  cl_assert_equal_i(menu_cell_small_cell_height(), default_small_cell_height);
-  cl_assert_equal_i(menu_cell_basic_horizontal_inset(), default_horizontal_inset);
-
-  // Positive control: a system process at the same setting does follow the content size
   s_current_task = PebbleTask_KernelMain;
-  cl_assert_equal_i(menu_cell_basic_cell_height(), 85);
+  cl_assert_equal_i(menu_cell_basic_cell_height(), PBL_IF_RECT_ELSE(64, 85));
 
   // Restore process identity and content size for subsequent tests
   s_current_process_id = (AppInstallId)(-1);
+  system_theme_set_content_size(PreferredContentSizeDefault);
+}
+
+static unsigned int prv_count_basic_cell_foreground(int16_t cell_height, const char *title,
+                                                    const char *subtitle, GFont subtitle_font,
+                                                    GBitmap *icon, bool selected) {
+  const int16_t width = 144;
+  GBitmap *bitmap = gbitmap_create_blank(GSize(width, 128), GBitmapFormat8Bit);
+  cl_assert(bitmap);
+  memset(bitmap->addr, GColorWhiteARGB8, bitmap->row_size_bytes * bitmap->bounds.size.h);
+
+  const GBitmap previous_bitmap = s_ctx.dest_bitmap;
+  const GRect previous_clip_box = s_ctx.draw_state.clip_box;
+  const GRect previous_drawing_box = s_ctx.draw_state.drawing_box;
+  s_ctx.dest_bitmap = *bitmap;
+  s_ctx.draw_state.clip_box = GRect(0, 0, width, cell_height);
+  s_ctx.draw_state.drawing_box = s_ctx.draw_state.clip_box;
+  graphics_context_set_text_color(&s_ctx, GColorBlack);
+  graphics_context_set_tint_color(&s_ctx, GColorBlack);
+  s_cell_is_highlighted = selected;
+
+  Layer layer;
+  layer_init(&layer, &s_ctx.draw_state.clip_box);
+  layer.is_highlighted = selected;
+  menu_cell_basic_draw_custom(&s_ctx, &layer, NULL, title, NULL, NULL, subtitle_font, subtitle,
+                              icon, false, GTextOverflowModeFill);
+
+  unsigned int foreground_pixels = 0;
+  for (int16_t y = 0; y < bitmap->bounds.size.h; y++) {
+    const uint8_t *row = (uint8_t *)bitmap->addr + y * bitmap->row_size_bytes;
+    for (int16_t x = 0; x < width; x++) {
+      foreground_pixels += row[x] == GColorBlackARGB8;
+    }
+  }
+
+  s_ctx.dest_bitmap = previous_bitmap;
+  s_ctx.draw_state.clip_box = previous_clip_box;
+  s_ctx.draw_state.drawing_box = previous_drawing_box;
+  gbitmap_destroy(bitmap);
+  return foreground_pixels;
+}
+
+void test_menu_layer_system_cells__basic_height_preserves_accents_and_descenders(void) {
+  const char *titles[NumPreferredContentSizes] = {"Ůgj", "Ůĺgj", "Ůĺgj", "ŐŰgj"};
+  for (PreferredContentSize size = PreferredContentSizeSmall; size < NumPreferredContentSizes;
+       size++) {
+    system_theme_set_content_size(size);
+    for (int selected = 0; selected <= 1; selected++) {
+      GBitmap *icon = PBL_IF_RECT_ELSE(&s_tictoc_icon_bitmap, NULL);
+      const unsigned int reference_pixels =
+          prv_count_basic_cell_foreground(128, titles[size], "ÿģĳ,", NULL, icon, selected);
+      const unsigned int actual_pixels = prv_count_basic_cell_foreground(
+          menu_cell_basic_cell_height(), titles[size], "ÿģĳ,", NULL, icon, selected);
+      cl_assert(reference_pixels > 0);
+      cl_assert_equal_i(actual_pixels, reference_pixels);
+    }
+  }
+  system_theme_set_content_size(PreferredContentSizeDefault);
+}
+
+void test_menu_layer_system_cells__caption_rows_preserve_accents_and_descenders(void) {
+  const char *titles[NumPreferredContentSizes] = {"Ůgj", "Ůĺgj", "Ůĺgj", "ŐŰgj"};
+  for (PreferredContentSize size = PreferredContentSizeSmall; size < NumPreferredContentSizes;
+       size++) {
+    system_theme_set_content_size(size);
+    GFont caption_font = system_theme_get_font(TextStyleFont_Caption);
+    GFont subtitle_font = system_theme_get_font(TextStyleFont_MenuCellSubtitle);
+    const int16_t saved_height =
+        MAX(0, fonts_get_font_height(subtitle_font) - fonts_get_font_height(caption_font));
+    const unsigned int reference_pixels =
+        prv_count_basic_cell_foreground(128, titles[size], "ÿgj,", caption_font, NULL, true);
+    const unsigned int actual_pixels =
+        prv_count_basic_cell_foreground(menu_cell_basic_cell_height() - saved_height, titles[size],
+                                        "ÿgj,", caption_font, NULL, true);
+    cl_assert(reference_pixels > 0);
+    cl_assert_equal_i(actual_pixels, reference_pixels);
+  }
   system_theme_set_content_size(PreferredContentSizeDefault);
 }

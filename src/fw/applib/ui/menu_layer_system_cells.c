@@ -24,16 +24,17 @@
 
 typedef struct MenuCellDimensions {
   int16_t basic_cell_height;
+  int16_t app_basic_cell_height;
   int16_t small_cell_height;
   int16_t horizontal_inset;
   int16_t title_subtitle_left_margin;
 } MenuCellDimensions;
 
 static const MenuCellDimensions s_menu_cell_dimensions[NumPreferredContentSizes] = {
-  //! @note these are the same as Medium until Small is designed
   [PreferredContentSizeSmall] =
       {
-        .basic_cell_height = 44,
+        .basic_cell_height = PBL_IF_RECT_ELSE(42, 44),
+        .app_basic_cell_height = 44,
         .small_cell_height = 34,
         .horizontal_inset = 5,
         .title_subtitle_left_margin = 30,
@@ -41,19 +42,22 @@ static const MenuCellDimensions s_menu_cell_dimensions[NumPreferredContentSizes]
   [PreferredContentSizeMedium] =
       {
         .basic_cell_height = 44,
+        .app_basic_cell_height = 44,
         .small_cell_height = 34,
         .horizontal_inset = 5,
         .title_subtitle_left_margin = 30,
       },
   [PreferredContentSizeLarge] =
       {
-        .basic_cell_height = 61,
+        .basic_cell_height = PBL_IF_RECT_ELSE(50, 61),
+        .app_basic_cell_height = 61,
         .small_cell_height = 42,
         .horizontal_inset = 10,
         .title_subtitle_left_margin = 34,
       },
   [PreferredContentSizeExtraLarge] = {
-    .basic_cell_height = 85,
+    .basic_cell_height = PBL_IF_RECT_ELSE(64, 85),
+    .app_basic_cell_height = 85,
     .small_cell_height = 52,
     .horizontal_inset = 10,
     .title_subtitle_left_margin = 34,
@@ -75,7 +79,9 @@ static const MenuCellDimensions *prv_get_cell_dimensions(void) {
 }
 
 int16_t menu_cell_basic_cell_height(void) {
-  return prv_get_cell_dimensions()->basic_cell_height;
+  const MenuCellDimensions *dimensions = prv_get_cell_dimensions();
+  return prv_use_platform_default_size() ? dimensions->app_basic_cell_height
+                                         : dimensions->basic_cell_height;
 }
 
 int16_t menu_cell_small_cell_height(void) {
