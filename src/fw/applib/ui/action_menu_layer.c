@@ -10,7 +10,9 @@
 #include "applib/graphics/text.h"
 #include "applib/ui/animation.h"
 #include "applib/ui/menu_layer.h"
+#include "applib/ui/menu_layer_private.h"
 #include "applib/ui/property_animation.h"
+#include "applib/ui/scroll_layer_private.h"
 #include "board/display.h"
 #include "kernel/ui/kernel_ui.h"
 #include "resource/resource_ids.auto.h"
@@ -19,11 +21,14 @@
 #include "pbl/util/math.h"
 #include "pbl/util/testing.h"
 
-#define INDICATOR             "»"
-#define GLYPH_SCRATCH_SIZE    32
-#define GLYPH_CELL_SIZE       48
-#define GLYPH_CELL_GAP        4
-#define GLYPHS_PER_ROUND_PAGE 10
+#define INDICATOR                "»"
+#define GLYPH_SCRATCH_SIZE       32
+#define GLYPH_CELL_SIZE          48
+#define GLYPH_CELL_GAP           4
+#define GLYPHS_PER_ROUND_PAGE    10
+#define GLYPH_PAGE_SWIPE_MIN     24
+#define GLYPH_PAGE_SETTLE_MIN_MS 80
+#define GLYPH_PAGE_SETTLE_MAX_MS 160
 
 // The enlarged glyph grid needs a color framebuffer and a large display.
 #if !defined(CONFIG_RECOVERY_FW) && CONFIG_SCREEN_COLOR_DEPTH_BITS == 8 && DISP_COLS >= 200
@@ -662,8 +667,8 @@ static void prv_selection_changed(ActionMenuLayer *aml) {
   }
 }
 
-PBL_T_STATIC void prv_set_selected_index(ActionMenuLayer *aml, int new_selected_index,
-                                         bool animated) {
+static void prv_set_selected_index_with_align(ActionMenuLayer *aml, int new_selected_index,
+                                              MenuRowAlign align, bool animated) {
   new_selected_index = CLIP(new_selected_index, 0, aml->num_items + aml->num_short_items - 1);
   const bool selection_changed = (new_selected_index != aml->selected_index);
 
@@ -681,11 +686,15 @@ PBL_T_STATIC void prv_set_selected_index(ActionMenuLayer *aml, int new_selected_
   }
 
   const int menu_layer_index = prv_get_menu_layer_row(aml, new_selected_index);
-  menu_layer_set_selected_index(&aml->menu_layer, MenuIndex(0, menu_layer_index),
-                                MenuRowAlignCenter, animated);
+  menu_layer_set_selected_index(&aml->menu_layer, MenuIndex(0, menu_layer_index), align, animated);
   if (selection_changed && new_selected_index >= aml->num_items) {
     prv_selection_changed(aml);
   }
+}
+
+PBL_T_STATIC void prv_set_selected_index(ActionMenuLayer *aml, int new_selected_index,
+                                         bool animated) {
+  prv_set_selected_index_with_align(aml, new_selected_index, MenuRowAlignCenter, animated);
 }
 
 static void prv_scroll_handler(ClickRecognizerRef recognizer, void *context) {
@@ -712,6 +721,151 @@ static void prv_select_click_cb(struct MenuLayer *menu_layer, MenuIndex *cell_in
   // holds several columns), matching the SELECT button path.
   prv_activate_selection(callback_context);
 }
+
+#ifdef CONFIG_TOUCH
+static int prv_touch_find_glyph(ActionMenuLayer *aml, GPoint point_on_screen) {
+  MenuLayer *menu = &aml->menu_layer;
+  GRect frame;
+  layer_get_global_frame(&menu->scroll_layer.layer, &frame);
+  if (!grect_contains_point(&frame, &point_on_screen)) {
+    return -1;
+  }
+  GPoint point = point_on_screen;
+  gpoint_sub_eq(&point, frame.origin);
+  gpoint_sub_eq(&point, scroll_layer_get_content_offset(&menu->scroll_layer));
+  MenuCellSpan span;
+  if (!menu_layer_touch_find_cell_at_content_y(menu, point.y, &span) ||
+      span.index.row < aml->num_items) {
+    return -1;
+  }
+  const int short_row = span.index.row - aml->num_items;
+  const int base = prv_short_row_start(aml, short_row);
+  const int count = MIN(aml->num_short_items, prv_short_row_start(aml, short_row + 1)) - base;
+  const bool round = prv_is_honeycomb(aml);
+  const int column_width = round ? (frame.size.w - 16) / 4 : frame.size.w / SHORT_COL_COUNT;
+  int row_counts[3] = {count};
+  if (round) {
+    prv_get_honeycomb_rows(count, row_counts);
+  }
+  GRect row = GRect(0, span.y, frame.size.w, GLYPH_CELL_SIZE);
+  int first = 0;
+  for (int r = 0; r < (round ? 3 : 1); ++r) {
+    for (int column = 0; column < row_counts[r]; ++column) {
+      const GRect cell = prv_get_glyph_column_rect(&row, row_counts[r], column, column_width);
+      if (grect_contains_point(&cell, &point)) {
+        return aml->num_items + base + first + column;
+      }
+    }
+    first += row_counts[r];
+    row.origin.y += GLYPH_CELL_SIZE + GLYPH_CELL_GAP;
+  }
+  return -1;
+}
+
+static void prv_touch_tap(void *widget, GPoint point_on_screen) {
+  MenuLayer *menu = widget;
+  ActionMenuLayer *aml = menu->callback_context;
+  GRect frame;
+  layer_get_global_frame(&menu->scroll_layer.layer, &frame);
+  if (!grect_contains_point(&frame, &point_on_screen)) {
+    return;
+  }
+  if (!prv_is_glyph_grid(aml)) {
+    menu_layer_touch_handle_tap(menu, point_on_screen);
+    return;
+  }
+  if (menu->touch_tap_swallow) {
+    menu->touch_tap_swallow = false;
+    return;
+  }
+  const int index = prv_touch_find_glyph(aml, point_on_screen);
+  if (index < 0) {
+    return;
+  }
+  prv_set_selected_index_with_align(aml, index, MenuRowAlignNone, false);
+  prv_activate_selection(aml);
+}
+
+static void prv_touch_down(void *widget) {
+  menu_layer_touch_handle_touchdown(widget);
+}
+
+static void prv_touch_pan_started(void *widget) {
+  menu_layer_touch_get_default_ops()->pan_started(widget);
+}
+
+static GPointReturn prv_touch_get_base(void *widget) {
+  return scroll_layer_get_content_offset(&((MenuLayer *)widget)->scroll_layer);
+}
+
+static void prv_touch_pan_update(void *widget, GPoint base, GPoint delta) {
+  MenuLayer *menu = widget;
+  if (!prv_is_honeycomb(menu->callback_context)) {
+    menu_layer_touch_handle_pan_update(menu, base, delta);
+  } else {
+    // Follow the finger, with at most one page traversed per gesture.
+    const int stride = menu->selection.h + GLYPH_CELL_GAP;
+    const int y = base.y + CLIP(delta.y, -stride, stride);
+    scroll_layer_set_content_offset(&menu->scroll_layer, GPoint(0, y), false);
+  }
+}
+
+static void prv_touch_pan_snap(void *widget, GPoint base, GPoint delta, GPoint velocity) {
+  MenuLayer *menu = widget;
+  ActionMenuLayer *aml = menu->callback_context;
+  if (!prv_is_honeycomb(aml)) {
+    menu_layer_touch_handle_snap(menu, base, delta, velocity);
+    return;
+  }
+  if (!aml->num_short_items) {
+    return;
+  }
+  const int page = prv_get_menu_layer_row(aml, aml->selected_index) - aml->num_items;
+  const bool flick = ABS((int32_t)velocity.y) >= TOUCH_FLING_MIN_VELOCITY_PX_S;
+  const int direction = flick ? velocity.y : delta.y;
+  const int next_page = page + (direction < 0 ? 1 : -1);
+  int index = aml->selected_index;
+  if ((ABS(delta.y) >= GLYPH_PAGE_SWIPE_MIN || flick) && next_page >= 0 &&
+      next_page < prv_short_row_count(aml)) {
+    index = aml->num_items + prv_short_row_start(aml, next_page);
+  }
+  prv_set_selected_index_with_align(aml, index, MenuRowAlignNone, false);
+  const GPoint target = GPoint(
+      0, (menu->scroll_layer.layer.frame.size.h - menu->selection.h) / 2 - menu->selection.y);
+  const int distance = ABS(target.y - scroll_layer_get_content_offset(&menu->scroll_layer).y);
+  const int duration = flick ? CLIP(2000 * distance / ABS((int32_t)velocity.y),
+                                    GLYPH_PAGE_SETTLE_MIN_MS, GLYPH_PAGE_SETTLE_MAX_MS)
+                             : GLYPH_PAGE_SETTLE_MAX_MS;
+  scroll_layer_touch_settle(&menu->scroll_layer, target, duration);
+}
+
+static void prv_touch_pan_cancel(void *widget) {
+  MenuLayer *menu = widget;
+  ActionMenuLayer *aml = menu->callback_context;
+  if (prv_is_honeycomb(aml)) {
+    if (aml->num_short_items) {
+      prv_set_selected_index(aml, aml->selected_index, false);
+    }
+  } else {
+    menu_layer_touch_handle_cancel(menu);
+  }
+}
+
+static void prv_touch_swipe(void *widget, SwipeDirection direction) {
+  menu_layer_touch_handle_swipe(widget, direction);
+}
+
+static const TouchNavWidgetOps s_touch_ops = {
+  .touchdown = prv_touch_down,
+  .pan_started = prv_touch_pan_started,
+  .get_base_offset = prv_touch_get_base,
+  .pan_update = prv_touch_pan_update,
+  .pan_snap = prv_touch_pan_snap,
+  .pan_cancel = prv_touch_pan_cancel,
+  .tap = prv_touch_tap,
+  .swipe = prv_touch_swipe,
+};
+#endif
 
 static bool prv_aml_is_short(ActionMenuLayer *aml) {
   return (aml->num_short_items != 0 || aml->num_items == 0);
@@ -949,9 +1103,7 @@ static void prv_update_aml_cache(ActionMenuLayer *aml, int selected_index) {
   const bool center_focused = !prv_aml_is_short(aml);
   menu_layer_set_center_focused(&aml->menu_layer, center_focused);
 #endif
-  // Short-item rows hold several columns, and the row-granular tap hit-test cannot tell which
-  // column the finger meant — keep the two-step tap (select, then activate) for those instead of
-  // the plain menus' tap-to-activate.
+  // Short-item menus select before activation; the glyph grid resolves individual cells.
   menu_layer_set_tap_select_only(&aml->menu_layer, prv_aml_is_short(aml));
 
   prv_changed_proc(&aml->layer);
@@ -1019,6 +1171,11 @@ void action_menu_layer_init(ActionMenuLayer *aml, const GRect *frame) {
                              .selection_changed = prv_selection_changed_cb,
                              .select_click = prv_select_click_cb,
                            });
+#ifdef CONFIG_TOUCH
+  aml->menu_layer.touch_nav_node.ops = (void *)&s_touch_ops;
+  // Let swipes start anywhere on the panel, including the picker viewport's margins.
+  aml->menu_layer.touch_nav_node.layer = &aml->layer;
+#endif
 
 #if !defined(CONFIG_RECOVERY_FW)
   gbitmap_init_with_resource_system(&aml->item_animation.fade_top, SYSTEM_APP,

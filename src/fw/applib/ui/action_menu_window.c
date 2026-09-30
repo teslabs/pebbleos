@@ -227,6 +227,12 @@ static void prv_click_config_provider(void *context) {
   window_set_click_context(BUTTON_ID_BACK, data);
 }
 
+#ifdef CONFIG_TOUCH
+static bool prv_crumbs_contains_point(const Layer *layer, const GPoint *point) {
+  return false;
+}
+#endif
+
 static void prv_action_window_load(Window *window) {
   ActionMenuData *data = window_get_user_data(window);
   // Init action menu layer
@@ -244,6 +250,10 @@ static void prv_action_window_load(Window *window) {
 #endif
   crumbs_layer_init(&data->crumbs_layer, &frame, data->config.colors.background,
                     data->config.colors.foreground);
+#ifdef CONFIG_TOUCH
+  // The decorative ring must not intercept touches intended for the menu.
+  layer_set_contains_point_override((Layer *)crumbs_layer, prv_crumbs_contains_point);
+#endif
   // Add them to the tree
   layer_add_child(window_get_root_layer(window), (Layer *)action_menu_layer);
   layer_add_child(window_get_root_layer(window), (Layer *)crumbs_layer);

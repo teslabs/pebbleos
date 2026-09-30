@@ -252,6 +252,7 @@ pbl_clar_test(test_action_menu_layer
     tests/fakes/fake_rtc.c
     tests/stubs/stubs_animation.c
   DEFINES CONFIG_TOUCH
+  PLATFORMS obelix gabbro
 )
 
 pbl_clar_test(test_menu_layer_system_cells

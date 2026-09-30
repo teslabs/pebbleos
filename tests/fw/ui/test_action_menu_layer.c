@@ -7,6 +7,7 @@
 #include "applib/ui/action_menu_layer.h"
 #include "applib/ui/menu_layer.h"
 #include "applib/ui/menu_layer_private.h"
+#include "applib/ui/property_animation.h"
 #include "applib/ui/recognizer/recognizer.h"
 #include "applib/ui/recognizer/recognizer_list.h"
 #include "applib/ui/recognizer/recognizer_manager.h"
@@ -74,7 +75,7 @@ static TouchNavOps s_bridge_ops;
 
 static void prv_touch_nav_setup(void) {
   s_bridge_ops = (TouchNavOps){0};
-  layer_init(&s_root_layer, &GRect(0, 0, 200, 400));
+  layer_init(&s_root_layer, &GRect(0, 0, 300, 400));
   recognizer_list_init(&s_global_list);
   recognizer_manager_init(&s_recognizer_manager);
   s_recognizer_manager.window = (Window *)&s_root_layer; // non-NULL sentinel
@@ -222,6 +223,54 @@ static const ActionMenuItem s_short_items[] = {
 };
 
 static ActionMenuLayer s_aml;
+static ActionMenuItem s_emoji_items[21];
+
+void prv_set_selected_index(ActionMenuLayer *aml, int selected_index, bool animated);
+
+static const TouchNavWidgetOps *prv_glyph_grid_touch_ops(void) {
+  return s_aml.menu_layer.touch_nav_node.ops;
+}
+
+static void prv_init_glyph_grid(void) {
+  s_aml = (ActionMenuLayer){};
+  action_menu_layer_init(&s_aml,
+                         &GRect(13, 17, PBL_IF_ROUND_ELSE(260, 200), PBL_IF_ROUND_ELSE(260, 240)));
+  layer_add_child(&s_root_layer, &s_aml.layer);
+  for (int i = 0; i < ARRAY_LENGTH(s_emoji_items); ++i) {
+    s_emoji_items[i] = (ActionMenuItem){.label = "😃", .is_leaf = 1};
+  }
+  action_menu_layer_set_glyph_grid(&s_aml, true);
+  action_menu_layer_set_callbacks(&s_aml,
+                                  (ActionMenuLayerCallbacks){
+                                    .select = prv_record_select,
+                                    .selection_changed = prv_record_selection_changed,
+                                  },
+                                  NULL);
+  action_menu_layer_set_short_items(&s_aml, s_emoji_items, ARRAY_LENGTH(s_emoji_items), 0);
+}
+
+static GPoint prv_glyph_point(int index) {
+  MenuLayer *menu = &s_aml.menu_layer;
+  GRect frame;
+  layer_get_global_frame(&menu->scroll_layer.layer, &frame);
+  const GPoint offset = scroll_layer_get_content_offset(&menu->scroll_layer);
+#if PBL_ROUND
+  const int local = index % 7;
+  const int row = local < 2 ? 0 : (local < 5 ? 1 : 2);
+  const int count = row == 1 ? 3 : 2;
+  const int column = local - (row == 0 ? 0 : (row == 1 ? 2 : 5));
+  const int width = (frame.size.w - 16) / 4;
+  const int y = menu->selection.y + row * 52 + 24;
+#else
+  const int count = 3;
+  const int column = index % 3;
+  const int width = frame.size.w / 3;
+  const int y = menu->selection.y + 24;
+#endif
+  return GPoint(
+      frame.origin.x + offset.x + (frame.size.w - count * width) / 2 + column * width + width / 2,
+      frame.origin.y + offset.y + y);
+}
 
 // Return the tap point (in screen coordinates) whose hit-test resolves to \a row, independent of
 // per-platform cell geometry.
@@ -231,7 +280,9 @@ static GPoint prv_tap_point_for_row(MenuLayer *ml, uint16_t row) {
     MenuIndex idx;
     if (menu_layer_touch_find_row_at_content_y(ml, y, &idx) && idx.row == row) {
       // The first matching y is the row's top edge, which the half-open hit test owns.
-      return GPoint(10, y + offset_y);
+      GRect frame;
+      layer_get_global_frame(&ml->scroll_layer.layer, &frame);
+      return GPoint(frame.origin.x + 10, frame.origin.y + y + offset_y);
     }
   }
   cl_fail("row not found");
@@ -293,6 +344,7 @@ void test_action_menu_layer__tap_on_selected_item_activates(void) {
 // activates it in the same gesture (plain menus open on a single tap).
 void test_action_menu_layer__tap_other_item_selects_and_activates(void) {
   prv_init_aml_with_wide_items();
+  menu_layer_set_center_focused(&s_aml.menu_layer, false);
 
   menu_layer_touch_handle_tap(&s_aml.menu_layer, prv_tap_point_for_row(&s_aml.menu_layer, 2));
   cl_assert_equal_i(s_aml.selected_index, 2);
@@ -330,5 +382,159 @@ void test_action_menu_layer__tap_short_row_adopts_first_column(void) {
   cl_assert_equal_i(s_select_count, 1);
   cl_assert(s_last_selected_item == &s_short_items[3]);
 
+  action_menu_layer_deinit(&s_aml);
+}
+
+void test_action_menu_layer__glyph_grid_touch_activates_each_item_immediately(void) {
+  prv_init_glyph_grid();
+  const TouchNavWidgetOps *ops = prv_glyph_grid_touch_ops();
+  for (int i = 0; i < ARRAY_LENGTH(s_emoji_items); ++i) {
+    const int capacity = PBL_IF_ROUND_ELSE(7, 3);
+    const int anchor = (i / capacity) * capacity + (i % capacity == 0);
+    prv_set_selected_index(&s_aml, anchor, false);
+    const GPoint point = prv_glyph_point(i);
+    const GPoint offset = scroll_layer_get_content_offset(&s_aml.menu_layer.scroll_layer);
+    prv_reset_counters();
+    ops->touchdown(&s_aml.menu_layer);
+    ops->tap(&s_aml.menu_layer, point);
+    cl_assert_equal_i(s_aml.selected_index, i);
+    cl_assert_equal_i(s_select_count, 1);
+    cl_assert(s_last_selected_item == &s_emoji_items[i]);
+    cl_assert(s_last_changed_item == &s_emoji_items[i]);
+    const GPoint after = scroll_layer_get_content_offset(&s_aml.menu_layer.scroll_layer);
+    cl_assert_equal_i(after.x, offset.x);
+    cl_assert_equal_i(after.y, offset.y);
+
+    ops->touchdown(&s_aml.menu_layer);
+    ops->tap(&s_aml.menu_layer, point);
+    cl_assert_equal_i(s_select_count, 2);
+    cl_assert(s_last_selected_item == &s_emoji_items[i]);
+  }
+  action_menu_layer_deinit(&s_aml);
+}
+
+void test_action_menu_layer__glyph_grid_touch_ignores_empty_space(void) {
+  prv_init_glyph_grid();
+  prv_reset_counters();
+  const TouchNavWidgetOps *ops = prv_glyph_grid_touch_ops();
+  GRect frame;
+  layer_get_global_frame(&s_aml.menu_layer.scroll_layer.layer, &frame);
+  ops->tap(&s_aml.menu_layer, GPoint(frame.origin.x - 1, frame.origin.y + 24));
+  ops->tap(&s_aml.menu_layer, GPoint(frame.origin.x + 1, frame.origin.y - 1));
+#if PBL_ROUND
+  ops->tap(&s_aml.menu_layer, GPoint(frame.origin.x + 1, frame.origin.y + 24));
+  ops->tap(&s_aml.menu_layer, GPoint(frame.origin.x + frame.size.w / 2, frame.origin.y + 50));
+#endif
+  cl_assert_equal_i(s_aml.selected_index, 0);
+  cl_assert_equal_i(s_select_count, 0);
+  cl_assert_equal_i(s_selection_changed_count, 0);
+  action_menu_layer_deinit(&s_aml);
+}
+
+void test_action_menu_layer__glyph_grid_touch_page_swipes(void) {
+#if PBL_ROUND
+  prv_init_glyph_grid();
+  prv_reset_counters();
+  const TouchNavWidgetOps *ops = prv_glyph_grid_touch_ops();
+  const GPoint base = ops->get_base_offset(&s_aml.menu_layer);
+  ops->pan_started(&s_aml.menu_layer);
+  ops->pan_update(&s_aml.menu_layer, base, GPoint(0, -40));
+  cl_assert_equal_i(ops->get_base_offset(&s_aml.menu_layer).y, base.y - 40);
+  ops->pan_update(&s_aml.menu_layer, base, GPoint(0, -100));
+  cl_assert_equal_i(s_aml.selected_index, 0);
+  cl_assert_equal_i(ops->get_base_offset(&s_aml.menu_layer).y, base.y - 100);
+  ops->pan_update(&s_aml.menu_layer, base, GPoint(0, -1000));
+  cl_assert_equal_i(ops->get_base_offset(&s_aml.menu_layer).y,
+                    base.y - s_aml.menu_layer.selection.h - 4);
+  ops->pan_cancel(&s_aml.menu_layer);
+  cl_assert_equal_i(s_aml.selected_index, 0);
+  cl_assert_equal_i(ops->get_base_offset(&s_aml.menu_layer).y, base.y);
+  ops->pan_update(&s_aml.menu_layer, base, GPoint(0, 100));
+  cl_assert_equal_i(ops->get_base_offset(&s_aml.menu_layer).y, base.y);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, -23), GPointZero);
+  cl_assert_equal_i(s_aml.selected_index, 0);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, -100), GPointZero);
+  cl_assert_equal_i(s_aml.selected_index, 7);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, -100), GPointZero);
+  cl_assert_equal_i(s_aml.selected_index, 14);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, -100), GPointZero);
+  cl_assert_equal_i(s_aml.selected_index, 14);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, 100), GPointZero);
+  cl_assert_equal_i(s_aml.selected_index, 7);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, 100), GPointZero);
+  cl_assert_equal_i(s_aml.selected_index, 0);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, 100), GPointZero);
+  cl_assert_equal_i(s_aml.selected_index, 0);
+  cl_assert_equal_i(s_select_count, 0);
+  action_menu_layer_deinit(&s_aml);
+#endif
+}
+
+void test_action_menu_layer__glyph_grid_touch_flicks_settle_quickly(void) {
+#if PBL_ROUND
+  prv_init_glyph_grid();
+  const TouchNavWidgetOps *ops = prv_glyph_grid_touch_ops();
+  const GPoint base = ops->get_base_offset(&s_aml.menu_layer);
+  ops->pan_started(&s_aml.menu_layer);
+  ops->pan_update(&s_aml.menu_layer, base, GPoint(0, -10));
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, -10), GPoint(0, -200));
+  cl_assert_equal_i(s_aml.selected_index, 0);
+  Animation *animation = property_animation_get_animation(s_aml.menu_layer.scroll_layer.animation);
+  cl_assert_equal_i(animation_get_duration(animation, false, false), 160);
+
+  ops->pan_started(&s_aml.menu_layer);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, -10), GPoint(0, -4000));
+  cl_assert_equal_i(s_aml.selected_index, 7);
+  cl_assert_equal_i(animation_get_duration(animation, false, false), 80);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, -10), GPoint(0, -4000));
+  cl_assert_equal_i(s_aml.selected_index, 14);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, -10), GPoint(0, -4000));
+  cl_assert_equal_i(s_aml.selected_index, 14);
+  ops->pan_snap(&s_aml.menu_layer, base, GPoint(0, 10), GPoint(0, 4000));
+  cl_assert_equal_i(s_aml.selected_index, 7);
+  cl_assert_equal_i(s_select_count, 0);
+  action_menu_layer_deinit(&s_aml);
+#endif
+}
+
+void test_action_menu_layer__glyph_grid_touch_dispatch_reaches_bottom_row(void) {
+  prv_init_glyph_grid();
+  const int index = PBL_IF_ROUND_ELSE(6, 2);
+  const GPoint point = prv_glyph_point(index);
+  const TouchEvent down = {.type = TouchEvent_Touchdown, .x = point.x, .y = point.y};
+  const TouchEvent up = {.type = TouchEvent_Liftoff};
+  prv_reset_counters();
+  touch_nav_dispatch(&down, &s_touch_nav_state);
+  fake_rtc_increment_ticks(RTC_TICKS_HZ / 20);
+  touch_nav_dispatch(&up, &s_touch_nav_state);
+  cl_assert_equal_i(s_aml.selected_index, index);
+  cl_assert_equal_i(s_select_count, 1);
+  cl_assert(s_last_selected_item == &s_emoji_items[index]);
+  cl_assert_equal_i(s_touch_nav_state.route, TouchNavRoute_Tier1);
+#if PBL_ROUND
+  prv_reset_counters();
+  GRect frame;
+  layer_get_global_frame(&s_aml.menu_layer.scroll_layer.layer, &frame);
+  const TouchEvent swipe_down = {
+    .type = TouchEvent_Touchdown,
+    .x = frame.origin.x + frame.size.w / 2,
+    .y = frame.origin.y + frame.size.h - 4,
+  };
+  TouchEvent move = {
+    .type = TouchEvent_PositionUpdate,
+    .x = swipe_down.x,
+    .y = swipe_down.y - 20,
+  };
+  touch_nav_dispatch(&swipe_down, &s_touch_nav_state);
+  fake_rtc_increment_ticks(RTC_TICKS_HZ / 20);
+  touch_nav_dispatch(&move, &s_touch_nav_state);
+  move.y -= 80;
+  fake_rtc_increment_ticks(RTC_TICKS_HZ / 20);
+  touch_nav_dispatch(&move, &s_touch_nav_state);
+  cl_assert_equal_i(scroll_layer_get_content_offset(&s_aml.menu_layer.scroll_layer).y, -80);
+  touch_nav_dispatch(&up, &s_touch_nav_state);
+  cl_assert_equal_i(s_aml.selected_index, 7);
+  cl_assert_equal_i(s_select_count, 0);
+#endif
   action_menu_layer_deinit(&s_aml);
 }
