@@ -15,6 +15,7 @@
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
+#include "pbl/kernel/compiler.h"
 #include "pbl/kernel/sem.h"
 
 #include "bf0_hal_lcdc.h"
@@ -163,6 +164,38 @@ static void prv_display_off() {
   gpio_output_set(&DISPLAY->vlcd, false);
 }
 
+#define ROW_WORDS (PBL_DISPLAY_WIDTH / 4)
+
+// 222: XX RR GG BB, 332: RR 0G GG BB
+static PBL_ALWAYS_INLINE uint32_t prv_to_332(uint32_t p) {
+  return ((p & 0x30303030) << 2) | ((p & 0x0C0C0C0C) << 1) | (p & 0x03030303);
+}
+
+static PBL_ALWAYS_INLINE uint32_t prv_to_222(uint32_t p) {
+  return ((p >> 2) & 0x30303030) | ((p >> 1) & 0x0C0C0C0C) | (p & 0x03030303);
+}
+
+static PBL_ALWAYS_INLINE void prv_row_convert(uint32_t *row, uint32_t (*conv)(uint32_t)) {
+  for (uint32_t i = 0; i < ROW_WORDS; i++) {
+    row[i] = conv(row[i]);
+  }
+}
+
+// HMirror is done in software, VMirror by the LCDC
+static PBL_ALWAYS_INLINE void prv_row_convert_mirror(uint32_t *row, uint32_t (*conv)(uint32_t)) {
+  uint32_t i = 0;
+  uint32_t j = ROW_WORDS - 1;
+  for (; i < j; i++, j--) {
+    uint32_t a = row[i];
+    uint32_t b = row[j];
+    row[i] = PBL_BSWAP32(conv(b));
+    row[j] = PBL_BSWAP32(conv(a));
+  }
+  if (i == j) {
+    row[i] = PBL_BSWAP32(conv(row[i]));
+  }
+}
+
 static HAL_StatusTypeDef prv_display_update_start(void) {
   DisplayJDIState *state = DISPLAY->state;
 
@@ -234,26 +267,12 @@ static void prv_display_update_terminate(void *data) {
 
   // Convert the updated region back from 332 to 222 format
   for (uint16_t y = s_update_y0; y <= s_update_y1; y++) {
-    uint8_t *row = &s_framebuffer[y * PBL_DISPLAY_WIDTH];
+    uint32_t *row = (uint32_t *)&s_framebuffer[y * PBL_DISPLAY_WIDTH];
 
     if (s_rotated_180) {
-      // Undo HMirror before converting back
-      for (uint16_t x = 0; x < PBL_DISPLAY_WIDTH / 2; x++) {
-        uint8_t tmp = row[x];
-        row[x] = row[PBL_DISPLAY_WIDTH - 1 - x];
-        row[PBL_DISPLAY_WIDTH - 1 - x] = tmp;
-      }
-    }
-
-    // Convert this row in-place from 332 to 222 using word-level bit manipulation
-    // 332 format: RR 0G GG BB (bits 7-6 R, 4-3 G, 1-0 B)
-    // 222 format: XX RR GG BB (bits 7-6 unused, 5-4 R, 3-2 G, 1-0 B)
-    uint32_t *row32 = (uint32_t *)row;
-    for (uint16_t x = 0; x < PBL_DISPLAY_WIDTH / 4; x++) {
-      uint32_t p = row32[x];
-      row32[x] = ((p >> 2) & 0x30303030) | // R: bits 6-7 → 4-5
-                 ((p >> 1) & 0x0C0C0C0C) | // G: bits 3-4 → 2-3
-                 (p & 0x03030303);         // B: bits 0-1 stay
+      prv_row_convert_mirror(row, prv_to_222);
+    } else {
+      prv_row_convert(row, prv_to_222);
     }
   }
 
@@ -401,25 +420,10 @@ void display_update(NextRowCallback nrcb, UpdateCompleteCallback uccb) {
     }
     s_update_y1 = row.address;
 
-    // Convert this row in-place from 222 to 332 using word-level bit manipulation
-    // 222 format: XX RR GG BB (bits 7-6 unused, 5-4 R, 3-2 G, 1-0 B)
-    // 332 format: RR 0G GG BB (bits 7-6 R, 4-3 G, 1-0 B)
-    uint32_t *row32 = (uint32_t *)row.data;
-    for (uint16_t x = 0; x < PBL_DISPLAY_WIDTH / 4; x++) {
-      uint32_t p = row32[x];
-      row32[x] = ((p & 0x30303030) << 2) | // R: bits 4-5 → 6-7
-                 ((p & 0x0C0C0C0C) << 1) | // G: bits 2-3 → 3-4
-                 (p & 0x03030303);         // B: bits 0-1 stay
-    }
-
     if (s_rotated_180) {
-      // HMirror in software (VMirror is done by hardware)
-      uint8_t *row_data = row.data;
-      for (uint16_t x = 0; x < PBL_DISPLAY_WIDTH / 2; x++) {
-        uint8_t tmp = row_data[x];
-        row_data[x] = row_data[PBL_DISPLAY_WIDTH - 1 - x];
-        row_data[PBL_DISPLAY_WIDTH - 1 - x] = tmp;
-      }
+      prv_row_convert_mirror((uint32_t *)row.data, prv_to_332);
+    } else {
+      prv_row_convert((uint32_t *)row.data, prv_to_332);
     }
   }
 
