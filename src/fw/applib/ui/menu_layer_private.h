@@ -32,6 +32,14 @@ typedef struct MenuRenderIterator {
 
 #ifdef CONFIG_TOUCH
 #include "applib/ui/recognizer/swipe.h"
+#include "applib/ui/recognizer/touch_nav.h"
+
+//! Default gesture operations for menus that override a subset of the widget behavior.
+const TouchNavWidgetOps *menu_layer_touch_get_default_ops(void);
+
+//! Locate a row and its geometry in content coordinates, skipping headers and gaps.
+bool menu_layer_touch_find_cell_at_content_y(MenuLayer *menu_layer, int16_t content_y,
+                                             MenuCellSpan *cell_out);
 
 //! @internal
 //! Touch-navigation (Tier-1) gesture handlers, split out so they can be unit tested directly
@@ -72,7 +80,7 @@ void menu_layer_touch_handle_snap(MenuLayer *menu_layer, GPoint base, GPoint fin
 //! selects it without activating.
 void menu_layer_touch_handle_tap(MenuLayer *menu_layer, GPoint point_on_screen);
 
-//! Horizontal swipe: right activates the selected row, left emits BACK through the touch bridge.
+//! Horizontal swipe: right emits BACK through the touch bridge; left has no action.
 void menu_layer_touch_handle_swipe(MenuLayer *menu_layer, SwipeDirection direction);
 
 //! Cancelled gesture: a plain menu has nothing to settle; a center-focused menu re-centres its

@@ -1883,7 +1883,7 @@ typedef struct MenuHitTestIterator {
   MenuIterator it;
   int16_t target_y;
   bool found;
-  MenuIndex found_index;
+  MenuCellSpan found_cell;
 } MenuHitTestIterator;
 
 static void prv_menu_hit_test_row_callback(MenuIterator *iterator) {
@@ -1892,7 +1892,7 @@ static void prv_menu_hit_test_row_callback(MenuIterator *iterator) {
   const int16_t bottom = top + it->it.cursor.h;
   if (it->target_y >= top && it->target_y < bottom) {
     it->found = true;
-    it->found_index = it->it.cursor.index;
+    it->found_cell = it->it.cursor;
     it->it.should_continue = false;
   }
 }
@@ -1902,8 +1902,8 @@ static void prv_menu_hit_test_section_callback(MenuIterator *iterator) {
   (void)iterator;
 }
 
-bool menu_layer_touch_find_row_at_content_y(MenuLayer *menu_layer, int16_t content_y,
-                                            MenuIndex *index_out) {
+bool menu_layer_touch_find_cell_at_content_y(MenuLayer *menu_layer, int16_t content_y,
+                                             MenuCellSpan *cell_out) {
   // Walk downward from the render anchor, then upward, mirroring menu_layer_update_proc so the same
   // section-header/separator geometry is honoured. The downward walk includes the anchor row; the
   // upward walk covers everything above it.
@@ -1925,10 +1925,20 @@ bool menu_layer_touch_find_row_at_content_y(MenuLayer *menu_layer, int16_t conte
     it.it.should_continue = true;
     prv_menu_layer_walk_upward_from_iterator(&it.it);
   }
-  if (it.found && index_out) {
-    *index_out = it.found_index;
+  if (it.found && cell_out) {
+    *cell_out = it.found_cell;
   }
   return it.found;
+}
+
+bool menu_layer_touch_find_row_at_content_y(MenuLayer *menu_layer, int16_t content_y,
+                                            MenuIndex *index_out) {
+  MenuCellSpan cell;
+  const bool found = menu_layer_touch_find_cell_at_content_y(menu_layer, content_y, &cell);
+  if (found && index_out) {
+    *index_out = cell.index;
+  }
+  return found;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2408,6 +2418,10 @@ static const TouchNavWidgetOps s_menu_touch_nav_ops = {
   .tap = prv_menu_ops_tap,
   .swipe = prv_menu_ops_swipe,
 };
+
+const TouchNavWidgetOps *menu_layer_touch_get_default_ops(void) {
+  return &s_menu_touch_nav_ops;
+}
 
 static void prv_menu_touch_nav_register(MenuLayer *menu_layer) {
   // The legacy-2.x MenuLayer path is not a Tier-1 widget; it falls back to the Tier-2 bridge.
