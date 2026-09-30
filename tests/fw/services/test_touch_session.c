@@ -33,6 +33,11 @@ bool light_is_on(void) {
   return s_light_on;
 }
 
+static bool s_light_lit_by_touch;
+bool light_is_lit_by_touch(void) {
+  return s_light_on && s_light_lit_by_touch;
+}
+
 // The session deadline follows the backlight timeout pref, sampled per arm.
 static uint32_t s_backlight_timeout_ms;
 uint32_t backlight_get_timeout_ms(void) {
@@ -50,6 +55,7 @@ void test_touch_session__initialize(void) {
   s_modal_enabled = false;
   s_modal_properties = ModalPropertyDefault;
   s_light_on = false;
+  s_light_lit_by_touch = false;
   s_backlight_timeout_ms = 3000;
   touch_session_reset();
 }
@@ -126,6 +132,13 @@ void test_touch_session__disabled_modal_stays_guarded(void) {
 void test_touch_session__lit_backlight_is_active(void) {
   s_light_on = true;
   cl_assert(touch_session_is_active());
+}
+
+void test_touch_session__touch_lit_backlight_stays_guarded(void) {
+  // A backlight kept on by touch alone must not keep the session open.
+  s_light_on = true;
+  s_light_lit_by_touch = true;
+  cl_assert(!touch_session_is_active());
 }
 
 void test_touch_session__extend_in_menu_arms_deadline(void) {

@@ -76,6 +76,10 @@ static bool s_user_controlled_state;
 //! touch whose liftoff was never delivered. KernelMain-only.
 static bool s_touch_holding;
 
+//! True while the current lit period was last started or refreshed by touch
+//! contact rather than a button, wake gesture or app request.
+static bool s_touch_lit;
+
 #ifdef CONFIG_BACKLIGHT_HAS_COLOR
 //! The app's requested backlight tint. Valid only when s_app_rgb_override_valid
 //! is true; otherwise the LED uses the user default (white).
@@ -418,6 +422,10 @@ static void prv_change_state(BacklightState new_state) {
       break;
   }
 
+  if (s_light_state == LIGHT_STATE_OFF) {
+    s_touch_lit = false;
+  }
+
   if (s_current_brightness != new_brightness) {
     prv_change_brightness(new_brightness);
   } else if (new_state == LIGHT_STATE_ON || new_state == LIGHT_STATE_ON_TIMED) {
@@ -468,6 +476,7 @@ void light_init(void) {
   s_num_buttons_down = 0;
   s_user_controlled_state = false;
   s_touch_holding = false;
+  s_touch_lit = false;
   s_fade_level_count = 0;
   s_fade_level_idx = 0;
 
@@ -488,9 +497,10 @@ void light_init(void) {
   s_timer_id = new_timer_create();
 }
 
-void light_button_pressed(void) {
+static void prv_button_pressed(bool touch) {
   pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 
+  s_touch_lit = touch;
   s_num_buttons_down++;
   if (s_num_buttons_down > 4) {
     PBL_LOG_ERR("More buttons were pressed than have been released.");
@@ -505,6 +515,10 @@ void light_button_pressed(void) {
   }
 
   pbl_mutex_unlock(&s_mutex);
+}
+
+void light_button_pressed(void) {
+  prv_button_pressed(false);
 }
 
 void light_button_released(void) {
@@ -530,7 +544,7 @@ void light_touch_down(void) {
     return;
   }
   s_touch_holding = true;
-  light_button_pressed();
+  prv_button_pressed(true);
 }
 
 void light_touch_up(void) {
@@ -543,6 +557,8 @@ void light_touch_up(void) {
 
 void light_enable_interaction(void) {
   pbl_mutex_lock(&s_mutex, PBL_FOREVER);
+
+  s_touch_lit = false;
 
   // if some buttons are held or light_enable is asserted, do nothing
   if (s_num_buttons_down > 0 || s_light_state == LIGHT_STATE_ON) {
@@ -561,6 +577,8 @@ void light_enable_interaction(void) {
 
 void light_enable(bool enable) {
   pbl_mutex_lock(&s_mutex, PBL_FOREVER);
+
+  s_touch_lit = false;
 
   // This function is a bit of a black sheep - it dives in and messes with the normal
   // flow of the state machine.
@@ -582,6 +600,8 @@ void light_enable(bool enable) {
 
 void light_enable_respect_settings(bool enable) {
   pbl_mutex_lock(&s_mutex, PBL_FOREVER);
+
+  s_touch_lit = false;
 
   s_user_controlled_state = enable;
 
@@ -770,6 +790,10 @@ uint8_t light_get_current_brightness_percent(void) {
 
 bool light_is_on(void) {
   return s_light_state != LIGHT_STATE_OFF;
+}
+
+bool light_is_lit_by_touch(void) {
+  return light_is_on() && s_touch_lit;
 }
 
 void pbl_analytics_external_collect_backlight_stats(void) {

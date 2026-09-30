@@ -316,3 +316,27 @@ void test_light__touch_hold_released_on_app_teardown(void) {
 
   check_on_timed_and_consume();
 }
+
+void test_light__touch_lit_period_is_tracked(void) {
+  cl_assert(!light_is_lit_by_touch());
+
+  light_touch_down();
+  cl_assert(light_is_lit_by_touch());
+  light_touch_up();
+  cl_assert(light_is_lit_by_touch());
+
+  // A deliberate wake takes the lit period over from touch.
+  light_enable_interaction();
+  cl_assert(!light_is_lit_by_touch());
+
+  light_touch_down();
+  light_touch_up();
+  cl_assert(light_is_lit_by_touch());
+
+  light_button_pressed();
+  cl_assert(!light_is_lit_by_touch());
+  light_button_released();
+  check_on_timed_and_consume();
+
+  cl_assert(!light_is_lit_by_touch());
+}
