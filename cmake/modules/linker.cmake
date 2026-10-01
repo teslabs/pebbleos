@@ -6,12 +6,15 @@
 # hook points; the fragments are aggregated into snippets-<location>.ld
 # files that the master script includes.
 
-set(PBL_LINKER_SNIPPET_LOCATIONS memory rom-start ram-sections footer)
+set(PBL_LINKER_SNIPPET_LOCATIONS memory rom-start ram-sections ramfunc footer)
 
 foreach(location ${PBL_LINKER_SNIPPET_LOCATIONS})
   define_property(GLOBAL PROPERTY PBL_LINKER_SNIPPETS_${location}
     BRIEF_DOCS "Linker script fragments for the ${location} hook point")
 endforeach()
+
+define_property(GLOBAL PROPERTY PBL_RAMFUNC_OBJECTS
+  BRIEF_DOCS "Linker input patterns for the objects placed in .ramfunc")
 
 # Fragments are included sorted by (sort key, registration order).
 function(pbl_linker_sources location)
@@ -36,6 +39,29 @@ function(pbl_linker_sources location)
   endforeach()
 endfunction()
 
+# Run the given sources of the current library from RAM: their code and
+# read-only data go to .ramfunc. A no-op without CONFIG_RAMFUNC.
+function(pbl_library_ramfunc)
+  if(NOT CONFIG_RAMFUNC)
+    return()
+  endif()
+  pbl_library_ensure()
+  foreach(source ${ARGN})
+    if(IS_ABSOLUTE ${source})
+      file(RELATIVE_PATH source ${CMAKE_CURRENT_SOURCE_DIR} ${source})
+    endif()
+    string(REPLACE "../" "__/" object ${source}${CMAKE_C_OUTPUT_EXTENSION})
+    if(PBL_CURRENT_LIBRARY_KIND STREQUAL "stlib")
+      get_filename_component(object ${object} NAME)
+      set(archive ${CMAKE_STATIC_LIBRARY_PREFIX}${PBL_CURRENT_LIBRARY}${CMAKE_STATIC_LIBRARY_SUFFIX})
+      set(pattern "*${archive}:${object}")
+    else()
+      set(pattern "*/CMakeFiles/${PBL_CURRENT_LIBRARY}.dir/${object}")
+    endif()
+    set_property(GLOBAL APPEND PROPERTY PBL_RAMFUNC_OBJECTS "${pattern}")
+  endforeach()
+endfunction()
+
 # Writes the snippet files and returns the generated linker script the
 # firmware links against, plus everything it depends on.
 function(pbl_linker_script out_script out_depends)
@@ -56,6 +82,14 @@ function(pbl_linker_script out_script out_depends)
     file(CONFIGURE OUTPUT ${snippet} CONTENT "${content}" @ONLY)
     list(APPEND depends ${snippet})
   endforeach()
+
+  get_property(objects GLOBAL PROPERTY PBL_RAMFUNC_OBJECTS)
+  set(content "")
+  foreach(object ${objects})
+    string(APPEND content "${object} (.text* .rodata*)\n")
+  endforeach()
+  file(CONFIGURE OUTPUT ${dir}/ramfunc-objects.ld CONTENT "${content}" @ONLY)
+  list(APPEND depends ${dir}/ramfunc-objects.ld)
 
   # Fragments included by the master script and by the SoC fragments.
   file(GLOB_RECURSE common CONFIGURE_DEPENDS ${PBL_BASE}/src/fw/linker/*.ld)

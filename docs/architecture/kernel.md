@@ -11,6 +11,7 @@ may use. The implementation is PebbleOS's own; its internals are described in
 include/pbl/kernel/     public API: types, irq, thread, mutex, sem, msgq, poll, sched, idle, debug
 include/pbl/kernel/backend.h   per-object private state the public structs embed
 include/pbl/kernel/compiler.h  compiler abstraction, backed by compiler/gcc.h and compiler/clang.h
+include/pbl/kernel/section.h   placement of code and data in special sections
 kernel/                 scheduler, objects, tick conversion
 kernel/arch/arm/        Cortex-M port: context switch, SVC, MPU, SysTick, idle, vector table
 kernel/arch/posix/      host port for the unit tests
@@ -93,7 +94,7 @@ enabled line nobody connected lands in `arch_irq_spurious()`, which asserts.
 
 The kernel owns the reset vector. `Reset_Handler()` sets the stack limit
 registers on cores that have them and enters `kernel_prep_c()`, which copies
-`.data` (and `.ramfunc` on SoCs that select `CONFIG_SOC_HAS_RAMFUNC`), zeroes
+`.data` (and `.ramfunc` with `CONFIG_RAMFUNC`), zeroes
 `.bss`, calls the SoC's `pbl_soc_early_init()` (`pbl/kernel/init.h`) for
 vendor system init, clocks and caches, and then calls `main()`.
 
@@ -103,6 +104,21 @@ The SoC tickless-idle code talks to the kernel through `pbl/kernel/idle.h`:
 `pbl_soc_idle()` and `pbl_soc_tick_enable()` are implemented per SoC, and
 `pbl_idle_confirm()`, `pbl_idle_slept()` and `pbl_kernel_tick_isr()` are what
 the kernel provides in return.
+
+### Code in RAM
+
+SoCs that need code to run while flash is unavailable select
+`CONFIG_RAMFUNC`, which adds a `.ramfunc` output section loaded from flash
+and copied to RAM at boot. Code gets there in one of three ways:
+
+- a function marked `PBL_SECTION_RAM`, or a constant marked
+  `PBL_SECTION_RAM_RODATA` (`pbl/kernel/section.h`);
+- whole source files, with `pbl_library_ramfunc(file.c ...)` next to the
+  library's `pbl_library_sources()`;
+- input section patterns registered against the `ramfunc` linker hook, for
+  vendor code annotated its own way.
+
+Without `CONFIG_RAMFUNC` all three are no-ops and the code stays in flash.
 
 ## Compiler abstraction
 

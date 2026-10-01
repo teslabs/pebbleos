@@ -14,7 +14,8 @@
  * ahead of the main SECTIONS block, e.g. extra MEMORY regions and their
  * sections; 'rom-start' and 'ram-sections' take output sections placed
  * right after the vector table and ahead of the kernel RAM sections
- * respectively; 'footer' takes standalone top-level commands after the
+ * respectively; 'ramfunc' takes input section patterns for the .ramfunc
+ * output section; 'footer' takes standalone top-level commands after the
  * main SECTIONS block.
  */
 
@@ -55,6 +56,10 @@ SECTIONS {
 #include "sections/vectors.ld"
 
 #include <snippets-rom-start.ld>
+
+#ifdef CONFIG_RAMFUNC
+#include "sections/ramfunc.ld"
+#endif
 
 #include <snippets-ram-sections.ld>
 
