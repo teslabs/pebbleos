@@ -22,6 +22,7 @@
 
 #include "pbl/kernel/idle.h"
 #include "pbl/kernel/irq.h"
+#include "pbl/kernel/section.h"
 
 // HAL tick counter (milliseconds) - used by HAL timeout functions
 extern __IO uint32_t uwTick;
@@ -91,7 +92,7 @@ static void prv_enter_deepwfi(void) {
   SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
 }
 
-static void prv_enter_deepslep(void) {
+PBL_SECTION_RAM static void prv_enter_deepslep(void) {
   QSPIPortState *flash_state;
   uint32_t dll1_freq = 0UL;
   int clk_src;
@@ -172,7 +173,7 @@ static uint32_t prv_calc_elapsed_ticks(uint32_t gtimer_cyc) {
   return elapsed_ticks;
 }
 
-void pbl_soc_idle(pbl_tick_t max_ticks) {
+PBL_SECTION_RAM void pbl_soc_idle(pbl_tick_t max_ticks) {
   if (!idle_is_allowed()) {
     return;
   }

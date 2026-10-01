@@ -14,7 +14,7 @@ extern uint8_t __data_end[];
 extern uint8_t __bss_start[];
 extern uint8_t __bss_end[];
 
-#ifdef CONFIG_SOC_HAS_RAMFUNC
+#ifdef CONFIG_RAMFUNC
 extern uint8_t __ramfunc_load_start[];
 extern uint8_t __ramfunc_start[];
 extern uint8_t __ramfunc_end[];
@@ -24,7 +24,7 @@ extern int main(void);
 
 void kernel_prep_c(void) {
   memcpy(__data_start, __data_load_start, __data_end - __data_start);
-#ifdef CONFIG_SOC_HAS_RAMFUNC
+#ifdef CONFIG_RAMFUNC
   memcpy(__ramfunc_start, __ramfunc_load_start, __ramfunc_end - __ramfunc_start);
 #endif
   memset(__bss_start, 0, __bss_end - __bss_start);

@@ -8,4 +8,4 @@ pbl_library_sources(
   sleep.c
   idle.c
 )
-pbl_linker_sources(ram-sections ramfunc.ld)
+pbl_linker_sources(ramfunc ramfunc.ld)

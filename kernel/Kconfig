@@ -51,6 +51,13 @@ config KERNEL_MUTEX_LOCK_LR
 	bool "Record the caller of the outermost mutex lock"
 	default y
 
+config RAMFUNC
+	bool
+	help
+	  Code and read-only data can be placed in RAM: the .ramfunc
+	  section is loaded from flash and copied to RAM at boot. Selected
+	  by SoCs that need code to run while flash is unavailable.
+
 endmenu
 
 rsource "arch/arm/Kconfig"
