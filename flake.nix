@@ -99,6 +99,7 @@
             hardeningDisable = [ "fortify" ]; # the firmware is built unoptimized
             packages = with pkgs; [
               pebbleos-sdk
+              ccache
               cmake
               dash
               gettext
