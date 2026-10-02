@@ -13,7 +13,8 @@
  * @brief Shares heart rate over the BLE Heart Rate Service, with per-device user permission.
  *
  * When a device subscribes, the user is asked for permission. While sharing, the heart rate
- * monitor runs and a reminder popup is shown periodically.
+ * monitor runs and a reminder popup is shown periodically. Available with
+ * @c CONFIG_SERVICE_BLE_HRM.
  * @{
  */
 

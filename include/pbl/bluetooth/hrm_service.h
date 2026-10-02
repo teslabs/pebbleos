@@ -12,7 +12,7 @@
  * @ingroup bluetooth
  * @brief GATT Heart Rate Service, sharing the watch's heart rate with connected devices.
  *
- * Not supported by the NimBLE backend: pbl_bt_is_hrm_service_supported() returns false.
+ * Implemented by backends that select @c CONFIG_BT_HRM_SERVICE. The NimBLE backend does not.
  * @{
  */
 
@@ -23,13 +23,6 @@ struct pbl_bt_hrm_service_measurement {
   /** True if the watch is worn. */
   bool is_on_wrist;
 };
-
-/**
- * @brief Check whether the stack can expose the Heart Rate Service.
- *
- * @return true if supported.
- */
-bool pbl_bt_is_hrm_service_supported(void);
 
 /**
  * @brief Add or remove the Heart Rate Service from the GATT database.

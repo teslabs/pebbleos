@@ -26,8 +26,6 @@
 
 PBL_LOG_MODULE_DECLARE(service_bluetooth, CONFIG_SERVICE_BLUETOOTH_LOG_LEVEL);
 
-#ifdef CONFIG_HRM
-
 #define BLE_HRM_UPDATE_INTERVAL_SEC (1)
 
 typedef struct BLEHRMSharingRequest {
@@ -58,12 +56,8 @@ typedef struct BLEHRMSharingPermission {
 
 static BLEHRMSharingPermission *s_permissions_head;
 
-static bool prv_hw_and_sw_supports_hrm(void) {
-  return (pbl_bt_is_hrm_service_supported() && sys_hrm_manager_is_hrm_present());
-}
-
 bool ble_hrm_is_supported_and_enabled(void) {
-  return (prv_hw_and_sw_supports_hrm() && activity_prefs_heart_rate_is_enabled());
+  return (sys_hrm_manager_is_hrm_present() && activity_prefs_heart_rate_is_enabled());
 }
 
 static void prv_reset_subscriptions(void);
@@ -112,7 +106,7 @@ static HrmSharingPermission prv_get_permission_by_device(
 }
 
 void ble_hrm_handle_activity_prefs_heart_rate_is_enabled(bool is_enabled) {
-  if (!prv_hw_and_sw_supports_hrm()) {
+  if (!sys_hrm_manager_is_hrm_present()) {
     return;
   }
   PBL_LOG_INFO("BLE HRM sharing prefs updated: is_enabled=%u", is_enabled);
@@ -455,5 +449,3 @@ void ble_hrm_deinit(void) {
 RegularTimerInfo *ble_hrm_timer(void) {
   return &s_ble_hrm_timer;
 }
-
-#endif

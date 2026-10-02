@@ -784,9 +784,9 @@ static bool prv_set_s_activity_hrm_preferences(ActivityHRMSettings *new_settings
 #ifdef CONFIG_HRM
   hrm_manager_handle_prefs_changed();
 #endif // CONFIG_HRM
-#if BLE_HRM_SERVICE
+#ifdef CONFIG_SERVICE_BLE_HRM
   ble_hrm_handle_activity_prefs_heart_rate_is_enabled(new_settings->enabled);
-#endif // BLE_HRM_SERVICE
+#endif // CONFIG_SERVICE_BLE_HRM
   return true;
 }
 

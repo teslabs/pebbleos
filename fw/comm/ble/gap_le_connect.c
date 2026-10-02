@@ -494,7 +494,7 @@ void pbl_bt_handle_le_disconnection_complete_event(
     case PBL_BT_HCI_STATUS_SUCCESS: {
       // Disconnection! Update our records:
       GAPLEConnection *connection = gap_le_connection_by_device(&event->peer_address);
-#if defined(CONFIG_HRM) && !defined(CONFIG_RECOVERY_FW)
+#ifdef CONFIG_SERVICE_BLE_HRM
       ble_hrm_handle_disconnection(connection);
 #endif
       const bool local_is_master = connection->local_is_master;

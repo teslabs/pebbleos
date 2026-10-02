@@ -65,10 +65,6 @@ void ble_hrm_push_sharing_request_window(BLEHRMSharingRequest *sharing_request) 
   s_last_sharing_request = sharing_request;
 }
 
-bool pbl_bt_is_hrm_service_supported(void) {
-  return true;
-}
-
 static struct pbl_bt_device_internal s_last_disconnected;
 int pbl_bt_gap_le_disconnect(const struct pbl_bt_device_internal *peer_address) {
   s_last_disconnected = *peer_address;
