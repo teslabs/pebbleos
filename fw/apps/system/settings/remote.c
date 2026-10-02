@@ -22,7 +22,7 @@
 
 enum {
   RemoteMenuForget = 0,
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
   RemoteMenuStopSharingHeartRate,
 #endif
   RemoteMenu_Count
@@ -78,7 +78,7 @@ static void prv_forget_item(ActionMenu *action_menu, const ActionMenuItem *item,
   prv_show_dialog(context);
 }
 
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
 static void prv_stop_sharing_heart_rate(ActionMenu *action_menu, const ActionMenuItem *item,
                                         void *context) {
   SettingsRemoteData *remote_data = (SettingsRemoteData *)context;
@@ -88,7 +88,7 @@ static void prv_stop_sharing_heart_rate(ActionMenu *action_menu, const ActionMen
 
   app_simple_dialog_push(ble_hrm_stop_sharing_popup_create());
 }
-#endif // CONFIG_HRM
+#endif // CONFIG_SERVICE_BLE_HRM
 
 void settings_remote_menu_push(struct SettingsBluetoothData *bt_data, StoredRemote *stored_remote) {
   SettingsRemoteData *data = app_malloc_check(sizeof(SettingsRemoteData));
@@ -104,7 +104,7 @@ void settings_remote_menu_push(struct SettingsBluetoothData *bt_data, StoredRemo
     .did_close = prv_remote_menu_cleanup,
   };
 
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
   const bool is_sharing_hr =
       settings_bluetooth_is_sharing_heart_rate_for_stored_remote(stored_remote);
   const size_t num_items = RemoteMenu_Count - (is_sharing_hr ? 0 : 1);
@@ -124,7 +124,7 @@ void settings_remote_menu_push(struct SettingsBluetoothData *bt_data, StoredRemo
     .action_data = data,
   };
 
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
   if (is_sharing_hr) {
     level->items[RemoteMenuStopSharingHeartRate] = (ActionMenuItem){
       .label = i18n_get("Stop Sharing Heart Rate", data),

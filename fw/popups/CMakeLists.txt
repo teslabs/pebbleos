@@ -4,7 +4,7 @@
 if(CONFIG_RECOVERY_FW)
   set(source bluetooth_pairing_ui.c)
 else()
-  if(CONFIG_HRM)
+  if(CONFIG_SERVICE_BLE_HRM)
     set(excl)
   else()
     set(excl ble_hrm/**)

@@ -91,6 +91,12 @@ module = BT
 module-str = Bluetooth
 source "subsys/logging/Kconfig.template.log_level"
 
+config BT_HRM_SERVICE
+    bool
+    help
+      The backend implements the Heart Rate Service
+      (pbl/bluetooth/hrm_service.h).
+
 config BT_GH3X2X_TUNING_SERVICE
     bool "GH3X2X tuning service"
     depends on HRM_GH3X2X

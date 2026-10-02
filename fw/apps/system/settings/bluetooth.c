@@ -83,7 +83,7 @@ typedef struct SettingsBluetoothData {
   EventServiceInfo bt_connection_event_info;
   EventServiceInfo bt_pairing_event_info;
   EventServiceInfo ble_device_name_updated_event_info;
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
   EventServiceInfo ble_hrm_sharing_event_info;
 #endif
 } SettingsBluetoothData;
@@ -158,7 +158,7 @@ static void prv_add_ble_remotes(SettingsBluetoothData *data) {
         connection = gap_le_connection_by_device(&device);
       }
       remote->ble.connection = connection;
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
       remote->ble.is_sharing_heart_rate = ble_hrm_is_sharing_to_connection(connection);
 #endif
       bt_unlock();
@@ -216,7 +216,7 @@ static void prv_settings_bluetooth_event_handler(PebbleEvent *event, void *conte
       }
       // fall-through!
     case PBL_BT_PEBBLE_PAIRING_EVENT:
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
     case PEBBLE_BLE_HRM_SHARING_STATE_UPDATED_EVENT:
 #endif
     case PEBBLE_BLE_DEVICE_NAME_UPDATED_EVENT: {
@@ -310,11 +310,11 @@ static void prv_draw_stored_remote_item_rect(GContext *ctx, const Layer *cell_la
 #endif
 
 bool settings_bluetooth_is_sharing_heart_rate_for_stored_remote(StoredRemote *remote) {
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
   return remote->ble.is_sharing_heart_rate;
 #else
   return false;
-#endif // CONFIG_HRM
+#endif // CONFIG_SERVICE_BLE_HRM
 }
 
 #if PBL_ROUND
@@ -322,9 +322,9 @@ static void prv_draw_stored_remote_item_round(GContext *ctx, const Layer *cell_l
                                               const char *remote_name, const char *connected_string,
                                               const char *le_string,
                                               const char *is_sharing_heart_rate_string) {
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
   _Static_assert(false, "FIXME: Implement round drawing code to show heart rate sharing status!");
-#endif // CONFIG_HRM
+#endif // CONFIG_SERVICE_BLE_HRM
   menu_cell_basic_draw(ctx, cell_layer, remote_name, connected_string, NULL);
 }
 #endif // PBL_ROUND
@@ -367,14 +367,14 @@ static void draw_stored_remote_item(GContext *ctx, const Layer *cell_layer, uint
 #if PBL_RECT
 static int16_t prv_get_row_base_height(SettingsBluetoothData *data, uint16_t row) {
   int16_t height = menu_cell_basic_cell_height();
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
   if (row > 0) {
     StoredRemote *remote = (StoredRemote *)list_get_at(data->remote_list_head, row - 1);
     if (settings_bluetooth_is_sharing_heart_rate_for_stored_remote(remote)) {
       height += SHARING_HEART_RATE_EXTRA_HEIGHT_PX;
     }
   }
-#endif // CONFIG_HRM
+#endif // CONFIG_SERVICE_BLE_HRM
   return height;
 }
 
@@ -543,7 +543,7 @@ static void prv_expand_cb(SettingsCallbacks *context) {
     .handler = prv_settings_bluetooth_event_handler,
     .context = data,
   };
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
   data->ble_hrm_sharing_event_info = (EventServiceInfo){
     .type = PEBBLE_BLE_HRM_SHARING_STATE_UPDATED_EVENT,
     .handler = prv_settings_bluetooth_event_handler,
@@ -578,7 +578,7 @@ static void prv_hide_cb(SettingsCallbacks *context) {
     bt_pairability_release();
   }
 
-#ifdef CONFIG_HRM
+#ifdef CONFIG_SERVICE_BLE_HRM
   event_service_client_unsubscribe(&data->ble_hrm_sharing_event_info);
 #endif
   event_service_client_unsubscribe(&data->bt_airplane_event_info);
