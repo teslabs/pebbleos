@@ -7,3 +7,9 @@
 / {
 	compatible = "coredevices,obelix-bb2", "coredevices,obelix", "sifli,sf32lb52";
 };
+
+&lsm6dso {
+	mount-matrix = "-1", "0", "0",
+		       "0", "-1", "0",
+		       "0", "0", "1";
+};

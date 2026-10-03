@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: st,lsm6dso
+include:
+  - pbl/drivers/imu/lsm6dso/lsm6dso.h
+objects:
+  - name: state
+    type: LSM6DSOState
+    const: false
+  - name: config
+    type: LSM6DSOConfig
+    main: true
+    init:
+      state: {object: state}
+      i2c.bus: {parent: i2c-bus}
+      i2c.address: {reg: 0}
+      int1: {interrupt: 0, specifier: exti}
+      int1_in: {interrupt: 0, specifier: input}
+      axis_map:
+        prop: mount-matrix
+        type: string-array
+        convert: mount-matrix-axis-map
+        default: [0, 1, 2]
+      axis_dir:
+        prop: mount-matrix
+        type: string-array
+        convert: mount-matrix-axis-dir
+        default: [1, 1, 1]

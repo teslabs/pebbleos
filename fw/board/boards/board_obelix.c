@@ -270,53 +270,7 @@ I2CSlavePort *const I2C_AW2016 = &s_i2c_aw2016;
 
 I2CBus *const I2C2_BUS = &hw_i2c2;
 
-static LSM6DSOState s_lsm6dso_state;
-
-static const LSM6DSOConfig s_lsm6dso_config = {
-  .state = &s_lsm6dso_state,
-  .i2c =
-      {
-        .bus = &hw_i2c2,
-        .address = 0x6a,
-      },
-  .int1 =
-      {
-        .peripheral = hwp_gpio1,
-        .gpio_pin = 38,
-      },
-  .int1_in =
-      {
-        .gpio = hwp_gpio1,
-        .gpio_pin = 38,
-      },
-#ifdef CONFIG_IS_BIGBOARD
-  .axis_map =
-      {
-        [AXIS_X] = 0,
-        [AXIS_Y] = 1,
-        [AXIS_Z] = 2,
-      },
-  .axis_dir = {
-    [AXIS_X] = -1,
-    [AXIS_Y] = -1,
-    [AXIS_Z] = 1,
-  },
-#else
-  .axis_map =
-      {
-        [AXIS_X] = 0,
-        [AXIS_Y] = 1,
-        [AXIS_Z] = 2,
-      },
-  .axis_dir = {
-    [AXIS_X] = -1,
-    [AXIS_Y] = 1,
-    [AXIS_Z] = 1,
-  },
-#endif
-};
-
-const LSM6DSOConfig *const LSM6DSO = &s_lsm6dso_config;
+const LSM6DSOConfig *const LSM6DSO = &hw_lsm6dso;
 
 // Legacy LIS2DW12 (replaced by the LSM6DSO). Kept only to soft-reset the part
 // at boot, since a firmware upgrade may leave it powered on existing devices.
@@ -329,12 +283,7 @@ static const I2CSlavePort s_i2c_lis2dw12 = {
 #endif
 };
 
-static const I2CSlavePort s_i2c_mmc5603nj = {
-  .bus = &hw_i2c2,
-  .address = 0x30,
-};
-
-I2CSlavePort *const I2C_MMC5603NJ = &s_i2c_mmc5603nj;
+I2CSlavePort *const I2C_MMC5603NJ = &hw_mmc5603nj;
 
 I2CBus *const I2C3_BUS = &hw_i2c3;
 

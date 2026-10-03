@@ -285,12 +285,7 @@ static const LIS2DW12Config s_lis2dw12_config = {
 
 const LIS2DW12Config *const LIS2DW12 = &s_lis2dw12_config;
 
-static const I2CSlavePort s_i2c_mmc5603nj = {
-  .bus = &hw_i2c1,
-  .address = 0x30,
-};
-
-I2CSlavePort *const I2C_MMC5603NJ = &s_i2c_mmc5603nj;
+I2CSlavePort *const I2C_MMC5603NJ = &hw_mmc5603nj;
 
 I2CBus *const I2C2_BUS = &hw_i2c2;
 

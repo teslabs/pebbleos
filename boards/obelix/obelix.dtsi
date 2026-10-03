@@ -88,6 +88,21 @@
 	pinctrl-names = "default";
 	clock-frequency = <400000>;
 	status = "okay";
+
+	lsm6dso: imu@6a {
+		compatible = "st,lsm6dso";
+		reg = <0x6a>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <38 IRQ_TYPE_EDGE_RISING>;
+		mount-matrix = "-1", "0", "0",
+			       "0", "1", "0",
+			       "0", "0", "1";
+	};
+
+	mmc5603nj: magnetometer@30 {
+		compatible = "memsic,mmc5603";
+		reg = <0x30>;
+	};
 };
 
 &i2c3 {

@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: memsic,mmc5603
+include:
+  - pbl/drivers/i2c/definitions.h
+objects:
+  - name: port
+    type: I2CSlavePort
+    const: false
+    main: true
+    init:
+      bus: {parent: i2c-bus}
+      address: {reg: 0}

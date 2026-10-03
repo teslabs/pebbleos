@@ -64,6 +64,11 @@
 	pinctrl-names = "default";
 	clock-frequency = <400000>;
 	status = "okay";
+
+	mmc5603nj: magnetometer@30 {
+		compatible = "memsic,mmc5603";
+		reg = <0x30>;
+	};
 };
 
 &i2c2 {
