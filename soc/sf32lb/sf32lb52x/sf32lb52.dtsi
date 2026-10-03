@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/*
+ * SiFli SF32LB52 HPSYS.
+ */
+
+#include <dt-bindings/clock/sifli,sf32lb52-rcc.h>
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	nvic: interrupt-controller@e000e100 {
+		compatible = "arm,v8m-nvic";
+		reg = <0xe000e100 0xc00>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		#address-cells = <0>;
+		arm,num-irq-priority-bits = <3>;
+	};
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		interrupt-parent = <&nvic>;
+		ranges;
+
+		rcc: clock-controller@50000000 {
+			compatible = "sifli,sf32lb52-rcc";
+			reg = <0x50000000 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		pinctrl: pinctrl@50003000 {
+			compatible = "sifli,sf32lb52-pinctrl";
+			reg = <0x50003000 0x34>, <0x50003034 0xb4>;
+			reg-names = "pad_sa", "pad_pa";
+			clocks = <&rcc SF32LB52_CLK_PINMUX1>;
+			sifli,cfg = <&cfg>;
+		};
+
+		cfg: syscon@5000b000 {
+			compatible = "sifli,sf32lb52-cfg";
+			reg = <0x5000b000 0x1000>;
+		};
+
+		usart1: serial@50084000 {
+			compatible = "sifli,sf32lb52-usart";
+			reg = <0x50084000 0x400>;
+			interrupts = <59 5>;
+			status = "disabled";
+		};
+
+		usart2: serial@50085000 {
+			compatible = "sifli,sf32lb52-usart";
+			reg = <0x50085000 0x400>;
+			interrupts = <74 5>;
+			clocks = <&rcc SF32LB52_CLK_USART2>;
+			status = "disabled";
+		};
+
+		usart3: serial@50086000 {
+			compatible = "sifli,sf32lb52-usart";
+			reg = <0x50086000 0x400>;
+			interrupts = <95 5>;
+			clocks = <&rcc SF32LB52_CLK_USART3>;
+			status = "disabled";
+		};
+
+		i2c1: i2c@5009c000 {
+			compatible = "sifli,sf32lb52-i2c";
+			reg = <0x5009c000 0x1000>;
+			interrupts = <61 5>;
+			clocks = <&rcc SF32LB52_CLK_I2C1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2c2: i2c@5009d000 {
+			compatible = "sifli,sf32lb52-i2c";
+			reg = <0x5009d000 0x1000>;
+			interrupts = <76 5>;
+			clocks = <&rcc SF32LB52_CLK_I2C2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2c3: i2c@5009e000 {
+			compatible = "sifli,sf32lb52-i2c";
+			reg = <0x5009e000 0x1000>;
+			interrupts = <93 5>;
+			clocks = <&rcc SF32LB52_CLK_I2C3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2c4: i2c@5009f000 {
+			compatible = "sifli,sf32lb52-i2c";
+			reg = <0x5009f000 0x1000>;
+			interrupts = <78 5>;
+			clocks = <&rcc SF32LB52_CLK_I2C4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		gpio1: gpio@500a0000 {
+			compatible = "sifli,sf32lb52-gpio";
+			reg = <0x500a0000 0x1000>;
+			interrupts = <84 5>;
+			clocks = <&rcc SF32LB52_CLK_GPIO1>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <45>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+};

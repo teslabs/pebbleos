@@ -1,0 +1,48 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+/*
+ * SiFli SF32LB52 HPSYS RCC peripheral clock IDs.
+ */
+
+#ifndef _DT_BINDINGS_CLOCK_SIFLI_SF32LB52_RCC_H
+#define _DT_BINDINGS_CLOCK_SIFLI_SF32LB52_RCC_H
+
+#define SF32LB52_CLK_DMAC1      0
+#define SF32LB52_CLK_MAILBOX1   1
+#define SF32LB52_CLK_PINMUX1    2
+#define SF32LB52_CLK_USART2     3
+#define SF32LB52_CLK_EZIP1      4
+#define SF32LB52_CLK_EPIC       5
+#define SF32LB52_CLK_LCDC1      6
+#define SF32LB52_CLK_I2S1       7
+#define SF32LB52_CLK_SYSCFG1    8
+#define SF32LB52_CLK_EFUSEC     9
+#define SF32LB52_CLK_AES        10
+#define SF32LB52_CLK_CRC1       11
+#define SF32LB52_CLK_TRNG       12
+#define SF32LB52_CLK_GPTIM1     13
+#define SF32LB52_CLK_GPTIM2     14
+#define SF32LB52_CLK_BTIM1      15
+#define SF32LB52_CLK_BTIM2      16
+#define SF32LB52_CLK_SPI1       17
+#define SF32LB52_CLK_SPI2       18
+#define SF32LB52_CLK_EXTDMA     19
+#define SF32LB52_CLK_SECU1      20
+#define SF32LB52_CLK_PDM1       21
+#define SF32LB52_CLK_I2C1       22
+#define SF32LB52_CLK_I2C2       23
+#define SF32LB52_CLK_PTC1       24
+#define SF32LB52_CLK_GPIO1      25
+#define SF32LB52_CLK_MPI1       26
+#define SF32LB52_CLK_MPI2       27
+#define SF32LB52_CLK_SDMMC1     28
+#define SF32LB52_CLK_USBC       29
+#define SF32LB52_CLK_I2C3       30
+#define SF32LB52_CLK_ATIM1      31
+#define SF32LB52_CLK_USART3     32
+#define SF32LB52_CLK_AUDCODEC   33
+#define SF32LB52_CLK_AUDPRC     34
+#define SF32LB52_CLK_GPADC      35
+#define SF32LB52_CLK_TSEN       36
+#define SF32LB52_CLK_I2C4       37
+
+#endif

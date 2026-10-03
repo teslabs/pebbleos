@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-pinctrl
+include:
+  - pbl/drivers/pinctrl/sf32lb52.h
+objects:
+  - name: ctrl
+    type: struct pbl_pinctrl_sf32lb52
+    main: true
+    init:
+      pad_sa: {reg: 0}
+      pad_pa: {reg: 1}
+      cfg: {phandle: "sifli,cfg", provider: syscon, specifier: base}
+provides:
+  pinctrl:
+    object: ctrl
+    element:
+      type: uint32_t
+      each: {prop: pins, type: string-array}
+      value:
+        or:
+          - table:
+              file: pinctrl-table.yaml
+              key: [{item: true}, {prop: function, type: string}]
+            format: "PBL_PINCTRL_SF32LB52_PIN({port}, {pad}, {fsel}, {pinr:#04x}, {field})"
+          - flags:
+              bias-pull-up: PBL_PINCTRL_SF32LB52_PE | PBL_PINCTRL_SF32LB52_PS
+              bias-pull-down: PBL_PINCTRL_SF32LB52_PE
+              input-enable: PBL_PINCTRL_SF32LB52_IE
+          - prop: slew-rate
+            map: {0: PBL_PINCTRL_SF32LB52_SR, 1: null}
+            default: PBL_PINCTRL_SF32LB52_SR
+          - prop: drive-strength
+            map: {2: 0, 8: 1, 4: 2, 12: 3, 20: 4}
+            format: "PBL_PINCTRL_SF32LB52_DS_IDX({})"
+            default: PBL_PINCTRL_SF32LB52_DS_IDX(2)

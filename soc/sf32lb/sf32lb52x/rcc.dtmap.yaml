@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-rcc
+include:
+  - pbl/drivers/clock/sf32lb52.h
+objects:
+  - name: rcc
+    type: struct pbl_clock_sf32lb52_rcc
+    main: true
+    init:
+      base: {reg: 0}
+provides:
+  clock-controller:
+    object: rcc
+    specifiers:
+      clock:
+        init:
+          rcc: {object: rcc}
+          id:
+            cell: 0
+            lookup:
+              header: dt-bindings/clock/sifli,sf32lb52-rcc.h
+              prefix: SF32LB52_CLK_
+            table: {file: rcc-table.yaml}
+            format: "PBL_CLOCK_SF32LB52_GATE({reg:#04x}, {bit})"
