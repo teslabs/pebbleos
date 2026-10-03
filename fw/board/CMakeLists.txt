@@ -20,3 +20,4 @@ endif()
 
 pbl_library()
 pbl_library_sources(${sources})
+pbl_library_sources_ifdef(PBL_DT_ENABLED ${PBL_DT_SOURCE})

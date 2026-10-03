@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible:
+  - arm,armv7m-nvic
+  - arm,v6m-nvic
+  - arm,v7m-nvic
+  - arm,v8m-nvic
+provides:
+  interrupt-controller:
+    connect:
+      irq: 0
+      priority: 1
+    specifiers:
+      irqn: {cell: 0, cast: IRQn_Type}

@@ -122,6 +122,8 @@ def main():
     # only the active board's Kconfig via `rsource "boards/$(BOARD)/..."`.
     os.environ["BOARD"] = board.name
     os.environ["BOARD_REVISION"] = board.revision or boards.NO_REVISION
+    # Written by the devicetree step, which runs before Kconfig.
+    os.environ["DT_KCONFIG"] = os.path.join(builddir, "devicetree", "Kconfig.dt")
 
     kconf = kconfiglib.Kconfig(os.path.join(srcdir, "Kconfig"))
     kconf.warn_assign_override = True
