@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-i2c
+include:
+  - pbl/drivers/i2c/sf32lb.h
+objects:
+  - name: hal_state
+    type: I2CBusHalState
+    const: false
+    init:
+      hdl.Instance: {reg: 0, cast: "I2C_TypeDef *"}
+      hdl.Init.AddressingMode: I2C_ADDRESSINGMODE_7BIT
+      hdl.Init.ClockSpeed: {prop: clock-frequency, default: 100000}
+      hdl.Init.GeneralCallMode: I2C_GENERALCALL_DISABLE
+      hdl.Mode: HAL_I2C_MODE_MASTER
+      hdl.core: CORE_ID_HCPU
+  - name: hal
+    type: I2CBusHal
+    const: false
+    init:
+      state: {object: hal_state}
+      pinctrl.ctrl: {pinctrl: default, part: controller}
+      pinctrl.pins: {pinctrl: default}
+      pinctrl.num_pins: {pinctrl: default, part: count}
+      clock: {phandle: clocks, specifier: clock}
+      irqn: {interrupt: 0, specifier: irqn}
+  - name: state
+    type: I2CBusState
+    const: false
+  - name: bus
+    type: I2CBus
+    const: false
+    main: true
+    init:
+      hal: {object: hal}
+      state: {object: state}
+      name: {node: label}
+irqs:
+  - interrupt: 0
+    handler: i2c_irq_handler
+    arg: {object: bus}
+provides:
+  i2c-bus:
+    object: bus

@@ -9,6 +9,9 @@
 #include "board/board.h"
 #include "definitions.h"
 
+#include <pbl/drivers/clock/sf32lb52.h>
+#include <pbl/drivers/pinctrl/sf32lb52.h>
+
 /**
  * @defgroup drivers_i2c_sf32lb SF32LB I2C
  * @ingroup drivers_i2c
@@ -29,12 +32,10 @@ typedef struct I2CBusHalState {
 typedef const struct I2CBusHal {
   /** Driver runtime state. */
   I2CBusHalState *state;
-  /** SCL pin. */
-  Pinmux scl;
-  /** SDA pin. */
-  Pinmux sda;
-  /** Controller clock module. */
-  RCC_MODULE_TYPE module;
+  /** Pin configuration. */
+  struct pbl_pinctrl_sf32lb52_state pinctrl;
+  /** Controller clock. */
+  struct pbl_clock_sf32lb52 clock;
   /** Controller interrupt. */
   IRQn_Type irqn;
 } I2CBusHal;

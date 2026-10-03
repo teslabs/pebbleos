@@ -104,7 +104,7 @@ void i2c_hal_enable(I2CBus *bus) {
   I2CBusHal *hal = bus->hal;
   I2C_HandleTypeDef *hdl = &bus->hal->state->hdl;
 
-  HAL_RCC_EnableModule(hal->module);
+  pbl_clock_sf32lb52_on(&hal->clock);
   __HAL_I2C_ENABLE(hdl);
 }
 
@@ -113,7 +113,7 @@ void i2c_hal_disable(I2CBus *bus) {
   I2C_HandleTypeDef *hdl = &bus->hal->state->hdl;
 
   __HAL_I2C_DISABLE(hdl);
-  HAL_RCC_DisableModule(hal->module);
+  pbl_clock_sf32lb52_off(&hal->clock);
 }
 
 bool i2c_hal_is_busy(I2CBus *bus) {
@@ -128,10 +128,10 @@ void i2c_hal_init(I2CBus *bus) {
   I2CBusHal *hal = bus->hal;
   I2C_HandleTypeDef *hdl = &hal->state->hdl;
 
-  HAL_PIN_Set(hal->scl.pad, hal->scl.func, hal->scl.flags, 1);
-  HAL_PIN_Set(hal->sda.pad, hal->sda.func, hal->sda.flags, 1);
+  int err = pbl_pinctrl_sf32lb52_apply(&hal->pinctrl);
+  PBL_ASSERTN(err == 0);
 
-  HAL_RCC_EnableModule(hal->module);
+  pbl_clock_sf32lb52_on(&hal->clock);
   ret = HAL_I2C_Init(hdl);
   PBL_ASSERTN(ret == HAL_OK);
 
