@@ -1,0 +1,163 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Schema for *.dtmap.yaml files. See docs/development/devicetree.md.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+title: dtmap
+
+type: object
+additionalProperties: false
+required: [compatible]
+properties:
+  compatible:
+    oneOf:
+      - type: string
+      - {type: array, items: {type: string}, minItems: 1}
+  include:
+    type: array
+    items: {type: string}
+  objects:
+    type: array
+    items: {$ref: "#/$defs/object"}
+  irqs:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [interrupt, handler, arg]
+      properties:
+        interrupt: {type: integer, minimum: 0}
+        handler: {type: string}
+        arg: {$ref: "#/$defs/value"}
+        flags: {type: string}
+  provides:
+    type: object
+    additionalProperties: {$ref: "#/$defs/provide"}
+
+$defs:
+  object:
+    type: object
+    additionalProperties: false
+    required: [name, type]
+    properties:
+      name: {type: string, pattern: "^[a-z][a-z0-9_]*$"}
+      type: {type: string}
+      const: {type: boolean}
+      main: {type: boolean}
+      init: {$ref: "#/$defs/init"}
+
+  init:
+    type: object
+    propertyNames: {pattern: "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"}
+    additionalProperties: {$ref: "#/$defs/value"}
+
+  provide:
+    type: object
+    additionalProperties: false
+    properties:
+      object: {type: string}
+      connect:
+        type: object
+        additionalProperties: false
+        required: [irq]
+        properties:
+          irq: {type: integer, minimum: 0}
+          priority: {type: integer, minimum: 0}
+      specifiers:
+        type: object
+        additionalProperties: {$ref: "#/$defs/specifier"}
+      element:
+        type: object
+        additionalProperties: false
+        required: [type, each]
+        oneOf:
+          - required: [init]
+          - required: [value]
+        properties:
+          type: {type: string}
+          each:
+            type: object
+            additionalProperties: false
+            required: [prop]
+            properties:
+              prop: {type: string}
+              type: {enum: [u32-array, string-array]}
+          init: {$ref: "#/$defs/init"}
+          value: {$ref: "#/$defs/value"}
+
+  specifier:
+    oneOf:
+      - $ref: "#/$defs/value"
+      - type: object
+        additionalProperties: false
+        required: [init]
+        properties:
+          init: {$ref: "#/$defs/init"}
+
+  value:
+    oneOf:
+      - type: [string, integer, boolean]
+      - type: array
+        items: {$ref: "#/$defs/value"}
+      - $ref: "#/$defs/expr"
+
+  expr:
+    type: object
+    additionalProperties: false
+    minProperties: 1
+    properties:
+      # Sources, exactly one per expression.
+      prop: {type: string}
+      reg: {type: integer, minimum: 0}
+      node: {enum: [name, label, path, unit-address]}
+      object: {type: string}
+      parent: {type: string}
+      cell: {type: integer, minimum: 0}
+      item: {const: true}
+      interrupt: {type: integer, minimum: 0}
+      phandle: {type: string}
+      pinctrl: {type: string}
+      flags:
+        type: object
+        additionalProperties: {type: string}
+      table:
+        description: >-
+          Entry of a YAML table next to the spec: at the values of 'key' when
+          given (a source), else at the value (a modifier).
+        type: object
+        additionalProperties: false
+        required: [file]
+        properties:
+          file: {type: string}
+          key:
+            type: array
+            items: {$ref: "#/$defs/value"}
+            minItems: 1
+      or:
+        type: array
+        items: {$ref: "#/$defs/value"}
+        minItems: 1
+      # Modifiers.
+      type:
+        enum: [u32, s32, u64, bool, string, u8-array, u32-array, string-array]
+      index: {type: integer, minimum: 0}
+      part: {enum: [address, size, array, count, controller]}
+      provider: {type: string}
+      specifier: {type: string}
+      map:
+        type: object
+        additionalProperties: {type: [string, integer, "null"]}
+      lookup:
+        type: object
+        additionalProperties: false
+        required: [header, prefix]
+        properties:
+          header: {type: string}
+          prefix: {type: string}
+      convert: {type: string}
+      case: {enum: [upper, lower]}
+      format: {type: string}
+      cast: {type: string}
+      default: {$ref: "#/$defs/value"}
+      optional: {type: boolean}
