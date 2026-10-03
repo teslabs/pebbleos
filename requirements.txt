@@ -17,6 +17,8 @@ pyelftools
 libclang
 meson
 ninja
+# Devicetree validation (dt-validate); also brings jsonschema for dtmap
+dtschema
 
 # Protobuf codegen: nanopb_generator; grpcio-tools provides protoc where
 # there is no system protoc (e.g. brew setups)
