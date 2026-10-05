@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-pinctrl
+include:
+  - pbl/drivers/pinctrl/sf32lb52.h
+config:
+  type: struct pbl_pinctrl_sf32lb52
+  description: SF32LB52 HPSYS pin controller.
+  fields:
+    pad_sa:
+      type: uintptr
+      description: SA pad registers.
+      from: {reg: 0}
+    pad_pa:
+      type: uintptr
+      description: PA pad registers.
+      from: {reg: 1}
+    cfg:
+      type: uintptr
+      description: HPSYS_CFG registers, holding the PINR crossbar.
+      from: {phandle: "sifli,cfg", provider: syscon}
+provides:
+  pinctrl:
+    type: struct pbl_pinctrl_sf32lb52_state
+    description: SF32LB52 pin configuration state.
+    fields:
+      ctrl:
+        type: const struct pbl_pinctrl_sf32lb52 *
+        description: Pin controller.
+        from: {self: true}
+      pins:
+        type: const uint32_t *
+        description: Pins, PBL_PINCTRL_SF32LB52_PIN() values or'ed with their pad configuration.
+        from: {state: pins}
+      num_pins:
+        type: u8
+        description: Number of pins.
+        from: {state: count}
+    element:
+      type: uint32_t
+      each: {prop: pins, type: string-array}
+      value:
+        or:
+          - table:
+              file: sf32lb52-pins.yaml
+              key: [{item: true}, {prop: function, type: string}]
+            format: "PBL_PINCTRL_SF32LB52_PIN({port}, {pad}, {fsel}, {pinr:#04x}, {field})"
+          - flags:
+              bias-pull-up: PBL_PINCTRL_SF32LB52_PE | PBL_PINCTRL_SF32LB52_PS
+              bias-pull-down: PBL_PINCTRL_SF32LB52_PE
+              input-enable: PBL_PINCTRL_SF32LB52_IE
+          - prop: slew-rate
+            map: {0: PBL_PINCTRL_SF32LB52_SR, 1: null}
+            default: PBL_PINCTRL_SF32LB52_SR
+          - prop: drive-strength
+            map: {2: 0, 8: 1, 4: 2, 12: 3, 20: 4}
+            format: "PBL_PINCTRL_SF32LB52_DS_IDX({})"
+            default: PBL_PINCTRL_SF32LB52_DS_IDX(2)
