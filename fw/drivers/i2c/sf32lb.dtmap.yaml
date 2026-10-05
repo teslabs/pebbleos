@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-i2c
+include:
+  - pbl/drivers/i2c/sf32lb.h
+types-include:
+  - devicetree/types/sifli,sf32lb52-pinctrl.h
+  - devicetree/types/sifli,sf32lb52-rcc.h
+config:
+  # The bus HAL slot of the common I2C code.
+  type: struct I2CBusHal
+  description: SF32LB52 I2C controller.
+  fields:
+    regs:
+      type: uintptr
+      description: Registers.
+      from: {reg: 0}
+    irq:
+      type: u16
+      description: Interrupt line.
+      from: {interrupt: 0, specifier: line}
+    frequency:
+      type: u32
+      description: Bus frequency, in Hz.
+      from: {prop: clock-frequency, default: 100000}
+    clock:
+      type: struct pbl_clock_sf32lb52
+      description: Clock.
+      from: {phandle: clocks}
+    reset:
+      type: struct pbl_reset_sf32lb52
+      description: Reset line.
+      from: {phandle: resets}
+    pinctrl:
+      type: struct pbl_pinctrl_sf32lb52_state
+      description: Pins.
+      from: {pinctrl: default}
+data:
+  type: struct I2CBusHalState
+  field: state
+objects:
+  # Common I2C bus.
+  - name: bus_state
+    type: I2CBusState
+    const: false
+  - name: bus
+    type: I2CBus
+    const: false
+    main: true
+    init:
+      hal: {config: true}
+      state: {object: bus_state}
+      name: {node: label}
+irqs:
+  - interrupt: 0
+    handler: i2c_irq_handler
+provides:
+  i2c-bus: {}

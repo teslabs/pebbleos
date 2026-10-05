@@ -5,6 +5,9 @@
 #include <pbl/drivers/i2c/sf32lb.h>
 #include <pbl/drivers/i2c/definitions.h>
 #include <pbl/drivers/i2c/hal.h>
+#include <pbl/drivers/clock/sf32lb52.h>
+#include <pbl/drivers/reset/sf32lb52.h>
+#include <pbl/drivers/pinctrl/sf32lb52.h>
 
 #include "pbl/soc/sf32lb/sleep.h"
 #include "system/passert.h"
@@ -104,7 +107,7 @@ void i2c_hal_enable(I2CBus *bus) {
   I2CBusHal *hal = bus->hal;
   I2C_HandleTypeDef *hdl = &bus->hal->state->hdl;
 
-  HAL_RCC_EnableModule(hal->module);
+  pbl_clock_sf32lb52_on(&hal->clock);
   __HAL_I2C_ENABLE(hdl);
 }
 
@@ -113,7 +116,7 @@ void i2c_hal_disable(I2CBus *bus) {
   I2C_HandleTypeDef *hdl = &bus->hal->state->hdl;
 
   __HAL_I2C_DISABLE(hdl);
-  HAL_RCC_DisableModule(hal->module);
+  pbl_clock_sf32lb52_off(&hal->clock);
 }
 
 bool i2c_hal_is_busy(I2CBus *bus) {
@@ -128,12 +131,26 @@ void i2c_hal_init(I2CBus *bus) {
   I2CBusHal *hal = bus->hal;
   I2C_HandleTypeDef *hdl = &hal->state->hdl;
 
-  HAL_PIN_Set(hal->scl.pad, hal->scl.func, hal->scl.flags, 1);
-  HAL_PIN_Set(hal->sda.pad, hal->sda.func, hal->sda.flags, 1);
+  int err = pbl_pinctrl_sf32lb52_apply(&hal->pinctrl);
+  PBL_ASSERTN(err == 0);
 
-  HAL_RCC_EnableModule(hal->module);
+  *hdl = (I2C_HandleTypeDef){
+    .Instance = (I2C_TypeDef *)hal->regs,
+    .Init =
+        {
+          .AddressingMode = I2C_ADDRESSINGMODE_7BIT,
+          .ClockSpeed = hal->frequency,
+          .GeneralCallMode = I2C_GENERALCALL_DISABLE,
+        },
+    .Mode = HAL_I2C_MODE_MASTER,
+    .core = CORE_ID_HCPU,
+  };
+
+  pbl_clock_sf32lb52_on(&hal->clock);
+  pbl_reset_sf32lb52_assert(&hal->reset);
+  pbl_reset_sf32lb52_deassert(&hal->reset);
   ret = HAL_I2C_Init(hdl);
   PBL_ASSERTN(ret == HAL_OK);
 
-  pbl_irq_enable(hal->irqn);
+  pbl_irq_enable((IRQn_Type)hal->irq);
 }

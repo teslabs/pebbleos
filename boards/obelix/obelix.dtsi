@@ -1,0 +1,105 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/*
+ * Core Devices Pebble Time 2 (obelix), common to all revisions.
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "sf32lb/sf32lb52x/sf32lb52.dtsi"
+
+/ {
+	model = "Core Devices Pebble Time 2";
+};
+
+&pinctrl {
+	i2c1_default: i2c1-default-state {
+		scl-pins {
+			pins = "PA31";
+			function = "i2c1_scl";
+			bias-disable;
+			input-enable;
+		};
+
+		sda-pins {
+			pins = "PA30";
+			function = "i2c1_sda";
+			bias-disable;
+			input-enable;
+		};
+	};
+
+	i2c2_default: i2c2-default-state {
+		scl-pins {
+			pins = "PA32";
+			function = "i2c2_scl";
+			bias-disable;
+			input-enable;
+		};
+
+		sda-pins {
+			pins = "PA33";
+			function = "i2c2_sda";
+			bias-disable;
+			input-enable;
+		};
+	};
+
+	i2c3_default: i2c3-default-state {
+		scl-pins {
+			pins = "PA11";
+			function = "i2c3_scl";
+			bias-disable;
+			input-enable;
+		};
+
+		sda-pins {
+			pins = "PA10";
+			function = "i2c3_sda";
+			bias-disable;
+			input-enable;
+		};
+	};
+
+	i2c4_default: i2c4-default-state {
+		scl-pins {
+			pins = "PA09";
+			function = "i2c4_scl";
+			bias-disable;
+			input-enable;
+		};
+
+		sda-pins {
+			pins = "PA20";
+			function = "i2c4_sda";
+			bias-disable;
+			input-enable;
+		};
+	};
+};
+
+&i2c1 {
+	pinctrl-0 = <&i2c1_default>;
+	pinctrl-names = "default";
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&i2c2 {
+	pinctrl-0 = <&i2c2_default>;
+	pinctrl-names = "default";
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&i2c3 {
+	pinctrl-0 = <&i2c3_default>;
+	pinctrl-names = "default";
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&i2c4 {
+	pinctrl-0 = <&i2c4_default>;
+	pinctrl-names = "default";
+	clock-frequency = <400000>;
+	status = "okay";
+};

@@ -9,6 +9,8 @@
 #include "board/board.h"
 #include "definitions.h"
 
+#include <devicetree/types/sifli,sf32lb52-i2c.h>
+
 /**
  * @defgroup drivers_i2c_sf32lb SF32LB I2C
  * @ingroup drivers_i2c
@@ -25,19 +27,8 @@ typedef struct I2CBusHalState {
 } I2CBusHalState;
 /** @endcond */
 
-/** @brief SF32LB bus configuration. */
-typedef const struct I2CBusHal {
-  /** Driver runtime state. */
-  I2CBusHalState *state;
-  /** SCL pin. */
-  Pinmux scl;
-  /** SDA pin. */
-  Pinmux sda;
-  /** Controller clock module. */
-  RCC_MODULE_TYPE module;
-  /** Controller interrupt. */
-  IRQn_Type irqn;
-} I2CBusHal;
+/** @brief SF32LB bus configuration, generated from the devicetree. */
+typedef const struct I2CBusHal I2CBusHal;
 
 /**
  * @brief Controller interrupt handler.
