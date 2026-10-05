@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/sifli/sifli,sf32lb52-cfg.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: SiFli SF32LB52 HPSYS system configuration (HPSYS_CFG)
+
+maintainers:
+  - Gerard Marull-Paretas <gerard@teslabs.com>
+
+description:
+  System configuration registers of the HPSYS, including the PINR crossbar
+  that routes I2C, USART and timer signals to pads.
+
+properties:
+  compatible:
+    const: sifli,sf32lb52-cfg
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    syscon@5000b000 {
+        compatible = "sifli,sf32lb52-cfg";
+        reg = <0x5000b000 0x1000>;
+    };

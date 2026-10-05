@@ -1,0 +1,48 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+/*
+ * SiFli SF32LB52 HPSYS RCC peripheral reset IDs.
+ */
+
+#ifndef _DT_BINDINGS_RESET_SIFLI_SF32LB52_RCC_H
+#define _DT_BINDINGS_RESET_SIFLI_SF32LB52_RCC_H
+
+#define SF32LB52_RST_DMAC1      0
+#define SF32LB52_RST_MAILBOX1   1
+#define SF32LB52_RST_PINMUX1    2
+#define SF32LB52_RST_USART1     3
+#define SF32LB52_RST_USART2     4
+#define SF32LB52_RST_EZIP1      5
+#define SF32LB52_RST_EPIC       6
+#define SF32LB52_RST_LCDC1      7
+#define SF32LB52_RST_I2S1       8
+#define SF32LB52_RST_SYSCFG1    9
+#define SF32LB52_RST_EFUSEC     10
+#define SF32LB52_RST_AES        11
+#define SF32LB52_RST_CRC1       12
+#define SF32LB52_RST_TRNG       13
+#define SF32LB52_RST_GPTIM1     14
+#define SF32LB52_RST_GPTIM2     15
+#define SF32LB52_RST_BTIM1      16
+#define SF32LB52_RST_BTIM2      17
+#define SF32LB52_RST_SPI1       18
+#define SF32LB52_RST_SPI2       19
+#define SF32LB52_RST_EXTDMA     20
+#define SF32LB52_RST_PDM1       21
+#define SF32LB52_RST_I2C1       22
+#define SF32LB52_RST_I2C2       23
+#define SF32LB52_RST_PTC1       24
+#define SF32LB52_RST_GPIO1      25
+#define SF32LB52_RST_MPI1       26
+#define SF32LB52_RST_MPI2       27
+#define SF32LB52_RST_SDMMC1     28
+#define SF32LB52_RST_USBC       29
+#define SF32LB52_RST_I2C3       30
+#define SF32LB52_RST_ATIM1      31
+#define SF32LB52_RST_USART3     32
+#define SF32LB52_RST_AUDCODEC   33
+#define SF32LB52_RST_AUDPRC     34
+#define SF32LB52_RST_GPADC      35
+#define SF32LB52_RST_TSEN       36
+#define SF32LB52_RST_I2C4       37
+
+#endif

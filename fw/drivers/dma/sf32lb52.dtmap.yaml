@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-dmac
+provides:
+  dma-controller:
+    type: struct pbl_dma_sf32lb52_channel
+    description: SF32LB52 DMA channel.
+    fields:
+      regs:
+        type: uintptr
+        description: Controller registers.
+        from: {reg: 0}
+      channel:
+        type: u8
+        description: Channel, 0 to 7.
+        from: {cell: 0}
+      request:
+        type: u8
+        description: Request line of the peripheral.
+        from: {cell: 1}
+      irq:
+        type: u16
+        description: Channel interrupt line.
+        from: {interrupt: {cell: 0}, specifier: line}
+      priority:
+        type: u8
+        description: Channel interrupt priority.
+        from: {interrupt: {cell: 0}, specifier: priority}

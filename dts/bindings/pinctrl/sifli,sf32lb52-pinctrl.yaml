@@ -1,0 +1,275 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pinctrl/sifli,sf32lb52-pinctrl.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: SiFli SF32LB52 pin controller (HPSYS PINMUX)
+
+maintainers:
+  - Gerard Marull-Paretas <gerard@teslabs.com>
+
+description: |
+  Selects the function of each SA and PA pad and configures the pad. Every pad
+  has its own function select; I2C, USART and timer signals are in addition
+  routed through the PINR crossbar of the HPSYS_CFG block, so a pad can carry
+  any of their signals.
+
+  Pin configuration states are children of the controller, holding one or
+  more groups of pins that share a function and a pad configuration.
+
+properties:
+  compatible:
+    const: sifli,sf32lb52-pinctrl
+
+  reg:
+    items:
+      - description: SA pad registers
+      - description: PA pad registers
+
+  reg-names:
+    items:
+      - const: pad_sa
+      - const: pad_pa
+
+  clocks:
+    maxItems: 1
+
+  sifli,cfg:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: HPSYS_CFG block holding the PINR crossbar.
+
+patternProperties:
+  '-state$':
+    type: object
+    description: A pin configuration state, referenced from pinctrl-N.
+
+    patternProperties:
+      '^(.+-)?pins$':
+        type: object
+        description: A group of pins sharing their pad configuration.
+        allOf:
+          - $ref: /schemas/pinctrl/pincfg-node.yaml#
+          - $ref: /schemas/pinctrl/pinmux-node.yaml#
+
+        properties:
+          pins:
+            items:
+              pattern: '^(PA|SA)[0-9][0-9]$'
+
+          function:
+            enum:
+              - analog
+              - atim1_bk
+              - atim1_bk2
+              - atim1_ch1
+              - atim1_ch1n
+              - atim1_ch2
+              - atim1_ch2n
+              - atim1_ch3
+              - atim1_ch3n
+              - atim1_ch4
+              - atim1_etr
+              - efuse_pwr
+              - gpadc_ch0
+              - gpadc_ch1
+              - gpadc_ch2
+              - gpadc_ch3
+              - gpadc_ch4
+              - gpadc_ch5
+              - gpadc_ch6
+              - gpio
+              - gptim1_ch1
+              - gptim1_ch2
+              - gptim1_ch3
+              - gptim1_ch4
+              - gptim1_etr
+              - gptim2_ch1
+              - gptim2_ch2
+              - gptim2_ch3
+              - gptim2_ch4
+              - gptim2_etr
+              - i2c1_scl
+              - i2c1_sda
+              - i2c2_scl
+              - i2c2_sda
+              - i2c3_scl
+              - i2c3_sda
+              - i2c4_scl
+              - i2c4_sda
+              - i2s1_bck
+              - i2s1_lrck
+              - i2s1_mclk
+              - i2s1_sdi
+              - i2s1_sdo
+              - lcdc1_8080_cs
+              - lcdc1_8080_dc
+              - lcdc1_8080_dio0
+              - lcdc1_8080_dio1
+              - lcdc1_8080_dio2
+              - lcdc1_8080_dio3
+              - lcdc1_8080_dio4
+              - lcdc1_8080_dio5
+              - lcdc1_8080_dio6
+              - lcdc1_8080_dio7
+              - lcdc1_8080_rd
+              - lcdc1_8080_rstb
+              - lcdc1_8080_te
+              - lcdc1_8080_wr
+              - lcdc1_jdi_b1
+              - lcdc1_jdi_b2
+              - lcdc1_jdi_enb
+              - lcdc1_jdi_g1
+              - lcdc1_jdi_g2
+              - lcdc1_jdi_hck
+              - lcdc1_jdi_hst
+              - lcdc1_jdi_r1
+              - lcdc1_jdi_r2
+              - lcdc1_jdi_vck
+              - lcdc1_jdi_vst
+              - lcdc1_jdi_xrst
+              - lcdc1_spi_clk
+              - lcdc1_spi_cs
+              - lcdc1_spi_dio0
+              - lcdc1_spi_dio1
+              - lcdc1_spi_dio2
+              - lcdc1_spi_dio3
+              - lcdc1_spi_rstb
+              - lcdc1_spi_te
+              - lptim1_etr
+              - lptim1_in
+              - lptim1_out
+              - lptim2_etr
+              - lptim2_in
+              - lptim2_out
+              - mpi1_clk
+              - mpi1_clk_alt
+              - mpi1_clkb
+              - mpi1_cs
+              - mpi1_dio0
+              - mpi1_dio1
+              - mpi1_dio1_alt
+              - mpi1_dio2
+              - mpi1_dio2_alt
+              - mpi1_dio3
+              - mpi1_dio3_alt
+              - mpi1_dio4
+              - mpi1_dio5
+              - mpi1_dio6
+              - mpi1_dio7
+              - mpi1_dm
+              - mpi1_dqs
+              - mpi1_dqsdm
+              - mpi2_clk
+              - mpi2_cs
+              - mpi2_dio0
+              - mpi2_dio1
+              - mpi2_dio2
+              - mpi2_dio3
+              - pdm1_clk
+              - pdm1_data
+              - sd1_clk
+              - sd1_cmd
+              - sd1_dio0
+              - sd1_dio1
+              - sd1_dio2
+              - sd1_dio3
+              - spi1_clk
+              - spi1_cs
+              - spi1_di
+              - spi1_dio
+              - spi2_clk
+              - spi2_cs
+              - spi2_di
+              - spi2_dio
+              - swclk
+              - swdio
+              - usart1_cts
+              - usart1_rts
+              - usart1_rxd
+              - usart1_txd
+              - usart2_cts
+              - usart2_rts
+              - usart2_rxd
+              - usart2_txd
+              - usart3_cts
+              - usart3_rts
+              - usart3_rxd
+              - usart3_txd
+              - usb11_dm
+              - usb11_dp
+              - wkup_pin0
+              - wkup_pin1
+              - wkup_pin10
+              - wkup_pin11
+              - wkup_pin12
+              - wkup_pin13
+              - wkup_pin14
+              - wkup_pin15
+              - wkup_pin16
+              - wkup_pin17
+              - wkup_pin18
+              - wkup_pin19
+              - wkup_pin2
+              - wkup_pin20
+              - wkup_pin3
+              - xtal32k_ext
+              - xtal32k_xi
+              - xtal32k_xo
+
+          bias-disable: true
+          bias-pull-up: true
+          bias-pull-down: true
+          input-enable: true
+
+          slew-rate:
+            description: 0 for slow, 1 for fast. Not available on PA39-PA42.
+            enum: [0, 1]
+            default: 0
+
+          drive-strength:
+            description: 20 mA is only available on PA39-PA42, 8 and 12 mA
+              everywhere else.
+            enum: [2, 4, 8, 12, 20]
+            default: 4
+
+        required:
+          - pins
+          - function
+
+        additionalProperties: false
+
+    additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - sifli,cfg
+
+additionalProperties: false
+
+examples:
+  - |
+    pinctrl@50003000 {
+        compatible = "sifli,sf32lb52-pinctrl";
+        reg = <0x50003000 0x34>, <0x50003034 0xb4>;
+        reg-names = "pad_sa", "pad_pa";
+        sifli,cfg = <&cfg>;
+
+        i2c1-default-state {
+            scl-pins {
+                pins = "PA31";
+                function = "i2c1_scl";
+                bias-disable;
+                input-enable;
+            };
+
+            sda-pins {
+                pins = "PA30";
+                function = "i2c1_sda";
+                bias-disable;
+                input-enable;
+            };
+        };
+    };

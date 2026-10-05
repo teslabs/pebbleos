@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-cfg
+provides:
+  syscon:
+    type: uintptr
+    value: {reg: 0}

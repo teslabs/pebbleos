@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-gpio
+provides:
+  interrupt-controller:
+    specifiers:
+      exti:
+        type: ExtiConfig
+        init:
+          peripheral: {reg: 0, cast: "GPIO_TypeDef *"}
+          gpio_pin: {cell: 0}
+      input:
+        type: InputConfig
+        init:
+          gpio: {reg: 0, cast: "void *"}
+          gpio_pin: {cell: 0}
+  gpio-controller:
+    specifiers:
+      input:
+        type: InputConfig
+        init:
+          gpio: {reg: 0, cast: "void *"}
+          gpio_pin: {cell: 0}
