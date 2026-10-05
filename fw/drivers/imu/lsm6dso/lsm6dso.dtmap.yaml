@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: st,lsm6dso
+include:
+  - pbl/drivers/imu/lsm6dso/lsm6dso.h
+types-include:
+  - board/board.h
+config:
+  type: struct pbl_lsm6dso_config
+  description: ST LSM6DSO accelerometer and gyroscope.
+  fields:
+    i2c:
+      type: I2CSlavePort
+      description: I2C device.
+      init:
+        bus: {parent: i2c-bus}
+        address: {reg: 0}
+    int1:
+      type: ExtiConfig
+      description: INT1 interrupt line.
+      from: {interrupt: 0, specifier: exti}
+    int1_in:
+      type: InputConfig
+      description: INT1 input, to read back the pad level.
+      from: {interrupt: 0, specifier: input}
+    axis_map:
+      type: u8
+      count: 3
+      description: Sensor axis feeding each watch axis (0 X, 1 Y, 2 Z).
+      from:
+        prop: mount-matrix
+        type: string-array
+        convert: mount-matrix-axis-map
+        default: [0, 1, 2]
+    axis_dir:
+      type: s8
+      count: 3
+      description: Direction of each watch axis, 1 or -1.
+      from:
+        prop: mount-matrix
+        type: string-array
+        convert: mount-matrix-axis-dir
+        default: [1, 1, 1]
+data:
+  type: struct LSM6DSOState
+  field: state

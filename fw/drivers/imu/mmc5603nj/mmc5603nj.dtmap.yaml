@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: memsic,mmc5603
+types-include:
+  - board/board.h
+config:
+  type: struct pbl_mmc5603nj_config
+  description: MEMSIC MMC5603NJ magnetometer.
+  fields:
+    i2c:
+      type: I2CSlavePort
+      description: I2C device.
+      init:
+        bus: {parent: i2c-bus}
+        address: {reg: 0}

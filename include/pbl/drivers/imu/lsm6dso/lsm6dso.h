@@ -10,6 +10,8 @@
 #include <pbl/drivers/rtc.h>
 #include "pbl/services/regular_timer.h"
 
+#include <devicetree/types/st,lsm6dso.h>
+
 /**
  * @defgroup drivers_imu IMU
  * @ingroup drivers
@@ -86,20 +88,7 @@ typedef struct LSM6DSOState {
   bool int1_requeued;
 } LSM6DSOState;
 
-/** @brief LSM6DSO board configuration. */
-typedef struct LSM6DSOConfig {
-  /** Driver state. */
-  LSM6DSOState *state;
-  /** I2C device. */
-  I2CSlavePort i2c;
-  /** INT1 interrupt line. */
-  ExtiConfig int1;
-  /** INT1 input, to read back the pad level. */
-  InputConfig int1_in;
-  /** Sensor axis feeding each watch axis (0: X, 1: Y, 2: Z). */
-  uint8_t axis_map[3];
-  /** Direction of each watch axis: 1 or -1. */
-  int8_t axis_dir[3];
-} LSM6DSOConfig;
+/** @brief LSM6DSO configuration, generated from the devicetree. */
+typedef struct pbl_lsm6dso_config LSM6DSOConfig;
 
 /** @} */
