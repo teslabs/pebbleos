@@ -28,13 +28,6 @@ pbl_add_subdirectory_ifdef(CONFIG_VIBE vibe)
 pbl_add_subdirectory_ifdef(CONFIG_WATCHDOG watchdog)
 pbl_add_subdirectory_ifdef(CONFIG_HRM hrm)
 if(CONFIG_QEMU)
-  pbl_library_named(driver_qemu_serial)
-  pbl_library_sources(
-    qemu/qemu_serial.c
-    qemu/qemu_serial_util.c
-  )
-  pbl_library_named(driver_qemu_settings)
-  pbl_library_sources(qemu/qemu_settings.c)
   pbl_library_named(driver_qemu_vibe)
   pbl_library_sources(qemu/qemu_vibe.c)
   if(CONFIG_MAG)
