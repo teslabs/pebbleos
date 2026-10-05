@@ -16,6 +16,9 @@
 #include "pbl/util/heap.h"
 #include "pbl/soc/sf32lb/sleep.h"
 #include <pbl/drivers/mic/sf32lb52/pdm_definitions.h>
+#include <pbl/drivers/clock/sf32lb52.h>
+#include <pbl/drivers/dma/sf32lb52.h>
+#include <pbl/drivers/pinctrl/sf32lb52.h>
 #include "pbl/services/system_task.h"
 
 #include <inttypes.h>
@@ -74,19 +77,22 @@ void mic_init(const MicDevice *this) {
   pbl_mutex_init(&state->mutex);
   state->volume = PDM_AUDIO_RECORD_GAIN_DEFAULT;
 
-  // Pinmux configuration
-  HAL_PIN_Set(this->clk_gpio.pad, this->clk_gpio.func, this->clk_gpio.flags, 1);
-  HAL_PIN_Set(this->data_gpio.pad, this->data_gpio.func, this->data_gpio.flags, 1);
+  int err = pbl_pinctrl_sf32lb52_apply(&this->pinctrl);
+  PBL_ASSERTN(err == 0);
+
+  state->hdma.Instance = (DMA_Channel_TypeDef *)pbl_dma_sf32lb52_channel_regs(&this->dma);
+  state->hdma.Init.Request = this->dma.request;
+  state->hdma.Init.IrqPrio = this->dma.priority;
 
   this->state->hpdm = &s_hpdm;
   PDM_HandleTypeDef *hpdm = this->state->hpdm;
   // HPDM configuration
-  hpdm->Instance = this->pdm_instance;
+  hpdm->Instance = (PDM_TypeDef *)this->regs;
   hpdm->hdmarx = &state->hdma;
   hpdm->Init.Mode = PDM_MODE_LOOP;
   hpdm->Init.Channels = this->channels;
-  hpdm->Init.SampleRate = this->sample_rate;
-  hpdm->Init.ChannelDepth = this->channel_depth;
+  hpdm->Init.SampleRate = MIC_SAMPLE_RATE;
+  hpdm->Init.ChannelDepth = PDM_CHANNEL_DEPTH_16BIT;
   hpdm->Init.clkSrc = 9600000;
 
   state->is_initialized = true;
@@ -340,15 +346,15 @@ static bool prv_start_pdm_capture(const MicDevice *this) {
   PDM_HandleTypeDef *hpdm = this->state->hpdm;
 
   HAL_StatusTypeDef res;
-  HAL_RCC_EnableModule(RCC_MOD_PDM1);
+  pbl_clock_sf32lb52_on(&this->clock);
   res = HAL_PDM_Init(hpdm);
   if (this->channels == 1) {
     hpdm->Init.Channels = PDM_CHANNEL_LEFT_ONLY;
   } else {
     hpdm->Init.Channels = PDM_CHANNEL_STEREO;
   }
-  hpdm->Init.SampleRate = this->sample_rate;
-  hpdm->Init.ChannelDepth = (uint32_t)this->channel_depth;
+  hpdm->Init.SampleRate = MIC_SAMPLE_RATE;
+  hpdm->Init.ChannelDepth = PDM_CHANNEL_DEPTH_16BIT;
   HAL_PDM_Config(hpdm, PDM_CFG_CHANNEL | PDM_CFG_SAMPLERATE | PDM_CFG_DEPTH);
   HAL_PDM_Set_Gain(hpdm, PDM_CHANNEL_STEREO, this->state->volume);
 
@@ -356,8 +362,8 @@ static bool prv_start_pdm_capture(const MicDevice *this) {
   if (hpdm->Init.clkSrc == 3072000 || hpdm->Init.SampleRate == PDM_SAMPLE_96KHZ) {
     bf0_enable_pll(hpdm->Init.SampleRate, 0);
   }
-  pbl_irq_enable(this->pdm_dma_irq);
-  pbl_irq_enable(this->pdm_irq);
+  pbl_irq_enable((IRQn_Type)this->dma.irq);
+  pbl_irq_enable((IRQn_Type)this->irq);
   res |= HAL_PDM_Receive_DMA(hpdm, hpdm->pRxBuffPtr, hpdm->RxXferSize);
 
   return !res;
@@ -426,11 +432,11 @@ static bool prv_start(const MicDevice *this, MicDataHandlerCB data_handler, void
 
   // Start PDM capture
   if (!prv_start_pdm_capture(this)) {
-    pbl_irq_disable(this->pdm_dma_irq);
-    pbl_irq_disable(this->pdm_irq);
+    pbl_irq_disable((IRQn_Type)this->dma.irq);
+    pbl_irq_disable((IRQn_Type)this->irq);
     HAL_PDM_DMAStop(hpdm);
     HAL_PDM_DeInit(hpdm);
-    HAL_RCC_DisableModule(RCC_MOD_PDM1);
+    pbl_clock_sf32lb52_off(&this->clock);
 
     kernel_free(state->raw_dma_buffer);
     state->raw_dma_buffer = NULL;
@@ -489,8 +495,8 @@ void mic_stop(const MicDevice *this) {
   // Mark as stopped first to prevent new buffer requests
   state->is_running = false;
 
-  pbl_irq_disable(this->pdm_dma_irq);
-  pbl_irq_disable(this->pdm_irq);
+  pbl_irq_disable((IRQn_Type)this->dma.irq);
+  pbl_irq_disable((IRQn_Type)this->irq);
   HAL_PDM_DMAStop(hpdm);
   HAL_PDM_DeInit(hpdm);
   // Free dynamically allocated buffers

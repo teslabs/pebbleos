@@ -11,6 +11,22 @@
 };
 
 &pinctrl {
+	pdm1_default: pdm1-default-state {
+		clk-pins {
+			pins = "PA22";
+			function = "pdm1_clk";
+			bias-disable;
+			input-enable;
+		};
+
+		data-pins {
+			pins = "PA23";
+			function = "pdm1_data";
+			bias-pull-down;
+			input-enable;
+		};
+	};
+
 	i2c1_default: i2c1-default-state {
 		scl-pins {
 			pins = "PA31";
@@ -116,5 +132,11 @@
 	pinctrl-0 = <&i2c4_default>;
 	pinctrl-names = "default";
 	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&pdm1 {
+	pinctrl-0 = <&pdm1_default>;
+	pinctrl-names = "default";
 	status = "okay";
 };

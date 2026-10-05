@@ -394,44 +394,7 @@ const BoardConfigButton BOARD_CONFIG_BUTTON = {
 };
 PBL_IRQ_CONNECT(GPTIM2, 7, debounced_button_irq_handler, GPTIM2, 0);
 
-static MicDeviceState mic_state = {
-  .hdma = {
-    .Instance = DMA1_Channel5,
-    .Init = {
-      .Request = DMA_REQUEST_36,
-      .IrqPrio = 5,
-    },
-  },
-};
-static const MicDevice mic_device = {
-  .state = &mic_state,
-  .pdm_instance = hwp_pdm1,
-  .clk_gpio =
-      {
-        .pad = PAD_PA22,
-        .func = PDM1_CLK,
-        .flags = PIN_NOPULL,
-      },
-  .data_gpio =
-      {
-        .pad = PAD_PA23,
-        .func = PDM1_DATA,
-        .flags = PIN_PULLDOWN,
-      },
-  .pdm_dma_irq = DMAC1_CH5_IRQn,
-  .pdm_irq = PDM1_IRQn,
-#ifdef CONFIG_RECOVERY_FW
-  // PRF mic test needs stereo capture to verify both microphones
-  .channels = 2,
-#else
-  .channels = 1,
-#endif
-  .sample_rate = 16000,
-  .channel_depth = 16,
-};
-const MicDevice *MIC = &mic_device;
-PBL_IRQ_CONNECT(PDM1, 5, pdm1_data_handler, MIC, 0);
-PBL_IRQ_CONNECT(DMAC1_CH5, 5, pdm1_l_dma_handler, MIC, 0);
+const MicDevice *MIC = &hw_pdm1;
 
 uint32_t BSP_GetOtpBase(void) {
   return MPI2_MEM_BASE;

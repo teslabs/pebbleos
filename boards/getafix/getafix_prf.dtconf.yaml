@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Recovery firmware settings.
+
+pdm1:
+  # The PRF mic test captures both microphones.
+  channels: 2

@@ -17,8 +17,10 @@ config MIC_NRF5
 
 config MIC_SF32LB
     bool "SiFli SF32LB PDM"
-    default y if SOC_SF32LB52
+    default y if DT_HAS_SIFLI_SF32LB52_PDM
     select HAL_SIFLI
+    select CLOCK_SF32LB52
+    select PINCTRL_SF32LB52
     select HAL_SIFLI_AUDCODEC
     select HAL_SIFLI_PDM
     select MIC_POLLING

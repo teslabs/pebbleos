@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-pdm
+include:
+  - pbl/drivers/mic/sf32lb52/pdm_definitions.h
+types-include:
+  - devicetree/types/sifli,sf32lb52-dmac.h
+  - devicetree/types/sifli,sf32lb52-pinctrl.h
+  - devicetree/types/sifli,sf32lb52-rcc.h
+settings:
+  channels:
+    type: u8
+    description: Channels captured, 1 (left) or 2 (stereo).
+    enum: [1, 2]
+    default: 1
+config:
+  type: struct MicDevice
+  description: SF32LB52 PDM microphone.
+  fields:
+    regs:
+      type: uintptr
+      description: Registers.
+      from: {reg: 0}
+    irq:
+      type: u16
+      description: Interrupt line.
+      from: {interrupt: 0, specifier: line}
+    clock:
+      type: struct pbl_clock_sf32lb52
+      description: Clock.
+      from: {phandle: clocks}
+    pinctrl:
+      type: struct pbl_pinctrl_sf32lb52_state
+      description: Pins.
+      from: {pinctrl: default}
+    dma:
+      type: struct pbl_dma_sf32lb52_channel
+      description: Receive DMA channel.
+      from: {phandle: dmas}
+    channels:
+      type: u8
+      description: Channels captured, 1 or 2.
+      from: {setting: channels}
+data:
+  type: struct MicState
+  field: state
+irqs:
+  - interrupt: 0
+    handler: pdm1_data_handler
+  - phandle: dmas
+    interrupt: {cell: 0}
+    handler: pdm1_l_dma_handler
