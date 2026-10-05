@@ -61,6 +61,7 @@ foreach(var ${cache_variables})
   endif()
 endforeach()
 
+include(devicetree)
 include(kconfig)
 include(extensions)
 include(platform)
@@ -77,6 +78,7 @@ include(firmware)
 message(STATUS "Board: ${PBL_BOARD} (${PBL_PLATFORM_NAME}), variant: ${VARIANT}")
 
 pbl_init()
+pbl_devicetree_validate()
 
 # The generated headers every firmware library may include.
 add_custom_target(pbl_generated_headers)

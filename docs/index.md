@@ -89,6 +89,7 @@ development/pbl.md
 development/options.md
 development/building_fw.md
 development/build_system.md
+development/devicetree.md
 development/testing.md
 development/integration_tests.md
 development/qemu.md

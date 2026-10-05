@@ -1,0 +1,5 @@
+# Vendor prefixes missing from Linux, added to its vendor-prefixes.yaml when the
+# bindings are processed. Remove an entry once Linux has it.
+# <prefix>	<description>
+coredevices	Core Devices LLC
+sifli	SiFli Technologies (Nanjing) Co., Ltd.
