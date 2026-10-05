@@ -1,0 +1,271 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Schema for *.dtmap.yaml files. See docs/development/devicetree.md.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+title: dtmap
+
+type: object
+additionalProperties: false
+required: [compatible]
+properties:
+  compatible:
+    oneOf:
+      - type: string
+      - {type: array, items: {type: string}, minItems: 1}
+  include:
+    description: Headers hw.c and hw.h need (handlers, glue object types).
+    type: array
+    items: {type: string}
+  types-include:
+    description: Headers the generated types need (field types).
+    type: array
+    items: {type: string}
+  settings:
+    description: >-
+      Software settings of each instance, set per board in .dtconf.yaml
+      files by node label; config fields and objects use them as values.
+    type: object
+    propertyNames: {pattern: "^[a-z][a-z0-9-]*$"}
+    additionalProperties:
+      type: object
+      additionalProperties: false
+      required: [type, description]
+      properties:
+        type:
+          enum: [u8, u16, u32, u64, s8, s16, s32, s64, bool, string]
+        description: {type: string}
+        default: {$ref: "#/$defs/value"}
+        enum: {type: array, minItems: 1}
+        minimum: {type: integer}
+        maximum: {type: integer}
+  config:
+    description: >-
+      The data captured from the devicetree, as a generated struct with one
+      const instance per node, in ROM.
+    $ref: "#/$defs/struct"
+  data:
+    description: >-
+      Driver state, a type the driver defines, with one zero-initialised
+      instance per node, in RAM; the config points at it.
+    type: object
+    additionalProperties: false
+    required: [type]
+    properties:
+      type: {type: string}
+      field: {type: string, pattern: "^[a-z_][a-z0-9_]*$"}
+  objects:
+    type: array
+    items: {$ref: "#/$defs/object"}
+  irqs:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [interrupt, handler]
+      properties:
+        interrupt:
+          description: Index in the interrupts of the node, or of the node 'phandle' references.
+          oneOf:
+            - {type: integer, minimum: 0}
+            - $ref: "#/$defs/expr"
+        phandle: {type: string}
+        index: {type: integer, minimum: 0}
+        handler: {type: string}
+        arg: {$ref: "#/$defs/value"}
+        flags: {type: string}
+  provides:
+    type: object
+    additionalProperties: {$ref: "#/$defs/provide"}
+
+$defs:
+  object:
+    type: object
+    additionalProperties: false
+    required: [name, type]
+    properties:
+      name: {type: string, pattern: "^[a-z][a-z0-9_]*$"}
+      type: {type: string}
+      const: {type: boolean}
+      main: {type: boolean}
+      export:
+        description: Declare it in hw.h, as hw_<label>_<name>.
+        type: boolean
+      init: {$ref: "#/$defs/init"}
+
+  init:
+    type: object
+    propertyNames: {pattern: "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"}
+    additionalProperties: {$ref: "#/$defs/value"}
+
+  struct:
+    type: object
+    additionalProperties: false
+    required: [type, fields]
+    properties:
+      type: {type: string, pattern: "^struct [A-Za-z_][A-Za-z0-9_]*$"}
+      description: {type: string}
+      fields: {$ref: "#/$defs/fields"}
+
+  field:
+    type: object
+    additionalProperties: false
+    required: [type]
+    properties:
+      type:
+        description: >-
+          u8, u16, u32, u64, s8, s16, s32, s64, uintptr, bool, string, or a C
+          type.
+        type: string
+      count: {type: integer, minimum: 1}
+      description: {type: string}
+      from: {$ref: "#/$defs/value"}
+      init: {$ref: "#/$defs/init"}
+      optional: {type: boolean}
+
+  fields:
+    type: object
+    propertyNames: {pattern: "^[a-z_][a-z0-9_]*$"}
+    additionalProperties: {$ref: "#/$defs/field"}
+
+  view:
+    description: >-
+      What a reference resolves to: a generated struct ('fields', type
+      'struct <name>'), an existing C type built with 'init', or a 'value'.
+    type: object
+    additionalProperties: false
+    required: [type]
+    properties:
+      type: {type: string}
+      description: {type: string}
+      fields: {$ref: "#/$defs/fields"}
+      init: {$ref: "#/$defs/init"}
+      value: {$ref: "#/$defs/value"}
+    oneOf:
+      - required: [fields]
+      - required: [init]
+      - required: [value]
+
+  provide:
+    description: >-
+      What the node offers to nodes referencing it. A plain reference is a
+      pointer to the main object (or to 'object'); 'type' with 'fields',
+      'init' or 'value' makes it a value of that type, and 'specifiers' gives
+      named alternatives.
+    type: object
+    additionalProperties: false
+    dependentRequired:
+      fields: [type]
+      init: [type]
+      value: [type]
+    properties:
+      object: {type: string}
+      type: {type: string}
+      description: {type: string}
+      fields: {$ref: "#/$defs/fields"}
+      init: {$ref: "#/$defs/init"}
+      value: {$ref: "#/$defs/value"}
+      connect:
+        type: object
+        additionalProperties: false
+        required: [irq]
+        properties:
+          irq: {type: integer, minimum: 0}
+          priority: {type: integer, minimum: 0}
+      specifiers:
+        type: object
+        additionalProperties: {$ref: "#/$defs/view"}
+      element:
+        type: object
+        additionalProperties: false
+        required: [type, each]
+        oneOf:
+          - required: [init]
+          - required: [value]
+        properties:
+          type: {type: string}
+          each:
+            type: object
+            additionalProperties: false
+            required: [prop]
+            properties:
+              prop: {type: string}
+              type: {enum: [u32-array, string-array]}
+          init: {$ref: "#/$defs/init"}
+          value: {$ref: "#/$defs/value"}
+
+  value:
+    oneOf:
+      - type: [string, integer, boolean]
+      - type: array
+        items: {$ref: "#/$defs/value"}
+      - $ref: "#/$defs/expr"
+
+  expr:
+    type: object
+    additionalProperties: false
+    minProperties: 1
+    properties:
+      # Sources, exactly one per expression.
+      prop: {type: string}
+      reg: {type: integer, minimum: 0}
+      node: {enum: [name, label, path, unit-address]}
+      object: {type: string}
+      self: {const: true}
+      config: {const: true}
+      data: {const: true}
+      state: {enum: [pins, count]}
+      parent: {type: string}
+      cell: {type: integer, minimum: 0}
+      item: {const: true}
+      interrupt:
+        oneOf:
+          - {type: integer, minimum: 0}
+          - $ref: "#/$defs/expr"
+      setting: {type: string}
+      phandle: {type: string}
+      pinctrl: {type: string}
+      flags:
+        type: object
+        additionalProperties: {type: string}
+      table:
+        description: >-
+          Entry of a YAML table next to the spec: at the values of 'key' when
+          given (a source), else at the value (a modifier).
+        type: object
+        additionalProperties: false
+        required: [file]
+        properties:
+          file: {type: string}
+          key:
+            type: array
+            items: {$ref: "#/$defs/value"}
+            minItems: 1
+      or:
+        type: array
+        items: {$ref: "#/$defs/value"}
+        minItems: 1
+      # Modifiers.
+      type:
+        enum: [u32, s32, u64, bool, string, u8-array, u32-array, string-array]
+      index: {type: integer, minimum: 0}
+      part: {enum: [address, size, count]}
+      provider: {type: string}
+      specifier: {type: string}
+      map:
+        type: object
+        additionalProperties: {type: [string, integer, "null"]}
+      lookup:
+        type: object
+        additionalProperties: false
+        required: [header, prefix]
+        properties:
+          header: {type: string}
+          prefix: {type: string}
+      convert: {type: string}
+      case: {enum: [upper, lower]}
+      format: {type: string}
+      cast: {type: string}
+      default: {$ref: "#/$defs/value"}
+      optional: {type: boolean}
