@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-rcc
+include:
+  - pbl/drivers/clock/sf32lb52.h
+  - pbl/drivers/reset/sf32lb52.h
+config:
+  type: struct pbl_rcc_sf32lb52
+  description: SF32LB52 HPSYS reset and clock controller.
+  fields:
+    base:
+      type: uintptr
+      description: Registers.
+      from: {reg: 0}
+objects:
+  # One block, two interfaces: clock gates and peripheral resets.
+  - name: clk
+    type: struct pbl_clock_sf32lb52_ctrl
+    export: true
+    init:
+      rcc: {self: true}
+  - name: rst
+    type: struct pbl_reset_sf32lb52_ctrl
+    export: true
+    init:
+      rcc: {self: true}
+provides:
+  clock-controller:
+    type: struct pbl_clock_sf32lb52
+    description: SF32LB52 peripheral clock gate.
+    fields:
+      ctrl:
+        type: const struct pbl_clock_sf32lb52_ctrl *
+        description: Clock interface.
+        from: {object: clk}
+      id:
+        type: u16
+        description: Gate, a PBL_CLOCK_SF32LB52_GATE() value.
+        from:
+          cell: 0
+          lookup:
+            header: dt-bindings/clock/sifli,sf32lb52-rcc.h
+            prefix: SF32LB52_CLK_
+          table: {file: sf32lb52-gates.yaml}
+          format: "PBL_CLOCK_SF32LB52_GATE({reg:#04x}, {bit})"
+  reset-controller:
+    type: struct pbl_reset_sf32lb52
+    description: SF32LB52 peripheral reset line.
+    fields:
+      ctrl:
+        type: const struct pbl_reset_sf32lb52_ctrl *
+        description: Reset interface.
+        from: {object: rst}
+      id:
+        type: u16
+        description: Line, a PBL_RESET_SF32LB52_LINE() value.
+        from:
+          cell: 0
+          lookup:
+            header: dt-bindings/reset/sifli,sf32lb52-rcc.h
+            prefix: SF32LB52_RST_
+          table: {file: sf32lb52-resets.yaml}
+          format: "PBL_RESET_SF32LB52_LINE({reg:#04x}, {bit})"

@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+config CLOCK_SF32LB52
+    bool "SiFli SF32LB52 RCC"
+    default y if DT_HAS_SIFLI_SF32LB52_RCC
+    help
+      Peripheral clock gates and resets of the SF32LB52 HPSYS RCC.

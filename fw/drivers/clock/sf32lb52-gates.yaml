@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# SF32LB52 HPSYS RCC peripheral clock gates, by the clock name of
+# dt-bindings/clock/sifli,sf32lb52-rcc.h: ENR register offset and bit.
+
+DMAC1: {reg: 0x08, bit: 0}
+MAILBOX1: {reg: 0x08, bit: 1}
+PINMUX1: {reg: 0x08, bit: 2}
+USART2: {reg: 0x08, bit: 4}
+EZIP1: {reg: 0x08, bit: 5}
+EPIC: {reg: 0x08, bit: 6}
+LCDC1: {reg: 0x08, bit: 7}
+I2S1: {reg: 0x08, bit: 8}
+SYSCFG1: {reg: 0x08, bit: 10}
+EFUSEC: {reg: 0x08, bit: 11}
+AES: {reg: 0x08, bit: 12}
+CRC1: {reg: 0x08, bit: 13}
+TRNG: {reg: 0x08, bit: 14}
+GPTIM1: {reg: 0x08, bit: 15}
+GPTIM2: {reg: 0x08, bit: 16}
+BTIM1: {reg: 0x08, bit: 17}
+BTIM2: {reg: 0x08, bit: 18}
+SPI1: {reg: 0x08, bit: 20}
+SPI2: {reg: 0x08, bit: 21}
+EXTDMA: {reg: 0x08, bit: 22}
+SECU1: {reg: 0x08, bit: 23}
+PDM1: {reg: 0x08, bit: 25}
+I2C1: {reg: 0x08, bit: 27}
+I2C2: {reg: 0x08, bit: 28}
+PTC1: {reg: 0x08, bit: 31}
+GPIO1: {reg: 0x0c, bit: 0}
+MPI1: {reg: 0x0c, bit: 1}
+MPI2: {reg: 0x0c, bit: 2}
+SDMMC1: {reg: 0x0c, bit: 4}
+USBC: {reg: 0x0c, bit: 6}
+I2C3: {reg: 0x0c, bit: 8}
+ATIM1: {reg: 0x0c, bit: 9}
+USART3: {reg: 0x0c, bit: 12}
+AUDCODEC: {reg: 0x0c, bit: 19}
+AUDPRC: {reg: 0x0c, bit: 20}
+GPADC: {reg: 0x0c, bit: 22}
+TSEN: {reg: 0x0c, bit: 23}
+I2C4: {reg: 0x0c, bit: 25}
