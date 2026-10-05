@@ -37,3 +37,7 @@
 [submodule "third_party/mbedtls/mbedtls"]
 	path = third_party/mbedtls/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
+[submodule "third_party/devicetree/devicetree-rebasing"]
+	path = third_party/devicetree/devicetree-rebasing
+	url = https://git.kernel.org/pub/scm/linux/kernel/git/devicetree/devicetree-rebasing.git
+	shallow = true
