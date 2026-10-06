@@ -389,8 +389,10 @@ static void prv_exti_cb(void) {
     return;
   }
 
-  system_task_add_callback_from_isr(prv_process_pending_messages, NULL);
   s_callback_scheduled = true;
+  if (!system_task_add_callback_from_isr_droppable_raised(prv_process_pending_messages, NULL)) {
+    s_callback_scheduled = false;
+  }
 }
 
 // Runs on the system task: the actual recovery reset (cst816_hw_reset() sleeps
