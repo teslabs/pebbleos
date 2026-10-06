@@ -139,7 +139,8 @@ uint8_t sys_ble_client_copy_services(struct pbl_bt_device_internal device,
                                      pbl_bt_service_t services[], uint8_t num_services);
 uint16_t sys_ble_client_get_maximum_value_length(struct pbl_bt_device device);
 enum pbl_bt_errno sys_ble_client_read(pbl_bt_characteristic_t characteristic);
-bool sys_ble_client_get_notification_value_length(uint16_t *value_length_out);
+bool sys_ble_client_get_notification_value_length(pbl_bt_characteristic_t *characteristic_out,
+                                                  uint16_t *value_length_out);
 void sys_ble_client_consume_read(uintptr_t object_ref, uint8_t value_out[],
                                  uint16_t *value_length_in_out);
 bool sys_ble_client_consume_notification(uintptr_t *object_ref_out, uint8_t value_out[],
