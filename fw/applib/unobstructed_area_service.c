@@ -10,6 +10,8 @@
 #include "process_state/app_state/app_state.h"
 #include "system/passert.h"
 
+#include <pbl/logging/logging.h>
+
 static void prv_handle_unobstructed_area_event(PebbleEvent *event, void *context);
 static void prv_origin_y_to_area(int16_t origin_y, GRect *area_out);
 
@@ -96,10 +98,19 @@ static void prv_call_will_change(UnobstructedAreaState *state, PebbleEvent *even
   }
 }
 
+static void prv_call_did_change(UnobstructedAreaState *state) {
+  state->is_changing = false;
+  if (state->handlers.did_change) {
+    state->handlers.did_change(state->context);
+  }
+}
+
 static void prv_handle_will_change_event(PebbleEvent *event, void *context) {
   UnobstructedAreaState *state = context;
-  // It is the producer's responsibility not to overlap unobstructed area changes.
-  PBL_ASSERTN(!state->is_changing);
+  if (state->is_changing) {
+    PBL_LOG_WRN("Missed unobstructed area did change, recovering");
+    prv_call_did_change(state);
+  }
   prv_call_will_change(state, event);
 }
 
@@ -114,10 +125,7 @@ static void prv_handle_change_event(PebbleEvent *event, void *context) {
 static void prv_handle_did_change_event(PebbleEvent *event, void *context) {
   UnobstructedAreaState *state = context;
   prv_call_will_change(state, event);
-  state->is_changing = false;
-  if (state->handlers.did_change) {
-    state->handlers.did_change(state->context);
-  }
+  prv_call_did_change(state);
 }
 
 static void prv_handle_unobstructed_area_event(PebbleEvent *event, void *context) {
