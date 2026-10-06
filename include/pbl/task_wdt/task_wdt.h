@@ -17,9 +17,9 @@
  * thread at the highest priority checks the channels every @c CONFIG_TASK_WDT_CHECK_PERIOD_MS and
  * feeds the hardware watchdog. A channel that expires is
  * logged and recorded in the reboot reason, and its callback gets a chance to recover the
- * thread; once it stays expired for @c CONFIG_TASK_WDT_GRACE_MS, the system resets with a core
- * dump (with @c CONFIG_WATCHDOG; otherwise it only logs). The pool holds
- * @c CONFIG_TASK_WDT_CHANNELS channels.
+ * thread; once it stays expired for @c CONFIG_TASK_WDT_GRACE_MS after the check that found it
+ * expired, the system resets with a core dump (with @c CONFIG_WATCHDOG; otherwise it only
+ * logs). The pool holds @c CONFIG_TASK_WDT_CHANNELS channels.
  *
  * @code{.c}
  * static void prv_worker(void *arg) {

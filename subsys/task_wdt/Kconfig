@@ -30,8 +30,10 @@ config TASK_WDT_GRACE_MS
     int "Grace period in milliseconds"
     default 1000
     help
-      How long an expired channel may stay expired, with its callback
-      running on every check, before the system resets with a core dump.
+      How long a channel may stay expired after a check first finds it
+      expired, with its callback running on every check, before the
+      system resets with a core dump. While a channel is expired, the
+      checks run at most this far apart.
 
 config TASK_WDT_THREAD_STACK_SIZE
     int "Watchdog thread stack size in bytes"

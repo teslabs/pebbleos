@@ -174,13 +174,36 @@ void test_task_wdt__unfed_channel_calls_back_then_resets(void) {
   cl_assert(s_reset);
   cl_assert(s_reset_ms >= TIMEOUT_MS + GRACE_MS);
   cl_assert(s_reset_ms < TIMEOUT_MS + GRACE_MS + PERIOD_MS);
-  // The callback ran on every check inside the grace period.
-  cl_assert_equal_i(s_callbacks, GRACE_MS / PERIOD_MS + 1);
+  // The grace period runs from the first expired check, which never resets.
+  cl_assert_equal_i(s_reset_ms, s_first_callback_ms + GRACE_MS);
+  cl_assert_equal_i(s_callbacks, 2);
 
   cl_assert_equal_i(s_reason.code, RebootReasonCode_Watchdog);
   cl_assert_equal_i(s_reason.data8[0], 0x0);
   cl_assert_equal_i(s_reason.data8[1], 0x1);
   cl_assert_equal_i(s_reason.watchdog.stuck_task_callback, (uint32_t)(uintptr_t)&s_work);
+}
+
+static void *prv_recovering_callback(int channel_id, void *user_data) {
+  s_callbacks++;
+  pbl_task_wdt_feed(channel_id);
+  return NULL;
+}
+
+static void prv_recovered_entry(void *arg) {
+  cl_assert(pbl_task_wdt_add(NULL, TIMEOUT_MS, prv_recovering_callback, NULL) >= 0);
+  prv_sleep_ms(TIMEOUT_MS + PERIOD_MS + GRACE_MS);
+  pbl_test_kernel_stop();
+}
+
+void test_task_wdt__callback_recovers_overdue_channel(void) {
+  // Already more than the grace period overdue when first found expired.
+  cl_assert(PERIOD_MS - TIMEOUT_MS >= GRACE_MS);
+  prv_spawn(0, "recovered", prv_recovered_entry, NULL);
+  pbl_test_kernel_run();
+  cl_assert(!s_reset);
+  cl_assert_equal_i(s_callbacks, 1);
+  cl_assert_equal_i(s_reason.code, RebootReasonCode_Unknown);
 }
 
 static void prv_late_feed_entry(void *arg) {

@@ -12,6 +12,7 @@
 
 #include <pbl/drivers/watchdog.h>
 #include <pbl/logging/logging.h>
+#include <pbl/util/math.h>
 
 #include "pbl/kernel/debug.h"
 #include "pbl/kernel/irq.h"
@@ -35,17 +36,19 @@ struct channel {
   struct pbl_thread *thread;
   pbl_tick_t timeout;
   pbl_tick_t deadline;
+  pbl_tick_t expired_since;
   pbl_task_wdt_callback_t callback;
   void *user_data;
   bool active;
   bool waiting;
+  bool expired;
 };
 
 struct expired {
   int id;
   struct pbl_thread *thread;
   uint32_t since_feed_ms;
-  uint32_t overdue_ms;
+  pbl_tick_t expired_for;
   pbl_task_wdt_callback_t callback;
   void *user_data;
 };
@@ -65,6 +68,7 @@ static inline bool prv_reached(pbl_tick_t now, pbl_tick_t when) {
 
 static void prv_feed_locked(struct channel *ch, pbl_tick_t now) {
   ch->deadline = now + ch->timeout;
+  ch->expired = false;
 }
 
 static void prv_feed_all_locked(pbl_tick_t now) {
@@ -95,7 +99,7 @@ static size_t prv_collect_expired(struct expired *expired, uint8_t *fed_mask,
     prv_feed_all_locked(now);
   }
   for (int i = 0; i < NUM_CHANNELS; i++) {
-    const struct channel *ch = &s_channels[i];
+    struct channel *ch = &s_channels[i];
     if (!ch->active) {
       continue;
     }
@@ -104,12 +108,16 @@ static size_t prv_collect_expired(struct expired *expired, uint8_t *fed_mask,
       *fed_mask |= 1u << i;
       continue;
     }
+    if (!ch->expired) {
+      ch->expired = true;
+      ch->expired_since = now;
+    }
     pbl_tick_t overdue = now - ch->deadline;
     expired[num_expired++] = (struct expired){
       .id = i,
       .thread = ch->thread,
       .since_feed_ms = pbl_ticks_to_ms(ch->timeout + overdue),
-      .overdue_ms = pbl_ticks_to_ms(overdue),
+      .expired_for = now - ch->expired_since,
       .callback = ch->callback,
       .user_data = ch->user_data,
     };
@@ -128,16 +136,16 @@ static bool prv_reboot_reason_is_ours(void) {
 //! Logs every expired channel, gives each callback a chance to recover the
 //! thread and records the highest-priority stuck thread, which is the most
 //! likely culprit when several are stuck, in the reboot reason.
-//! @return the longest time any channel has been expired for.
-static uint32_t prv_report(const struct expired *expired, size_t num_expired, uint8_t fed_mask,
-                           uint8_t active_mask) {
+//! @return the longest time since a check first found a channel expired.
+static pbl_tick_t prv_report(const struct expired *expired, size_t num_expired, uint8_t fed_mask,
+                             uint8_t active_mask) {
   RebootReason reason = {
     .code = RebootReasonCode_Watchdog,
     .data8 = {fed_mask, active_mask},
   };
   pbl_prio_t worst_prio = 0;
   bool have_worst = false;
-  uint32_t max_overdue_ms = 0;
+  pbl_tick_t max_expired_for = 0;
 
   PBL_LOG_SYNC_WRN("Task watchdog: channels fed 0x%" PRIx8 " active 0x%" PRIx8, fed_mask,
                    active_mask);
@@ -163,8 +171,8 @@ static uint32_t prv_report(const struct expired *expired, size_t num_expired, ui
       reason.watchdog.stuck_task_lr = regs.lr;
       reason.watchdog.stuck_task_callback = (uint32_t)(uintptr_t)work;
     }
-    if (e->overdue_ms > max_overdue_ms) {
-      max_overdue_ms = e->overdue_ms;
+    if (e->expired_for > max_expired_for) {
+      max_expired_for = e->expired_for;
     }
   }
 
@@ -173,10 +181,10 @@ static uint32_t prv_report(const struct expired *expired, size_t num_expired, ui
     reboot_reason_set(&reason);
   }
 
-  return max_overdue_ms;
+  return max_expired_for;
 }
 
-static void prv_check(void) {
+static uint32_t prv_check(void) {
   struct expired expired[NUM_CHANNELS];
   uint8_t fed_mask;
   uint8_t active_mask;
@@ -191,12 +199,12 @@ static void prv_check(void) {
       PBL_LOG_SYNC_WRN("Task watchdog: recovered from a stall");
     }
     watchdog_feed();
-    return;
+    return CONFIG_TASK_WDT_CHECK_PERIOD_MS;
   }
 
   s_stalled = true;
-  uint32_t overdue_ms = prv_report(expired, num_expired, fed_mask, active_mask);
-  if (overdue_ms >= CONFIG_TASK_WDT_GRACE_MS) {
+  pbl_tick_t expired_for = prv_report(expired, num_expired, fed_mask, active_mask);
+  if (expired_for >= pbl_ms_to_ticks(CONFIG_TASK_WDT_GRACE_MS)) {
 #ifdef CONFIG_WATCHDOG
     // The orderly teardown system_reset() performs from thread context could
     // block on the stuck thread and lose the core dump; a locked-out
@@ -208,12 +216,15 @@ static void prv_check(void) {
 #endif
   }
   watchdog_feed();
+  return MIN(CONFIG_TASK_WDT_GRACE_MS, CONFIG_TASK_WDT_CHECK_PERIOD_MS);
 }
 
 static void prv_thread_entry(void *arg) {
+  uint32_t sleep_ms = CONFIG_TASK_WDT_CHECK_PERIOD_MS;
+
   for (;;) {
-    pbl_thread_sleep(PBL_MSEC(CONFIG_TASK_WDT_CHECK_PERIOD_MS));
-    prv_check();
+    pbl_thread_sleep(PBL_MSEC(sleep_ms));
+    sleep_ms = prv_check();
   }
 }
 
