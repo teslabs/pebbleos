@@ -4,18 +4,6 @@
 # Third-party code kept in the firmware tree, see docs/development/sbom.md.
 
 components:
-  - name: uPNG
-    path: applib/vendor/uPNG
-    supplier: Lode Vandevenne, Sean Middleditch, Matthew Hungerford
-    description: PNG decoder derived from LodePNG 20100808, with Pebble changes
-    license: Zlib
-
-  - name: tinflate
-    path: applib/vendor/tinflate
-    supplier: Joergen Ibsen
-    description: tiny inflate library, with Pebble changes
-    license: Zlib
-
   - name: utf8-decoder
     path: applib/graphics/utf8.c
     supplier: Bjoern Hoehrmann
