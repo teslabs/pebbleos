@@ -165,3 +165,21 @@ components:
     license: BSD-3-Clause
     purl: pkg:github/MersenneTwister-Lab/TinyMT@fabd14128db25498d6d3baf9cd25e15983bc12fd
     url: https://github.com/MersenneTwister-Lab/TinyMT
+
+  - name: uPNG
+    path: upng/upng
+    supplier: Lode Vandevenne, Sean Middleditch, Matthew Hungerford
+    description: PNG/APNG decoder derived from LodePNG 20100808, with PebbleOS changes
+    commit: 0da81ad1f352b59863eb54af9cdad8884c746722
+    license: Zlib
+    purl: pkg:github/coredevices/upng@0da81ad1f352b59863eb54af9cdad8884c746722
+    url: https://github.com/coredevices/upng
+
+  - name: uzlib
+    path: uzlib/uzlib
+    supplier: Paul Sokolovsky
+    description: uzlib v2.9.5 deflate decompressor with PebbleOS changes
+    commit: 99ec014835613d7161dc010c882513a389d32fa7
+    license: Zlib
+    purl: pkg:github/coredevices/uzlib@99ec014835613d7161dc010c882513a389d32fa7
+    url: https://github.com/coredevices/uzlib
