@@ -815,7 +815,9 @@ ProcessContext *app_manager_get_task_context(void) {
 }
 
 bool app_manager_is_watchface_running(void) {
-  return (app_manager_get_current_app_md()->process_type == ProcessTypeWatchface);
+  // No app while one is being switched out.
+  const PebbleProcessMd *md = app_manager_get_current_app_md();
+  return (md != NULL) && (md->process_type == ProcessTypeWatchface);
 }
 
 ResAppNum app_manager_get_current_resource_num(void) {
