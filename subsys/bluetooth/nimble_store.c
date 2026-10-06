@@ -335,6 +335,7 @@ static int prv_nimble_store_read_cccd(const struct ble_store_key_cccd *key_cccd,
   }
 
   *value_cccd = s->value_cccd;
+  ret = 0;
 
 unlock:
   pbl_mutex_unlock(&s_store_mutex);
