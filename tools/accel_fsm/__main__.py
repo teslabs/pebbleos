@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-"""Record raw accelerometer data on a watch.
+"""Record raw accelerometer data and run LSM6DSO FSM programs on it.
 
 python -m tools.accel_fsm record start walk --url /dev/cu.usbserial-XXXX
 python -m tools.accel_fsm record pull -o recordings/ --url ...
@@ -9,12 +9,13 @@ python -m tools.accel_fsm sim flick.fsm recordings/*.bin --odr 26
 """
 
 import argparse
+import collections
 import datetime
 import os
 import pathlib
 import sys
 
-from . import recording
+from . import boards, fsm, recording, ucf
 
 
 def _device(args):
@@ -85,6 +86,80 @@ def cmd_export(args):
         )
 
 
+def _load_programs(paths):
+    programs = []
+    for path in paths:
+        text = pathlib.Path(path).read_text()
+        if path.endswith(".ucf"):
+            for p in ucf.parse(text).programs:
+                p.name = f"{pathlib.Path(path).stem}:{p.name}"
+                programs.append(p)
+        else:
+            programs.append(fsm.assemble(text, name=pathlib.Path(path).stem))
+    return programs
+
+
+def cmd_disasm(args):
+    for program in _load_programs(args.programs):
+        print(f"; {program.name}")
+        print(fsm.disassemble(program))
+        print()
+
+
+def cmd_asm(args):
+    for program in _load_programs(args.programs):
+        data = program.to_bytes()
+        print(f"/* {program.name}: {len(data)} bytes */")
+        for i in range(0, len(data), 12):
+            print("  " + " ".join(f"0x{b:02x}," for b in data[i : i + 12]))
+
+
+def sensor_segments(rec, board, odr_hz, fs_g):
+    """Contiguous runs of samples at odr_hz, in g and the sensor frame."""
+    step = rec.rate_hz / odr_hz
+    if abs(step - round(step)) > 0.05 or round(step) < 1:
+        raise SystemExit(
+            f"cannot run at {odr_hz} Hz from a {rec.rate_hz:.2f} Hz recording"
+        )
+    step = round(step)
+    segments = []
+    for first, samples in rec.segments():
+        out = []
+        for s in samples[::step]:
+            sensor = board.to_sensor(s)
+            out.append(tuple(max(-fs_g, min(fs_g, v / 1000.0)) for v in sensor))
+        segments.append((first * rec.interval_us / 1e6, out))
+    return segments, rec.interval_us * step / 1e6
+
+
+def cmd_sim(args):
+    programs = _load_programs(args.programs)
+    totals = collections.Counter()
+    durations = collections.Counter()
+    for path in args.recordings:
+        rec = recording.load(path)
+        board = boards.get(args.board or rec.board)
+        odr = args.odr or rec.rate_hz
+        segments, period = sensor_segments(rec, board, odr, args.fs)
+        duration = sum(len(samples) for _, samples in segments) * period
+        durations[rec.label] += duration
+        gaps = f", {len(segments) - 1} gaps" if len(segments) > 1 else ""
+        print(f"{path} ({rec.label}, {duration:.1f} s at {odr:g} Hz{gaps}):")
+        for program in programs:
+            events = []
+            for start_s, samples in segments:
+                sim = fsm.Simulator(program)
+                events += [start_s + e.sample * period for e in sim.run(samples)]
+            totals[(rec.label, program.name)] += len(events)
+            times = " ".join(f"{t:.2f}" for t in events[: args.max_events])
+            more = " ..." if len(events) > args.max_events else ""
+            print(f"  {program.name}: {len(events)} events {times}{more}")
+    print("summary (events per label):")
+    for (label, name), count in sorted(totals.items()):
+        minutes = durations[label] / 60
+        print(f"  {label:16s} {name:24s} {count:5d}  ({count / minutes:.1f}/min)")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="accel_fsm", description=__doc__.split("\n")[0]
@@ -118,10 +193,33 @@ def main(argv=None):
     p.add_argument("-o", "--output", required=True)
     p.set_defaults(func=cmd_export)
 
+    p = sub.add_parser("disasm", help="disassemble .ucf or .fsm programs")
+    p.add_argument("programs", nargs="+")
+    p.set_defaults(func=cmd_disasm)
+
+    p = sub.add_parser("asm", help="assemble .fsm programs to bytes")
+    p.add_argument("programs", nargs="+")
+    p.set_defaults(func=cmd_asm)
+
+    p = sub.add_parser("sim", help="run programs on recordings")
+    p.add_argument("programs", nargs="+", help=".fsm or .ucf files, then recordings")
+    p.add_argument("--board", help="axis mapping (default: from the recording)")
+    p.add_argument("--odr", type=float, help="FSM rate in Hz (default: recording rate)")
+    p.add_argument(
+        "--fs", type=float, default=4.0, help="accelerometer full scale in g"
+    )
+    p.add_argument("--max-events", type=int, default=10)
+    p.set_defaults(func=cmd_sim)
+
     args = parser.parse_args(argv)
+    if args.cmd == "sim":
+        args.recordings = [a for a in args.programs if a.endswith(".bin")]
+        args.programs = [a for a in args.programs if not a.endswith(".bin")]
+        if not args.recordings or not args.programs:
+            parser.error("sim needs at least one program and one .bin recording")
     try:
         args.func(args)
-    except recording.RecordingError as e:
+    except (fsm.FsmError, recording.RecordingError, boards.BoardError) as e:
         sys.exit(f"error: {e}")
 
 
