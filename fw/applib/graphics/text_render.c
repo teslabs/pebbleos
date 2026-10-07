@@ -369,7 +369,8 @@ void render_glyph(GContext *const ctx, const uint32_t codepoint, FontInfo *const
       // bitblt part of glyph_block:
       const uint8_t number_of_bits =
           MIN(32 - dest_shift, MIN(glyph_line_bits_left, glyph_block_bits_left));
-      const uint32_t mask = (((1 << number_of_bits) - 1) << dest_shift);
+      // number_of_bits may be 32: shifting a 32-bit 1 that far is undefined.
+      const uint32_t mask = (uint32_t)((((uint64_t)1 << number_of_bits) - 1) << dest_shift);
 
 #if CONFIG_SCREEN_COLOR_DEPTH_BITS == 8
       // dest_block points to the block if the dest image was a 1-bit buffer
@@ -394,7 +395,7 @@ void render_glyph(GContext *const ctx, const uint32_t codepoint, FontInfo *const
           }
           // Find position in dest_bitmap that corresponds to the bit index
           // Write to that position if mask for that bit is 1
-          if ((mask & src) & (1 << bitindex)) {
+          if ((mask & src) & (1u << bitindex)) {
             GColor dest_color;
             if (ctx->draw_state.compositing_mode == GCompOpSet) {
               // Blend (i.e. for transparency) if GCompOpSet
