@@ -6,7 +6,7 @@ import time
 import pytest
 from harness.errors import WatchTimeout
 from harness.fixtures import dut_scope_within
-from harness.helpers.phone import make_phone
+from harness.helpers.phone import forget_bonds, make_phone
 from harness.helpers.voice import (
     RESULT_FAIL_SERVICE_UNAVAILABLE,
     RESULT_SUCCESS,
@@ -36,6 +36,7 @@ def voice(dut, lab_setup, results_dir):
     reason = lab_setup.lacks("phone")
     if reason:
         pytest.skip(reason)
+    forget_bonds(results_dir)
     phone = make_phone(dut, lab_setup.phone, results_dir).connect()
     try:
         yield VoicePhone(phone.pebble)

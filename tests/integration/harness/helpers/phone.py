@@ -232,6 +232,18 @@ class CoreAppPhone(Phone):
         raise Unsupported("CoreApp phones are not supported yet")
 
 
+def _keystore(results_dir, address):
+    return os.path.join(results_dir, f"keys-{address.replace(':', '')}.json")
+
+
+def forget_bonds(results_dir):
+    """Drop the bonds Bumble phones keep in ``results_dir``, e.g. from an
+    earlier run."""
+    for name in os.listdir(results_dir):
+        if name.startswith("keys-") and name.endswith(".json"):
+            os.unlink(os.path.join(results_dir, name))
+
+
 def make_phone(dut, phone_setup, results_dir, **options):
     """The setup's phone. ``options`` other than the defaults (another
     identity, forward PPoGATT) need a Bumble phone."""
@@ -241,6 +253,5 @@ def make_phone(dut, phone_setup, results_dir, **options):
         return CoreAppPhone(dut)
     if phone_setup.type != PHONE_BUMBLE:
         raise HarnessError(f"no phone of type {phone_setup.type!r}")
-    address = options.get("address", HOST_ADDRESS)
-    keystore = os.path.join(results_dir, f"keys-{address.replace(':', '')}.json")
+    keystore = _keystore(results_dir, options.get("address", HOST_ADDRESS))
     return BumblePhone(dut, keystore, **options)
