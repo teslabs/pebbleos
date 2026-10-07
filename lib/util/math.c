@@ -27,8 +27,8 @@ int32_t serial_distance(uint32_t a, uint32_t b, int bits) {
   // See https://en.wikipedia.org/wiki/Serial_Number_Arithmetic
   const int64_t a_minus_b = a - b;
   const int64_t b_minus_a = b - a;
-  const bool a_is_earlier_than_b =
-      (a < b && b_minus_a < (1 << (bits - 1))) || (a > b && a_minus_b > (1 << (bits - 1)));
+  const bool a_is_earlier_than_b = (a < b && b_minus_a < ((int64_t)1 << (bits - 1))) ||
+                                   (a > b && a_minus_b > ((int64_t)1 << (bits - 1)));
   return sign_extend(a_is_earlier_than_b ? -a_minus_b : b_minus_a, bits);
 }
 
