@@ -57,6 +57,7 @@ holds, and moves on when `NEXT` does. Thresholds are in g.
 Programs can be written in watch axes (`frame watch`) so that the same program
 works on every board, and with timers in milliseconds (`timer TI3 190ms`) so
 that it can run at different FSM rates; `odr` sets the default rate.
+`tools/accel_fsm/programs` holds the draft wrist flick programs.
 
 `disasm` also reads ST's `.ucf` configuration files, e.g. the
 [ST examples](https://github.com/STMicroelectronics/STMems_Finite_State_Machine).
@@ -65,8 +66,8 @@ the sensor axes of `--board`.
 
 ```shell
 python -m tools.accel_fsm disasm tools/accel_fsm/tests/st/lsm6dso_wrist_tilt_xl.ucf
-python -m tools.accel_fsm asm flick.fsm --board obelix
-python -m tools.accel_fsm sim flick.fsm recordings/*.bin --odr 26
+python -m tools.accel_fsm asm tools/accel_fsm/programs/flick_out.fsm --board obelix
+python -m tools.accel_fsm sim tools/accel_fsm/programs/flick_*.fsm recordings/*.bin --odr 26
 ```
 
 `sim` decimates recordings to `--odr` and clips them to `--fs`, and converts
