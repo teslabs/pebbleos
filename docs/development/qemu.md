@@ -45,6 +45,12 @@ The launched QEMU exposes:
 
 UART1 output is also captured to `uart1.log` in the repository root.
 
+The ports are fixed, so only one emulator can run at a time. An emulator
+left over from an earlier session keeps them; stop it with
+`pkill -f qemu-pebble`. The monitor socket is created in the build
+directory, and UNIX socket paths are limited to about 100 characters, so
+keep the build directory's path short.
+
 ## Bluetooth
 
 By default the NimBLE host runs against a fake controller that accepts
@@ -110,6 +116,10 @@ monitor using the `sendkey` command. The key mapping is:
 | `right`  | `select`     |
 | `up`     | `up`         |
 | `down`   | `down`       |
+
+On the watchface, `up` and `down` are quick launch shortcuts rather than
+navigation: press `select` to open the launcher. Input that arrives during
+a window transition is dropped, so leave about half a second between keys.
 
 ## Touch
 
