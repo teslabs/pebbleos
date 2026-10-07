@@ -96,16 +96,18 @@ jobs:
         run: pbl build qemu_image_micro qemu_image_spi bundle
 
       - name: Copy artifacts
+        if: matrix.build == 'normal'
         run: |
           version=$(git describe)
           mkdir artifacts
-          cp build/qemu_micro_flash.bin "artifacts/${{ matrix.board }}${{ matrix.suffix }}_${version}_micro_flash.bin"
-          cp build/qemu_spi_flash.bin "artifacts/${{ matrix.board }}${{ matrix.suffix }}_${version}_spi_flash.bin"
+          cp build/qemu_micro_flash.bin "artifacts/${{ matrix.board }}_${version}_micro_flash.bin"
+          cp build/qemu_spi_flash.bin "artifacts/${{ matrix.board }}_${version}_spi_flash.bin"
 
       - name: Store
+        if: matrix.build == 'normal'
         uses: actions/upload-artifact@v7
         with:
-          name: firmware-${{ matrix.board }}${{ matrix.suffix }}-qemu
+          name: firmware-${{ matrix.board }}-qemu
           path: artifacts
 
       # What the integration tests need of the build, laid out as in build/;
