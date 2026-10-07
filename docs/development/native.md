@@ -50,6 +50,10 @@ Options:
   of the terminal. Its output still goes to stdout.
 - `-p PORT`: serve the QEMU serial protocol on a TCP port, where a phone
   connects with libpebble2's QEMU transport (`pebble --qemu`).
+- `-b PORT|DEVICE`: with `CONFIG_BT_HCI_UART`, connect the Bluetooth HCI
+  UART to an H4 controller: a TCP port on the local host (e.g. Bumble's
+  `tcp-server` transport) or a serial device, such as an nRF52840 dongle
+  running Zephyr's `hci_uart` (see [](qemu.md)).
 - `-S FILE`: save the last frame to a BMP file on quitting.
 
 A reset of the watch restarts the process. A fatal error aborts it, so that a

@@ -24,6 +24,11 @@ static void prv_rx_isr(void *arg) {
   }
 }
 
+bool uart_posix_rx_enabled(enum uart_posix_channel channel) {
+  UARTDevice *dev = s_devices[channel];
+  return dev != NULL && __atomic_load_n(&dev->state->rx_int_enabled, __ATOMIC_RELAXED);
+}
+
 void uart_posix_rx(enum uart_posix_channel channel, uint8_t c) {
   struct rx rx = {.dev = s_devices[channel], .c = c};
   if (rx.dev != NULL) {
