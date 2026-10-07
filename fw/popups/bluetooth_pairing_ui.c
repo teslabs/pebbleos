@@ -19,6 +19,7 @@
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/light.h"
 #include "pbl/services/new_timer/new_timer.h"
+#include "pbl/kernel/sem.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
@@ -28,6 +29,10 @@
 
 #include <string.h>
 #include "pbl/kernel/compiler.h"
+
+#ifdef CONFIG_SHELL
+#include <pbl/shell/shell.h>
+#endif
 
 #define CODE_BUF_SIZE    16
 #define MAX_PAIR_STR_LEN 16
@@ -677,3 +682,54 @@ void pbl_bt_cb_pairing_confirm_handle_completed(const struct pbl_bt_pairing_conf
   };
   prv_put_pairing_event(&pair_event);
 }
+
+#ifdef CONFIG_SHELL
+typedef struct {
+  struct pbl_sem done;
+  bool shown;
+  BTPairingUIState ui_state;
+  char device_name[PBL_BT_DEVICE_NAME_BUFFER_SIZE];
+  char code[CODE_BUF_SIZE];
+} PairingUIInfo;
+
+static void prv_get_info_cb(void *ctx) {
+  PairingUIInfo *info = ctx;
+  if (s_data_ptr) {
+    info->shown = true;
+    info->ui_state = s_data_ptr->ui_state;
+    strncpy(info->device_name, s_data_ptr->device_name_layer_buffer, sizeof(info->device_name));
+    strncpy(info->code, s_data_ptr->code_text_layer_buffer, sizeof(info->code));
+  }
+  pbl_sem_give(&info->done);
+}
+
+static const char *const s_ui_state_names[] = {
+  [BTPairingUIStateAwaitingUserConfirmation] = "confirm",
+  [BTPairingUIStateAwaitingResult] = "waiting",
+  [BTPairingUIStateSuccess] = "success",
+  [BTPairingUIStateFailed] = "failed",
+};
+
+static int prv_cmd_pairing(const struct pbl_shell *sh, size_t argc, char **argv) {
+  PairingUIInfo info = {0};
+  pbl_sem_init(&info.done, 0, 1);
+  launcher_task_add_callback(prv_get_info_cb, &info);
+  pbl_sem_take(&info.done, PBL_FOREVER);
+  pbl_sem_deinit(&info.done);
+
+  if (!info.shown) {
+    pbl_shell_print(sh, "State: none");
+    return 0;
+  }
+
+  pbl_shell_print(sh, "State: %s", s_ui_state_names[info.ui_state]);
+  // The name and the code are only on screen until the user answers.
+  if (info.ui_state == BTPairingUIStateAwaitingUserConfirmation) {
+    pbl_shell_print(sh, "Device: %s", info.device_name);
+    pbl_shell_print(sh, "Code: %s", info.code);
+  }
+  return 0;
+}
+
+PBL_SHELL_SUBCMD_ADD(sub_bt, pairing, NULL, "Show the pairing prompt", prv_cmd_pairing, 0, 0);
+#endif
