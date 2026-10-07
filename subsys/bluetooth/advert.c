@@ -22,6 +22,7 @@ PBL_LOG_MODULE_DECLARE(bt, CONFIG_BT_LOG_LEVEL);
 static const ble_uuid16_t s_device_name_chr_uuid = BLE_UUID16_INIT(0x2A00);
 static char s_device_name[PBL_BT_DEVICE_NAME_BUFFER_SIZE];
 static bool s_pairing_in_progress;
+static uint16_t s_pairing_conn_handle;
 
 static int prv_device_name_read_event_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
                                          struct ble_gatt_attr *attr, void *arg) {
@@ -150,7 +151,21 @@ static void prv_handle_connection_event(struct ble_gap_event *event) {
   pbl_bt_handle_le_connection_complete_event(&complete_event);
 }
 
+static void prv_end_pairing(uint16_t conn_handle, bool success) {
+  if (!s_pairing_in_progress || conn_handle != s_pairing_conn_handle) {
+    return;
+  }
+
+  struct pbl_bt_pairing_confirm_ctx *ctx =
+      (struct pbl_bt_pairing_confirm_ctx *)((uintptr_t)conn_handle);
+  pbl_bt_cb_pairing_confirm_handle_completed(ctx, success);
+  s_pairing_in_progress = false;
+}
+
 static void prv_handle_disconnection_event(struct ble_gap_event *event) {
+  // A link dropped mid-pairing raises no pairing complete event.
+  prv_end_pairing(event->disconnect.conn.conn_handle, false);
+
   struct pbl_bt_gatt_device_disconnection_event gatt_event;
   nimble_addr_to_pebble_addr(&event->disconnect.conn.peer_id_addr, &gatt_event.dev_address);
   pbl_bt_cb_gatt_handle_disconnect(&gatt_event);
@@ -240,19 +255,13 @@ static void prv_handle_passkey_event(struct ble_gap_event *event) {
   snprintf(passkey_str, sizeof(passkey_str), "%06" PRIu32, passkey);
   pbl_bt_cb_pairing_confirm_handle_request(ctx, device_name, passkey_str);
   s_pairing_in_progress = true;
+  s_pairing_conn_handle = event->passkey.conn_handle;
 }
 
 static void prv_handle_pairing_complete_event(struct ble_gap_event *event) {
   PBL_LOG_INFO("Pairing complete: status=0x%04x", (uint16_t)event->pairing_complete.status);
 
-  if (!s_pairing_in_progress) {
-    return;
-  }
-
-  struct pbl_bt_pairing_confirm_ctx *ctx =
-      (struct pbl_bt_pairing_confirm_ctx *)((uintptr_t)event->pairing_complete.conn_handle);
-  pbl_bt_cb_pairing_confirm_handle_completed(ctx, event->pairing_complete.status == 0);
-  s_pairing_in_progress = false;
+  prv_end_pairing(event->pairing_complete.conn_handle, event->pairing_complete.status == 0);
 }
 
 static void prv_handle_identity_resolved_event(struct ble_gap_event *event) {
