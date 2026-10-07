@@ -183,7 +183,7 @@ static void prv_migrate_legacy_dnd_schedule(SettingsFile *file) {
   if (!settings_file_exists(file, s_dnd_schedule_keys[WeekdaySchedule].schedule_pref_key,
                             strlen(s_dnd_schedule_keys[WeekdaySchedule].schedule_pref_key))) {
 #define SET_PREF_ALREADY_OPEN(key, value) \
-  settings_file_set(file, key, strlen(key), value, sizeof(value));
+  settings_file_set(file, key, strlen(key), value, sizeof(*(value)));
 
     s_dnd_schedule[WeekdaySchedule].schedule = s_legacy_dnd_schedule;
     SET_PREF_ALREADY_OPEN(s_dnd_schedule_keys[WeekdaySchedule].schedule_pref_key,
