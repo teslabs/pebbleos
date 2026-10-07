@@ -9,9 +9,10 @@ import logging
 import os
 import queue
 import struct
+import threading
 
 from harness.ble import AUTO, HOST_ADDRESS, HOST_NAME, REVERSED, BleLink
-from harness.errors import HarnessError, Unsupported
+from harness.errors import HarnessError, Unsupported, WatchTimeout
 from harness.lab import PHONE_BUMBLE, PHONE_COREAPP
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,8 @@ RESET_ENDPOINT = 2003
 RUNNING_FLAGS_OFFSET = 4 + 1 + 4 + 32 + 8
 FLAG_RECOVERY = 0x01
 RESET_INTO_RECOVERY = 0xFF
+# How long the phone waits for the test to answer a pairing.
+ANSWER_TIMEOUT_S = 60.0
 
 
 def send_raw(pebble, endpoint, payload):
@@ -40,6 +43,11 @@ class Phone:
 
     def connect(self, timeout=90.0):
         raise NotImplementedError
+
+    def pair(self, timeout=90.0):
+        """Connect as :meth:`connect` does, with the test answering the
+        phone's side of the pairing: see :class:`Pairing`."""
+        raise Unsupported(f"{type(self).__name__} cannot leave pairing to the test")
 
     def disconnect(self):
         raise NotImplementedError
@@ -82,6 +90,80 @@ class Phone:
         self.disconnect()
 
 
+class Pairing:
+    """A connection whose pairing the test answers on the phone's side.
+    :meth:`number` is the number the phone shows once both sides compare
+    numbers, :meth:`answer` the phone's answer, and :meth:`result` whether
+    the phone paired and connected. A pairing that fails leaves the phone
+    disconnected, ready to try again."""
+
+    def __init__(self, phone, timeout, done=None):
+        self.phone = phone
+        self._done = done
+        self._number = None
+        self._accept = False
+        self._asked = threading.Event()
+        self._answered = threading.Event()
+        self._error = None
+        self._thread = threading.Thread(target=self._run, args=(timeout,), daemon=True)
+
+    def start(self):
+        self._thread.start()
+        return self
+
+    def compare(self, number):
+        """The phone's side of the comparison: runs until the test answers."""
+        self._number = number
+        self._asked.set()
+        return self._answered.wait(ANSWER_TIMEOUT_S) and self._accept
+
+    def _run(self, timeout):
+        try:
+            self.phone.connect(timeout)
+        except Exception as e:  # noqa: BLE001
+            self._error = e
+        finally:
+            if self._done is not None:
+                self._done()
+
+    def number(self, timeout=30.0):
+        """The 6-digit number the phone shows, as the watch shows it."""
+        if not self._asked.wait(timeout):
+            if self._error is not None:
+                raise self._error
+            raise WatchTimeout(f"no numeric comparison within {timeout}s")
+        return f"{self._number:06d}"
+
+    def answer(self, accept):
+        """Confirm (``True``) or reject the number on the phone."""
+        self._accept = accept
+        self._answered.set()
+
+    def drop(self):
+        """Drop the link without answering."""
+        self.phone.link.drop()
+
+    def result(self, timeout=60.0):
+        """True once paired and connected, False when the pairing failed."""
+        self._thread.join(timeout)
+        if self._thread.is_alive():
+            raise WatchTimeout(f"the pairing did not end within {timeout}s")
+        if self._error is None:
+            return True
+        # Once comparing numbers, anything that stops the pairing fails it:
+        # the watch may as well drop the link or let it time out.
+        if not (self._asked.is_set() or _is_pairing_failure(self._error)):
+            raise self._error
+        self.phone.disconnect()
+        return False
+
+
+def _is_pairing_failure(error):
+    from bumble.core import ProtocolError
+
+    return isinstance(error, ProtocolError) and error.error_namespace == "smp"
+
+
 class BumblePhone(Phone):
     """The harness as the phone, through a Bluetooth controller."""
 
@@ -106,6 +188,7 @@ class BumblePhone(Phone):
             name=name,
             ppogatt=ppogatt,
         )
+        self._pairing = None
 
     @property
     def name(self):
@@ -123,7 +206,21 @@ class BumblePhone(Phone):
         self.pebble = start_protocol(BleTransport(self.link))
         return self
 
+    def pair(self, timeout=90.0):
+        compare_numbers = self.link.compare_numbers
+
+        def done():
+            self.link.compare_numbers = compare_numbers
+
+        self._pairing = Pairing(self, timeout, done)
+        self.link.compare_numbers = self._pairing.compare
+        return self._pairing.start()
+
     def disconnect(self):
+        if self._pairing is not None:
+            # Unblock a comparison the test left unanswered.
+            self._pairing.answer(False)
+            self._pairing = None
         self.pebble = None
         self.link.close()
 
