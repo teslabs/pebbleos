@@ -494,6 +494,11 @@ void pbl_bt_handle_le_disconnection_complete_event(
     case PBL_BT_HCI_STATUS_SUCCESS: {
       // Disconnection! Update our records:
       GAPLEConnection *connection = gap_le_connection_by_device(&event->peer_address);
+      if (!connection) {
+        // Stopping Bluetooth drops its links after the connections are gone.
+        PBL_LOG_DBG("LE Disconn: no connection for hdl=%u", event->handle);
+        break;
+      }
 #ifdef CONFIG_SERVICE_BLE_HRM
       ble_hrm_handle_disconnection(connection);
 #endif
