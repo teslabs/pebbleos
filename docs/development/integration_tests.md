@@ -178,7 +178,11 @@ pbl itest --bt-hci /dev/cu.usbmodem1101 --ble-controller /dev/cu.usbmodem1201
 
 Tests that need a phone take the `phones` fixture: `phones()` makes the
 setup's phone, and `connect()` pairs and opens the Pebble protocol session
-(`phone.pebble`). A Bumble phone can also be another phone to the watch,
+(`phone.pebble`), confirming the pairing on the watch. `pair()` connects
+too, but leaves the pairing to the test: `number()` is the code the phone
+shows, `answer()` the phone's answer and `result()` whether it paired,
+while `harness.helpers.pairing` reads the watch's prompt (`bt pairing`)
+and answers it. A Bumble phone can also be another phone to the watch,
 `phones(address=...)`, with a bond of its own, and host the PPoGATT
 service itself, `phones(ppogatt="forward")`, instead of using the one the
 watch hosts; tests that ask for these skip on other phones.
@@ -350,9 +354,12 @@ without nominals record their figures with a warning.
 
 ## Recovery firmware
 
-The tests in `prf/` cover what a PRF release is checked for: the Getting
-Started screen and the phone's name on it, pairing and the Pebble protocol
-over reversed PPoGATT, a second phone taking over the single bond,
+The tests in `bluetooth/` run on both firmwares: pairing, with the phone's
+name and the code on the watch's prompt, confirmed or declined on either
+side or left to time out, and the Pebble protocol over either PPoGATT.
+The tests in `prf/` cover what else a PRF release is checked for: the
+Getting Started screen and the phone's name on it, a second phone taking
+over the single bond,
 installing the normal firmware from the phone and "Reset to PRF" from it,
 the backlight timeout, turning off after 10 minutes unplugged and
 unconnected (not while a phone or a charger is connected), the low battery

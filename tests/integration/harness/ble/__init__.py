@@ -14,6 +14,7 @@ import asyncio
 import logging
 import os
 import threading
+import time
 
 from harness.ble.ppogatt import PPoGATT
 from harness.errors import HarnessError, WatchTimeout
@@ -56,6 +57,7 @@ CONNECTION_INTERVAL_MS = 15
 SUPERVISION_TIMEOUT_MS = 6000
 ESTABLISH_S = 0.3
 PAIRING_TIMEOUT_S = 40.0
+CONFIRM_DELAY_S = 1.0
 SESSION_TIMEOUT_S = 15.0
 
 
@@ -92,7 +94,9 @@ class BleLink:
     ``Pebble 24F0``), or ``auto`` for the first watch bonded or advertising.
     ``confirm_pairing()``, when given, is called when the watch asks its user
     to confirm a pairing, and should confirm it (press Up); without it the
-    confirmation has to be done by hand. ``address`` and ``name`` are the
+    confirmation has to be done by hand. ``compare_numbers(number)``, run
+    in a thread of its own, answers the phone's side of a pairing instead:
+    whether the number matches. ``address`` and ``name`` are the
     host's identity: another one is another phone to the watch. ``ppogatt``
     is :data:`REVERSED` or :data:`FORWARD`."""
 
@@ -117,6 +121,7 @@ class BleLink:
             os.path.expanduser("~"), ".cache", "pbl-itest", "ble-keys.json"
         )
         self.confirm_pairing = confirm_pairing
+        self.compare_numbers = self._confirm_on_watch
         self.on_data = None
         self.on_disconnect = None
         self.connectivity = None
@@ -165,6 +170,11 @@ class BleLink:
             self._thread.join(timeout=5)
             self._loop = None
 
+    def drop(self):
+        """Drop the link, as a phone going out of range would."""
+        if self._connection is not None:
+            self._run(self._connection.disconnect(), 10)
+
     def forget(self):
         """Drop the bond the host keeps for the watch."""
         if os.path.exists(self.keystore):
@@ -194,14 +204,10 @@ class BleLink:
                 )
 
             async def compare_numbers(self, number, digits):
-                logger.info("pairing: confirm %0*d on the watch", digits, number)
-                if link.confirm_pairing is not None:
-                    # Let the watch show its prompt before confirming it.
-                    await asyncio.sleep(1.0)
-                    await asyncio.get_running_loop().run_in_executor(
-                        None, link.confirm_pairing
-                    )
-                return True
+                logger.info("pairing: comparing %0*d", digits, number)
+                return await asyncio.get_running_loop().run_in_executor(
+                    None, link.compare_numbers, number
+                )
 
             async def confirm(self, auto=False):
                 return True
@@ -214,6 +220,13 @@ class BleLink:
             device.add_service(self._forward_service())
         await device.power_on()
         self._device = device
+
+    def _confirm_on_watch(self, number):
+        if self.confirm_pairing is not None:
+            # Let the watch show its prompt before confirming it.
+            time.sleep(CONFIRM_DELAY_S)
+            self.confirm_pairing()
+        return True
 
     @staticmethod
     def _keep_connection_parameters(device):

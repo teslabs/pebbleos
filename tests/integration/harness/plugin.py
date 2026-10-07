@@ -34,6 +34,7 @@ CATEGORY_MARKERS = {
     "ui": "drives the UI and compares screenshots",
     "notifications": "notification delivery and presentation",
     "voice": "dictation through the voice and audio endpoints",
+    "bluetooth": "pairing and connecting with a phone",
     "power": "measures current consumption (needs a PPK2)",
     "slow": "takes more than a minute",
 }

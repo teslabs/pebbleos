@@ -1,38 +1,24 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import time
-
 import pytest
-from harness.errors import WatchTimeout
+from harness.helpers.pairing import WatchPairing
 
 pytestmark = pytest.mark.variants("prf")
 
 OTHER_PHONE_ADDRESS = "F0:BB:1E:00:00:02"
 OTHER_PHONE_NAME = "pbl-itest-2"
-NAME_READ_TIMEOUT_S = 30
 
 
 def _stored(dut, address, since):
     dut.wait_for_log(rf"Storing BLE pairing: addr={address}", timeout=30, since=since)
 
 
-@pytest.mark.parametrize("ppogatt", ["reversed", "forward"])
-def test_pairs_and_opens_session(dut, phones, ppogatt):
-    since = dut.logs.mark()
-    phone = phones(ppogatt=ppogatt).connect()
-    assert phone.watch_version().is_recovery
-    _stored(dut, phone.address, since)
-    dut.wait_for_log(rf"PPoGATT Session is opened \({ppogatt},", 10, since)
-
-
-def test_shows_phone_name(dut, build, phones, prompt, snapshot, getting_started):
+def test_getting_started_shows_phone_name(
+    dut, build, phones, snapshot, getting_started
+):
     phone = phones().connect()
-    deadline = time.monotonic() + NAME_READ_TIMEOUT_S
-    while f"Device: {phone.name}" not in prompt("bt status"):
-        if time.monotonic() > deadline:
-            raise WatchTimeout(f"the watch did not read the name {phone.name!r}")
-        time.sleep(0.5)
+    WatchPairing(dut).wait_phone_name(phone.name)
     image = getting_started()
     if build.emulated:
         snapshot.assert_match(image, "phone_name")

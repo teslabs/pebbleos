@@ -4,9 +4,14 @@
 """The console commands the harness uses, as the firmware spells them: the
 shell (CONFIG_SHELL), or the prompt it replaced."""
 
+from harness.errors import Unsupported
+
 SHELL = {
     "app_launch": "app launch {id}",
     "app_list": "app list",
+    "bt_pairing": "bt pairing",
+    "bt_status": "bt status",
+    "bt_unpair": "bt prefs_wipe",
     "click": "button click {button}",
     "click_multiple": "button multi {button} {presses} {hold_ms} {gap_ms}",
     "modals": "ui modals",
@@ -35,5 +40,10 @@ PROMPT = {
 
 def command(build, name, **args):
     """Command ``name`` with ``args``, for ``build``'s console."""
-    table = SHELL if build.config.get("CONFIG_SHELL") else PROMPT
+    shell = bool(build.config.get("CONFIG_SHELL"))
+    table = SHELL if shell else PROMPT
+    if name not in table:
+        raise Unsupported(
+            f"no {name!r} command in the {'shell' if shell else 'prompt'}"
+        )
     return table[name].format(**args)
