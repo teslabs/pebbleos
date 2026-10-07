@@ -9,7 +9,7 @@
 /**
  * @defgroup drivers_uart_posix POSIX
  * @ingroup drivers_uart
- * @brief UART on the host: the terminal or a TCP port.
+ * @brief UART on the host: the terminal, a TCP port or a serial device.
  * @{
  */
 
@@ -25,7 +25,7 @@ typedef struct UARTDeviceState {
 struct UARTDevice {
   /** Driver state. */
   UARTDeviceState *state;
-  /** Host end: 0 for the console, 1 for the QEMU serial protocol. */
+  /** Host end: 0 for the console, 1 for the QEMU serial protocol, 2 for Bluetooth HCI. */
   uint8_t channel;
 };
 
