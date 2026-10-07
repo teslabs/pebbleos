@@ -141,7 +141,7 @@ static uint32_t prv_get_cache_key(const FontResource *font_res, Codepoint codepo
 
   const bool is_app = (font_res->app_num != 0);
 
-  return (is_app ? 1 << 31 : 0) | ((font_res->resource_id << 17) | (codepoint & 0x0001FFFF));
+  return (is_app ? 1u << 31 : 0) | ((font_res->resource_id << 17) | (codepoint & 0x0001FFFF));
 }
 
 static uint32_t prv_get_glyph_table_offset(FontCache *font_cache, Codepoint codepoint,

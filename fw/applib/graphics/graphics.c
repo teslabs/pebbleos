@@ -80,9 +80,15 @@ PBL_T_STATIC void prv_fill_rect_legacy2(GContext *ctx, GRect rect, uint16_t radi
       MAX(0, rect.size.w - clipped_rect.size.w - left_cropped_columns_count);
 
   if (top_cropped_rows_count) {
-    // Skip over rows for each one that's cropped off the top.
-    corner_insets_left >>= 4 * MIN(top_cropped_rows_count, 8);
-    corner_insets_right >>= 4 * MIN(top_cropped_rows_count, 8);
+    // Skip over rows for each one that's cropped off the top; past 8 rows,
+    // none is left (a 32-bit shift by 32 is undefined).
+    if (top_cropped_rows_count >= 8) {
+      corner_insets_left = 0;
+      corner_insets_right = 0;
+    } else {
+      corner_insets_left >>= 4 * top_cropped_rows_count;
+      corner_insets_right >>= 4 * top_cropped_rows_count;
+    }
   }
 
   // Mark the destination dirty before clipped_rect is modified.
