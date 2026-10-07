@@ -86,7 +86,7 @@ def device_object(request, build, results_dir, lab_setup, ppk2):
             erase_fs=config.getoption("erase_fs"),
             flash_command=config.getoption("flash_command"),
             qemu_rtc=config.getoption("qemu_rtc"),
-            qemu_bt_hci=lab_setup.qemu_bt_hci,
+            bt_hci=lab_setup.bt_hci,
             ble_controller=lab_setup.phone.controller if lab_setup.phone else None,
             power_supply=ppk2,
         )

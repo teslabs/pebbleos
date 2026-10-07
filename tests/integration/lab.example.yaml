@@ -25,7 +25,7 @@ supplies:
 
 # Bluetooth dongles: nRF52840s running Zephyr's hci_uart (see qemu.md), by
 # serial port. The phone takes the first; the emulator, with
-# --qemu-bt-hci lab, takes the first and the phone the second.
+# --bt-hci lab, takes the first and the phone the second.
 dongles:
   dongle-a:
     port: /dev/cu.usbmodem112401

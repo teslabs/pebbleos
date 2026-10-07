@@ -10,9 +10,10 @@ setup for a build is what the tests run with: the device, how it is
 reached and powered, and what plays the phone, from the lab and the
 command line. Tests only see the setup, so they run unchanged on any of:
 
-- the emulator, with Bumble's software controllers for its Bluetooth and
-  the phone;
-- the emulator, with a dongle for its Bluetooth and another for the phone;
+- the emulator or a native build, with Bumble's software controllers for
+  its Bluetooth and the phone;
+- the emulator or a native build, with a dongle for its Bluetooth and
+  another for the phone;
 - a watch on its debug serial port, with the phone on a dongle;
 - a watch on its debug serial port, with a phone running CoreApp (not
   supported yet).
@@ -23,11 +24,11 @@ import os
 
 from harness.errors import HarnessError
 
-#: The emulator's Bluetooth through Bumble's software controllers, which
-#: also give the phone one.
+#: An emulated watch's Bluetooth through Bumble's software controllers,
+#: which also give the phone one.
 VIRTUAL = "virtual"
-#: The emulator's Bluetooth through the lab's first dongle, the phone's
-#: through its second.
+#: An emulated watch's Bluetooth through the lab's first dongle, the
+#: phone's through its second.
 FROM_LAB = "lab"
 
 PHONE_BUMBLE = "bumble"
@@ -162,8 +163,9 @@ class Setup:
     serial_baud: int = DEFAULT_SERIAL_BAUD
     ppk2: str = None
     voltage_mv: int = DEFAULT_VOLTAGE_MV
-    #: The emulator's Bluetooth: VIRTUAL, or a QEMU -serial spec.
-    qemu_bt_hci: str = None
+    #: An emulated watch's Bluetooth: VIRTUAL, or a dongle's serial port
+    #: (for QEMU, any -serial spec).
+    bt_hci: str = None
     phone: PhoneSetup = None
 
     def lacks(self, need):
@@ -174,7 +176,7 @@ class Setup:
                 return "no phone in this setup"
             if self.phone.type == PHONE_COREAPP:
                 return "CoreApp phones are not supported yet"
-            if self.phone.controller is None and self.qemu_bt_hci != VIRTUAL:
+            if self.phone.controller is None and self.bt_hci != VIRTUAL:
                 return "no Bluetooth controller for the phone"
         elif need == "power":
             if self.ppk2 is None:
@@ -187,8 +189,8 @@ class Setup:
             parts.append(f"serial {', '.join(self.serial)}")
         if self.ppk2:
             parts.append(f"PPK2 {self.ppk2} at {self.voltage_mv} mV")
-        if self.qemu_bt_hci:
-            parts.append(f"Bluetooth {self.qemu_bt_hci}")
+        if self.bt_hci:
+            parts.append(f"Bluetooth {self.bt_hci}")
         if self.phone:
             parts.append(f"phone {self.phone}")
         return ", ".join(parts)
@@ -197,8 +199,7 @@ class Setup:
 def resolve(build, device_type, options, lab=None):
     """The setup for ``build``, from the command line's ``options`` and the
     lab's wiring: ``serial`` (list), ``serial_baud``, ``ppk2``,
-    ``voltage_mv``, ``qemu_bt_hci`` (VIRTUAL, FROM_LAB or a QEMU -serial
-    spec), ``ble_controller``, ``phone`` (a PHONE_* type) and ``watch`` (the
+    ``voltage_mv``, ``bt_hci`` (VIRTUAL, FROM_LAB or a serial port), ``ble_controller``, ``phone`` (a PHONE_* type) and ``watch`` (the
     lab's name for it)."""
     lab = lab or Lab()
     setup = Setup(device_type=device_type)
@@ -217,16 +218,16 @@ def resolve(build, device_type, options, lab=None):
             if watch.supply is not None:
                 setup.ppk2 = lab.supplies[watch.supply].port
         phone_controller = dongles[0] if dongles else None
-    elif device_type == "qemu" and build is not None:
+    elif device_type in ("qemu", "native") and build is not None:
         if build.config.get("CONFIG_BT_HCI_UART"):
-            setup.qemu_bt_hci = options.get("qemu_bt_hci") or VIRTUAL
-        if setup.qemu_bt_hci == FROM_LAB:
+            setup.bt_hci = options.get("bt_hci") or VIRTUAL
+        if setup.bt_hci == FROM_LAB:
             if len(dongles) < 2:
                 raise HarnessError(
-                    f"--qemu-bt-hci {FROM_LAB} takes two of the lab's dongles, "
+                    f"--bt-hci {FROM_LAB} takes two of the lab's dongles, "
                     f"it has {len(dongles)}"
                 )
-            setup.qemu_bt_hci, phone_controller = dongles[0], dongles[1]
+            setup.bt_hci, phone_controller = dongles[0], dongles[1]
 
     if options.get("serial"):
         setup.serial = list(options["serial"])
@@ -237,7 +238,7 @@ def resolve(build, device_type, options, lab=None):
     if options.get("voltage_mv"):
         setup.voltage_mv = options["voltage_mv"]
     phone_controller = options.get("ble_controller") or phone_controller
-    if device_type == "hardware" or setup.qemu_bt_hci:
+    if device_type == "hardware" or setup.bt_hci:
         setup.phone = PhoneSetup(
             type=phone_type,
             controller=phone_controller if phone_type == PHONE_BUMBLE else None,

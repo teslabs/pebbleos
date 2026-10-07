@@ -34,11 +34,6 @@ class VirtualLink:
         self._process = None
 
     @property
-    def watch_chardev(self):
-        """The watch's controller, as a QEMU -serial spec."""
-        return f"tcp:127.0.0.1:{self.watch_port}"
-
-    @property
     def host_controller(self):
         """The harness's controller, as a Bumble transport."""
         return f"tcp-client:127.0.0.1:{self.host_port}"

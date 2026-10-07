@@ -21,6 +21,7 @@ from datetime import datetime
 from harness import commands, connections
 from harness.connections import Capability
 from harness.errors import HarnessError, Unsupported, WatchTimeout
+from harness.lab import VIRTUAL
 from harness.logs import Dehasher, LogBuffer, LogFile
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ class DeviceConfig:
     erase_fs: bool = False
     flash_command: str = None
     qemu_rtc: str = None
-    qemu_bt_hci: str = None
+    bt_hci: str = None
     ble_controller: str = None
     power_supply: object = None
 
@@ -59,6 +60,7 @@ class DeviceAdapter(ABC):
         #: The Bumble transport of the controller the harness talks to the
         #: watch's Bluetooth with, if any.
         self.ble_controller = config.ble_controller
+        self._virtual_link = None
         self._log_file = None
         self._launched = False
         self._log_listeners = [self.logs]
@@ -149,6 +151,36 @@ class DeviceAdapter(ABC):
             time.sleep(max(until - time.monotonic(), 0) + QUIESCE_MARGIN_S)
             self.connect()
             self.wait_ready()
+
+    def _start_bluetooth(self):
+        """Get the H4 controller the build's CONFIG_BT_HCI_UART needs: the
+        given one (a serial port, or what the device takes for one), or
+        Bumble's software controllers ('virtual'), whose other end is the
+        harness's. Returns the given one, the TCP port of the virtual one,
+        or None without CONFIG_BT_HCI_UART."""
+        hci_uart = bool(self.build.config.get("CONFIG_BT_HCI_UART"))
+        controller = self.config.bt_hci
+        if hci_uart and not controller:
+            raise HarnessError(
+                "the build uses CONFIG_BT_HCI_UART: its Bluetooth needs a controller"
+            )
+        if controller and not hci_uart:
+            raise HarnessError("--bt-hci needs a build with CONFIG_BT_HCI_UART=y")
+        if controller != VIRTUAL:
+            return controller
+        from harness.ble.virtual import VirtualLink
+
+        self._virtual_link = VirtualLink(
+            os.path.join(self.config.results_dir, "bt-link.log")
+        )
+        self._virtual_link.start()
+        self.ble_controller = self._virtual_link.host_controller
+        return self._virtual_link.watch_port
+
+    def _stop_bluetooth(self):
+        if self._virtual_link is not None:
+            self._virtual_link.stop()
+            self._virtual_link = None
 
     def standby(self):
         """Have the firmware turn the watch off (PRF only); :meth:`reset`
