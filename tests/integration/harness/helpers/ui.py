@@ -84,10 +84,11 @@ class Ui:
         deadline = time.monotonic() + BUSY_TIMEOUT_S
         while True:
             response = self.dut.prompt(command)
-            status = response[0] if response else ""
+            # The shell says nothing when it is done, the prompt says OK.
+            status = response[0] if response else "OK"
             if status.startswith("OK"):
                 return
-            if not status.startswith("BUSY"):
+            if "busy" not in status.lower():
                 raise PromptError(f"{command!r}: {response}")
             if time.monotonic() > deadline:
                 raise WatchTimeout(f"{command!r} stayed busy")
