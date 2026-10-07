@@ -900,6 +900,15 @@ void accel_cb_shake_detected(uint8_t axes, const AccelDriverSample *sample) {
   event_put(&e);
 
   PBL_ANALYTICS_ADD(accel_shake_count, 1);
+  if ((axes & PBL_BIT(AXIS_X)) != 0U) {
+    PBL_ANALYTICS_ADD(accel_shake_x_count, 1);
+  }
+  if ((axes & PBL_BIT(AXIS_Y)) != 0U) {
+    PBL_ANALYTICS_ADD(accel_shake_y_count, 1);
+  }
+  if ((axes & PBL_BIT(AXIS_Z)) != 0U) {
+    PBL_ANALYTICS_ADD(accel_shake_z_count, 1);
+  }
 }
 
 void accel_cb_double_tap_detected(IMUCoordinateAxis axis, int32_t direction) {
