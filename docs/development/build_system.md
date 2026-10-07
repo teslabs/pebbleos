@@ -133,6 +133,35 @@ search path: the toolchain in `cmake/toolchain/arm-none-eabi.cmake`, and
 read them back from `CMakeCache.txt`. Each is an ordinary `find_program`
 result, so it is cached too and can be overridden with `-D`.
 
+## Checking that a change does not change the code
+
+For changes that should not affect the generated code (removing includes,
+moving files, renaming, reformatting), a successful build proves little. A
+macro that is no longer defined in an `#if` silently evaluates to 0
+without any diagnostic: dropping the header that defines
+`__DCACHE_PRESENT` once turned every cache maintenance function into an
+empty stub. Compare the objects instead.
+
+Builds are reproducible, so recompiling an unchanged source gives a
+byte-identical object. Hash the objects of a build, apply the change,
+rebuild in the same directory and compare:
+
+```shell
+hash_objs() { find build -name '*.obj' -exec shasum {} + | sort -k2; }
+hash_objs > before.txt
+# apply the change
+pbl build
+hash_objs | diff before.txt -
+```
+
+Every board configuration compiles different code, so repeat this for each
+one the change touches (normal, PRF, release, QEMU).
+
+Log messages embed the line they come from, so deleting or adding a line
+changes the objects of every log call below it. When searching for lines
+that can go, blank them instead of deleting them, and remove the blank
+lines once the search is done.
+
 ## Directory layout
 
 ```
