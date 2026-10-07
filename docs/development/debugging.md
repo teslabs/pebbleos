@@ -65,6 +65,55 @@ You can also open a coredump interactively with
 `arm-none-eabi-gdb-py <symbols.elf> -ex "core-file <coredump>"` and use
 the `pbl` commands above.
 
+### Getting a coredump
+
+On a watch with a PULSE console, read the slot over bulk I/O:
+
+```python
+from pebble import pulse2
+from pebble.commander.apps.bulkio import BulkIO, PULSEIO_Coredump
+
+iface = pulse2.Interface.open_dbgserial(url="/dev/cu.usbmodemXXXX")
+with PULSEIO_Coredump(BulkIO(iface.get_link()).socket, 0) as cd:
+    length = cd.stat().length
+    data = b"".join(cd.read(min(4096, length - off))
+                    for off in range(0, length, 4096))
+```
+
+The raw dump starts with the `0xF00DCAFE` signature, and the build ID is
+stored as ASCII hex at offset 28. Use it to find the matching ELF; for a
+release, it is attached to the GitHub release
+(`gh release download vX.Y.Z -p 'firmware_<board>_*.elf'`).
+
+`tools/readcore.py <dump.bin> <dump.core.elf>` converts the raw dump into
+an ELF core file that any GDB can open.
+
+### Without GDB Python support
+
+`analyze_coredump.py` and the repository's `.gdbinit` need a GDB built
+with Python, and the GDB shipped with the PebbleOS SDK has none. Start it
+with `-nx` and drive it directly:
+
+```shell
+arm-none-eabi-gdb -nx --batch -ex "core-file dump.core.elf" \
+    -ex "info threads" -ex "thread apply all bt" fw.elf
+```
+
+Words found on a raw stack can be resolved with
+`arm-none-eabi-addr2line -fipe fw.elf <addr>...`.
+
+### Reading the dump
+
+- The crashing task's `r4`-`r11` are always `0xa5a5a5a5`: the coredump
+  code fills them in, they are not stack poison.
+- On a stack overflow, the MemManage handler moves the stack pointer 1 KiB
+  up to get out of the guard region before taking the dump. The reported
+  PSP is that adjusted value, so the top frame of the crashing thread is
+  stale stack content. Walk the raw stack from the guard region upwards
+  to reconstruct the call chain.
+- The flash logs leading up to the crash are printed by the shell command
+  `log dump last` (or `log dump current`).
+
 ## Memory usage analysis
 
 `tools/` contains several ELF analyzers for RAM and flash footprint work,
