@@ -93,6 +93,7 @@ development/testing.md
 development/integration_tests.md
 development/qemu.md
 development/native.md
+development/bluetooth.md
 development/debugging.md
 development/moddable.md
 development/sdk_export.md
