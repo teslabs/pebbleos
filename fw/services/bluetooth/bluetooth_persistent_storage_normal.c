@@ -1475,6 +1475,9 @@ static void prv_delete_all_pairings_itr(SettingsFile *old_file, SettingsFile *ne
 }
 
 void bt_persistent_storage_delete_all_pairings(void) {
+  // BLE bondings go one by one, so that the host and the pairability follow.
+  prv_delete_other_ble_bondings(PBL_BT_BONDING_ID_INVALID);
+
   prv_lock();
   {
     SettingsFile fd;
