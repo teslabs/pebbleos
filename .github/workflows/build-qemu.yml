@@ -141,10 +141,10 @@ jobs:
         include:
           - build: normal-itest
             suffix: -normal-itest
-            options: --qemu-bt-hci virtual
+            options: --bt-hci virtual
           - build: prf-itest
             suffix: -prf-itest
-            options: --qemu-bt-hci virtual --main-build "$GITHUB_WORKSPACE/build-main" -m "not slow"
+            options: --bt-hci virtual --main-build "$GITHUB_WORKSPACE/build-main" -m "not slow"
 
     steps:
       - name: Mark Github workspace as safe

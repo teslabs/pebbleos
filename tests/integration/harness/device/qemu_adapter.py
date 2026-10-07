@@ -11,12 +11,10 @@ import time
 
 from harness.device import DeviceAdapter
 from harness.errors import HarnessError
-from harness.lab import VIRTUAL
 
 MICRO_FLASH_IMAGE = "qemu_micro_flash.bin"
 SPI_FLASH_IMAGE = "qemu_spi_flash.bin"
 ABS_MAX = 32767
-# --qemu-bt-hci value for Bumble's software controllers instead of a radio.
 
 
 def _free_port():
@@ -88,7 +86,6 @@ class QemuAdapter(DeviceAdapter):
         self._sockdir = None
         self._process = None
         self._qemu_log = None
-        self._virtual_link = None
         self._bt_hci = None
 
     def _qemu(self):
@@ -136,31 +133,14 @@ class QemuAdapter(DeviceAdapter):
     def qmp_socket(self):
         return os.path.join(self._sockdir, "qmp.sock")
 
-    def _start_bluetooth(self):
-        """Attach the emulator's fourth UART to an H4 controller, as the
-        build's CONFIG_BT_HCI_UART needs: the given one, or Bumble's
-        software controllers ('virtual'), whose other end is the harness's."""
-        hci_uart = bool(self.build.config.get("CONFIG_BT_HCI_UART"))
-        chardev = self.config.qemu_bt_hci
-        if hci_uart and not chardev:
-            raise HarnessError(
-                "the build uses CONFIG_BT_HCI_UART: its Bluetooth needs a controller"
-            )
-        if chardev and not hci_uart:
-            raise HarnessError("--qemu-bt-hci needs a build with CONFIG_BT_HCI_UART=y")
-        if chardev == VIRTUAL:
-            from harness.ble.virtual import VirtualLink
-
-            self._virtual_link = VirtualLink(os.path.join(self.workdir, "bt-link.log"))
-            self._virtual_link.start()
-            chardev = self._virtual_link.watch_chardev
-            self.ble_controller = self._virtual_link.host_controller
-        self._bt_hci = chardev
-
     def _device_launch(self):
         self._sockdir = tempfile.mkdtemp(prefix="pbl-qemu-")
         os.makedirs(self.workdir, exist_ok=True)
-        self._start_bluetooth()
+        controller = self._start_bluetooth()
+        # The fourth UART, as a QEMU -serial spec.
+        self._bt_hci = (
+            f"tcp:127.0.0.1:{controller}" if isinstance(controller, int) else controller
+        )
         for image in (MICRO_FLASH_IMAGE, SPI_FLASH_IMAGE):
             if not os.path.isfile(self.build.join(image)):
                 raise HarnessError(
@@ -208,9 +188,7 @@ class QemuAdapter(DeviceAdapter):
         if self._qemu_log is not None:
             self._qemu_log.close()
             self._qemu_log = None
-        if self._virtual_link is not None:
-            self._virtual_link.stop()
-            self._virtual_link = None
+        self._stop_bluetooth()
 
     def _monitor(self, command):
         monitor = _Monitor(self.monitor_socket)

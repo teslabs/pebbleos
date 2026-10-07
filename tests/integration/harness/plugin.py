@@ -145,13 +145,13 @@ def pytest_addoption(parser):
         "%(default)s; 'localtime' for the host's)",
     )
     group.addoption(
-        "--qemu-bt-hci",
-        metavar="CHARDEV",
-        help="H4 controller for builds with CONFIG_BT_HCI_UART: 'virtual' for "
-        "Bumble's software controllers, which also give the phone one (the "
-        "default), 'lab' for the lab's first dongle (the phone taking its "
-        "second), or the serial port of an hci_uart dongle or any QEMU -serial "
-        "spec",
+        "--bt-hci",
+        metavar="CONTROLLER",
+        help="H4 controller for emulator and native builds with "
+        "CONFIG_BT_HCI_UART: 'virtual' for Bumble's software controllers, "
+        "which also give the phone one (the default), 'lab' for the lab's "
+        "first dongle (the phone taking its second), or the serial port of an "
+        "hci_uart dongle (for QEMU, any -serial spec)",
     )
     group.addoption(
         "--ble-controller",
@@ -234,7 +234,7 @@ def _resolve_setup(config, build, board, device_type):
             "serial_baud": config.getoption("device_serial_baud"),
             "ppk2": config.getoption("ppk2"),
             "voltage_mv": config.getoption("ppk2_voltage"),
-            "qemu_bt_hci": config.getoption("qemu_bt_hci"),
+            "bt_hci": config.getoption("bt_hci"),
             "ble_controller": config.getoption("ble_controller"),
             "watch": config.getoption("lab_watch"),
             "phone": config.getoption("phone"),
