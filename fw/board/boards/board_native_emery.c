@@ -24,6 +24,17 @@ static const struct UARTDevice s_qemu_uart = {
 
 UARTDevice *const QEMU_UART = &s_qemu_uart;
 
+#ifdef CONFIG_BT_HCI_UART
+static UARTDeviceState s_bt_hci_uart_state;
+
+static const struct UARTDevice s_bt_hci_uart = {
+  .state = &s_bt_hci_uart_state,
+  .channel = 2,
+};
+
+UARTDevice *const BT_HCI_UART = &s_bt_hci_uart;
+#endif
+
 static const PosixDisplayDevice s_display = {
   .width = PBL_DISPLAY_WIDTH,
   .height = PBL_DISPLAY_HEIGHT,
