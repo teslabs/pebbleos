@@ -7,6 +7,7 @@ eventually, a phone running CoreApp."""
 
 import logging
 import os
+import queue
 import struct
 
 from harness.ble import AUTO, HOST_ADDRESS, HOST_NAME, REVERSED, BleLink
@@ -16,6 +17,10 @@ from harness.lab import PHONE_BUMBLE, PHONE_COREAPP
 logger = logging.getLogger(__name__)
 
 RESET_ENDPOINT = 2003
+# In a version response: the frame header, the command, then the running
+# firmware's timestamp, version tag and git hash before its flags.
+RUNNING_FLAGS_OFFSET = 4 + 1 + 4 + 32 + 8
+FLAG_RECOVERY = 0x01
 RESET_INTO_RECOVERY = 0xFF
 
 
@@ -40,12 +45,31 @@ class Phone:
         raise NotImplementedError
 
     def watch_version(self, timeout=15):
+        """The running firmware's version. libpebble2 reads ``is_recovery``
+        from the whole flags byte, where the dual-slot bits are set too, so
+        it is taken from its own bit here."""
         from libpebble2.protocol.system import WatchVersion, WatchVersionRequest
 
-        response = self.pebble.send_and_read(
-            WatchVersion(data=WatchVersionRequest()), WatchVersion, timeout=timeout
-        )
-        return response.data.running
+        raw = queue.Queue()
+
+        def on_message(message):
+            if (
+                struct.unpack_from(">H", message, 2)[0]
+                == WatchVersion._Meta["endpoint"]
+            ):
+                raw.put(message)
+
+        handle = self.pebble.register_raw_inbound_handler(on_message)
+        try:
+            response = self.pebble.send_and_read(
+                WatchVersion(data=WatchVersionRequest()), WatchVersion, timeout=timeout
+            )
+            message = raw.get(timeout=timeout)
+        finally:
+            self.pebble.unregister_endpoint(handle)
+        running = response.data.running
+        running.is_recovery = bool(message[RUNNING_FLAGS_OFFSET] & FLAG_RECOVERY)
+        return running
 
     def reset_into_recovery(self):
         """What the app's 'Reset to PRF' sends."""
