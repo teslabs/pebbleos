@@ -21,6 +21,7 @@
 #include "kernel/util/sleep.h"
 
 #include "pbl/kernel/sem.h"
+#include "pbl/util/math.h"
 
 PBL_LOG_MODULE_DEFINE(driver_flash, CONFIG_DRIVER_FLASH_LOG_LEVEL);
 
@@ -208,7 +209,7 @@ static uint32_t prv_flash_erase_start(uint32_t addr, FlashOperationCompleteCb on
 
   if (PASSED(status)) {
     pbl_mutex_unlock(&s_flash_lock);
-    return (s_erase.expected_duration * 7 / 8);
+    return MAX(s_erase.expected_duration * 7 / 8, 1U);
   } else {
     s_erase.in_progress = false;
     pbl_mutex_unlock(&s_flash_lock);
@@ -246,7 +247,7 @@ static uint32_t prv_flash_erase_poll(void) {
   pbl_mutex_unlock(&s_flash_lock);
 
   if (!erase_finished) {
-    return s_erase.expected_duration / 8;
+    return MAX(s_erase.expected_duration / 8, 1U);
   }
 
   pbl_sem_give(&s_erase_semphr);

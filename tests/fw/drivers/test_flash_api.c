@@ -100,12 +100,13 @@ status_t flash_impl_erase_resume(FlashAddress addr) {
   return S_SUCCESS;
 }
 
+uint32_t typical_erase_duration_ms = 100;
 uint32_t flash_impl_get_typical_subsector_erase_duration_ms(void) {
-  return 100;
+  return typical_erase_duration_ms;
 }
 
 uint32_t flash_impl_get_typical_sector_erase_duration_ms(void) {
-  return 100;
+  return typical_erase_duration_ms;
 }
 
 status_t flash_impl_get_write_status(void) {
@@ -190,6 +191,7 @@ void test_flash_api__initialize(void) {
   get_erase_status_fn = return_success;
   blank_check_subsector_calls = 0;
   blank_check_sector_calls = 0;
+  typical_erase_duration_ms = 100;
 
   flash_api_reset_for_test();
   flash_init();
@@ -243,4 +245,22 @@ void test_flash_api__handle_uncorrectable_erase_error(void) {
   }
   cl_assert(i > 1 && i < 20);
   cl_assert_equal_i(uncorrectable_erase_error_cb_called, true);
+}
+
+///////////////////////////////////////////////////////////////////////
+
+void test_flash_api__short_blocking_erase_is_polled(void) {
+  typical_erase_duration_ms = 1;
+  flash_erase_subsector_blocking(0);
+  cl_assert(get_erase_status_calls > 0);
+}
+
+void test_flash_api__short_async_erase_completes(void) {
+  typical_erase_duration_ms = 1;
+  TimerID erase_timer = flash_api_get_erase_poll_timer_for_test();
+  flash_erase_subsector(0, callback, (void *)1);
+  cl_assert(stub_new_timer_is_scheduled(erase_timer));
+  stub_new_timer_fire(erase_timer);
+  cl_assert_equal_p(callback_context, (void *)1);
+  cl_assert_equal_i(callback_status, S_SUCCESS);
 }
