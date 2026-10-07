@@ -136,3 +136,20 @@ def test_temporary_mask():
     assert _run(program, [0, -2, 0, 2, 0], axis=0) == [3]
     # +X over then +X over again: never under
     assert _run(program, [0, 2, 0, 2, 0, 0, 0, 0, 0], axis=0) == []
+
+
+def test_timers_in_ms():
+    text = "odr 26\ntimer TI3 190ms\ncode:\nNOP|TI3\nCONTREL\n"
+    assert fsm.assemble(text).timers == {3: 5}
+    assert fsm.assemble(text, odr=52).timers == {3: 10}
+    with pytest.raises(fsm.FsmError):
+        fsm.assemble("timer TI3 190ms\ncode:\nNOP|TI3\n")
+
+
+def test_overrides():
+    text = "thresh 1 0.5\nmask A +X\ntimer TI3 4\ncode:\nTI3|GNTH1\nCONTREL\n"
+    program = fsm.assemble(text, odr=26, overrides={"thresh1": "0.8", "TI3": "100ms"})
+    assert program.thresholds == [0.8]
+    assert program.timers == {3: 3}
+    with pytest.raises(fsm.FsmError):
+        fsm.assemble(text, overrides={"thresh2": "1.0"})

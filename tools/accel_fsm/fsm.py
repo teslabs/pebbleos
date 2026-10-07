@@ -141,6 +141,8 @@ class Program:
     angle: bool = False
     long_counter: bool = False
     name: str = ""
+    # Axes the masks refer to: "sensor", or "watch" (remapped per board on load)
+    frame: str = "sensor"
 
     def _long_timers(self):
         return sorted(t for t in self.timers if t in (1, 2))
@@ -321,15 +323,29 @@ def disassemble(program):
     return "\n".join(lines)
 
 
-def assemble(text, name=""):
+def _timer_samples(value, odr):
+    if value.endswith("ms"):
+        if odr is None:
+            raise FsmError(
+                f"timer {value} needs an FSM rate (odr directive or argument)"
+            )
+        return max(1, round(float(value[:-2]) * odr / 1000))
+    return int(value)
+
+
+def assemble(text, name="", odr=None, overrides=None):
     """Assemble a program from the textual form disassemble() produces.
 
     Labels ("name:") can be used as JMP targets. The PAS byte is allocated
-    automatically when the code needs it.
+    automatically when the code needs it. Timers can be given in ms ("190ms"),
+    converted at the FSM rate: odr if given, else the program's odr directive.
+    overrides replaces directive values, e.g. {"thresh2": "0.4", "TI3": "150ms"}.
     """
     thresholds = {}
     masks = {}
+    timers = {}
     program = Program(thresholds=[], masks=[], timers={}, code=b"", name=name)
+    program_odr = None
     code_lines = []
     in_code = False
     for raw_line in text.splitlines():
@@ -345,13 +361,13 @@ def assemble(text, name=""):
         if key == "code:":
             in_code = True
         elif key == "thresh":
-            thresholds[int(words[1])] = float(words[2])
+            thresholds[int(words[1])] = words[2]
         elif key == "hyst":
             program.hysteresis = float(words[1])
         elif key == "mask":
             masks["ABC".index(words[1].upper())] = parse_mask(" ".join(words[2:]))
         elif key == "timer":
-            program.timers[int(words[1].upper().removeprefix("TI"))] = int(words[2])
+            timers[int(words[1].upper().removeprefix("TI"))] = words[2]
         elif key == "decimation":
             program.decimation = int(words[1])
         elif key == "pas":
@@ -360,9 +376,29 @@ def assemble(text, name=""):
             program.angle = True
         elif key == "long_counter":
             program.long_counter = True
+        elif key == "frame":
+            if words[1] not in ("sensor", "watch"):
+                raise FsmError(f"unknown frame {words[1]!r}")
+            program.frame = words[1]
+        elif key == "odr":
+            program_odr = float(words[1])
         else:
             raise FsmError(f"unknown directive {line!r}")
 
+    for key, value in (overrides or {}).items():
+        k = key.lower()
+        if k.startswith("thresh") and int(k[6:]) in thresholds:
+            thresholds[int(k[6:])] = value
+        elif k.startswith("ti") and int(k[2:]) in timers:
+            timers[int(k[2:])] = value
+        elif k == "hyst" and program.hysteresis is not None:
+            program.hysteresis = float(value)
+        else:
+            raise FsmError(f"cannot override {key!r}")
+
+    rate = odr if odr is not None else program_odr
+    program.timers = {t: _timer_samples(v, rate) for t, v in timers.items()}
+    thresholds = {i: float(v) for i, v in thresholds.items()}
     if sorted(thresholds) != list(range(1, len(thresholds) + 1)):
         raise FsmError("thresholds must be numbered from 1")
     if sorted(masks) != list(range(len(masks))):

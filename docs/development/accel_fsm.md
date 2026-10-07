@@ -51,19 +51,28 @@ code:
 ```
 
 Each line of code is either a command (`CONTREL`, `SELMB`, ...) or a pair of
-`RESET|NEXT` conditions: the program moves on when `NEXT` holds and goes back
-to the reset point when `RESET` holds. Thresholds are in g. `disasm` also
-reads ST's `.ucf` configuration files, e.g. the
-[ST examples](https://github.com/STMicroelectronics/STMems_Finite_State_Machine),
-and `asm` prints the program bytes to load on the sensor.
+`RESET|NEXT` conditions: the program goes back to the reset point when `RESET`
+holds, and moves on when `NEXT` does. Thresholds are in g.
+
+Programs can be written in watch axes (`frame watch`) so that the same program
+works on every board, and with timers in milliseconds (`timer TI3 190ms`) so
+that it can run at different FSM rates; `odr` sets the default rate.
+
+`disasm` also reads ST's `.ucf` configuration files, e.g. the
+[ST examples](https://github.com/STMicroelectronics/STMems_Finite_State_Machine).
+`asm` prints the program bytes to load on the sensor, remapping watch axes to
+the sensor axes of `--board`.
 
 ```shell
 python -m tools.accel_fsm disasm tools/accel_fsm/tests/st/lsm6dso_wrist_tilt_xl.ucf
+python -m tools.accel_fsm asm flick.fsm --board obelix
 python -m tools.accel_fsm sim flick.fsm recordings/*.bin --odr 26
 ```
 
-`sim` converts the samples to the sensor axes of the recording's board,
-decimates them to `--odr` and clips them to `--fs`.
+`sim` decimates recordings to `--odr` and clips them to `--fs`, and converts
+them to the sensor axes of the recording's board for programs in sensor axes.
+`--set` overrides thresholds and timers; several values sweep them, e.g.
+`--set thresh2=0.3,0.4,0.5 --set TI3=150ms,190ms` runs six variants.
 
 The simulator follows ST AN5226 (LSM6DSO: Finite State Machine) and is checked
 against ST's example programs (`pytest tools/accel_fsm/tests`). Programs that

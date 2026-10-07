@@ -42,3 +42,16 @@ def test_axes():
     asterix = boards.get("asterix")
     assert asterix.to_sensor((100, 200, 300)) == (200, 100, 300)
     assert asterix.to_watch(asterix.to_sensor((1, 2, 3))) == (1, 2, 3)
+
+
+def test_remap():
+    from .. import fsm
+
+    # asterix: watch Y is sensor X; obelix: watch X is sensor -X
+    assert boards.remap_mask(fsm.parse_mask("+Y"), boards.get("asterix")) == 0x80
+    assert boards.remap_mask(fsm.parse_mask("+X +V"), boards.get("obelix")) == 0x42
+    program = fsm.assemble("frame watch\nmask A +Y\ncode:\nSMB +Z -X\nSTOP\n")
+    sensor = boards.remap_program(program, boards.get("obelix"))
+    assert sensor.frame == "sensor"
+    assert sensor.masks == [0x20]
+    assert sensor.code[1] == fsm.parse_mask("+Z +X")

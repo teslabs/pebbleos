@@ -11,6 +11,7 @@ python -m tools.accel_fsm sim flick.fsm recordings/*.bin --odr 26
 import argparse
 import collections
 import datetime
+import itertools
 import os
 import pathlib
 import sys
@@ -86,36 +87,55 @@ def cmd_export(args):
         )
 
 
-def _load_programs(paths):
+def _sweep(settings):
+    """Expand ["thresh2=0.4,0.5", ...] into a list of override dicts."""
+    keys, values = [], []
+    for item in settings or []:
+        key, _, vals = item.partition("=")
+        keys.append(key)
+        values.append(vals.split(","))
+    return [dict(zip(keys, combo)) for combo in itertools.product(*values)]
+
+
+def _load_programs(paths, odr=None, settings=None):
     programs = []
     for path in paths:
         text = pathlib.Path(path).read_text()
+        stem = pathlib.Path(path).stem
         if path.endswith(".ucf"):
             for p in ucf.parse(text).programs:
-                p.name = f"{pathlib.Path(path).stem}:{p.name}"
+                p.name = f"{stem}:{p.name}"
                 programs.append(p)
-        else:
-            programs.append(fsm.assemble(text, name=pathlib.Path(path).stem))
+            continue
+        for overrides in _sweep(settings):
+            name = stem
+            if overrides:
+                name += "[" + ",".join(f"{k}={v}" for k, v in overrides.items()) + "]"
+            programs.append(fsm.assemble(text, name=name, odr=odr, overrides=overrides))
     return programs
 
 
 def cmd_disasm(args):
-    for program in _load_programs(args.programs):
+    for program in _load_programs(args.programs, args.odr):
         print(f"; {program.name}")
         print(fsm.disassemble(program))
         print()
 
 
 def cmd_asm(args):
-    for program in _load_programs(args.programs):
+    for program in _load_programs(args.programs, args.odr, args.set):
+        if program.frame == "watch":
+            if not args.board:
+                raise SystemExit(f"{program.name} is in watch axes: pass --board")
+            program = boards.remap_program(program, boards.get(args.board))
         data = program.to_bytes()
         print(f"/* {program.name}: {len(data)} bytes */")
         for i in range(0, len(data), 12):
             print("  " + " ".join(f"0x{b:02x}," for b in data[i : i + 12]))
 
 
-def sensor_segments(rec, board, odr_hz, fs_g):
-    """Contiguous runs of samples at odr_hz, in g and the sensor frame."""
+def watch_segments(rec, odr_hz, fs_g):
+    """Contiguous runs of samples at odr_hz, in g and watch axes."""
     step = rec.rate_hz / odr_hz
     if abs(step - round(step)) > 0.05 or round(step) < 1:
         raise SystemExit(
@@ -124,30 +144,35 @@ def sensor_segments(rec, board, odr_hz, fs_g):
     step = round(step)
     segments = []
     for first, samples in rec.segments():
-        out = []
-        for s in samples[::step]:
-            sensor = board.to_sensor(s)
-            out.append(tuple(max(-fs_g, min(fs_g, v / 1000.0)) for v in sensor))
+        out = [
+            tuple(max(-fs_g, min(fs_g, v / 1000.0)) for v in s) for s in samples[::step]
+        ]
         segments.append((first * rec.interval_us / 1e6, out))
     return segments, rec.interval_us * step / 1e6
 
 
 def cmd_sim(args):
-    programs = _load_programs(args.programs)
     totals = collections.Counter()
     durations = collections.Counter()
+    loaded = {}
     for path in args.recordings:
         rec = recording.load(path)
-        board = boards.get(args.board or rec.board)
         odr = args.odr or rec.rate_hz
-        segments, period = sensor_segments(rec, board, odr, args.fs)
+        if odr not in loaded:
+            loaded[odr] = _load_programs(args.programs, odr, args.set)
+        segments, period = watch_segments(rec, odr, args.fs)
+        board = None
+        if any(p.frame == "sensor" for p in loaded[odr]):
+            board = boards.get(args.board or rec.board)
         duration = sum(len(samples) for _, samples in segments) * period
         durations[rec.label] += duration
         gaps = f", {len(segments) - 1} gaps" if len(segments) > 1 else ""
         print(f"{path} ({rec.label}, {duration:.1f} s at {odr:g} Hz{gaps}):")
-        for program in programs:
+        for program in loaded[odr]:
             events = []
             for start_s, samples in segments:
+                if program.frame == "sensor":
+                    samples = [board.to_sensor(s) for s in samples]
                 sim = fsm.Simulator(program)
                 events += [start_s + e.sample * period for e in sim.run(samples)]
             totals[(rec.label, program.name)] += len(events)
@@ -157,7 +182,7 @@ def cmd_sim(args):
     print("summary (events per label):")
     for (label, name), count in sorted(totals.items()):
         minutes = durations[label] / 60
-        print(f"  {label:16s} {name:24s} {count:5d}  ({count / minutes:.1f}/min)")
+        print(f"  {label:16s} {name:40s} {count:5d}  ({count / minutes:.1f}/min)")
 
 
 def main(argv=None):
@@ -193,17 +218,31 @@ def main(argv=None):
     p.add_argument("-o", "--output", required=True)
     p.set_defaults(func=cmd_export)
 
+    sweep = argparse.ArgumentParser(add_help=False)
+    sweep.add_argument(
+        "--set",
+        action="append",
+        metavar="KEY=V1[,V2...]",
+        help="override thresh1..3, TI1..4 or hyst; several values sweep",
+    )
+
     p = sub.add_parser("disasm", help="disassemble .ucf or .fsm programs")
     p.add_argument("programs", nargs="+")
+    p.add_argument("--odr", type=float, help="FSM rate in Hz, for timers in ms")
     p.set_defaults(func=cmd_disasm)
 
-    p = sub.add_parser("asm", help="assemble .fsm programs to bytes")
+    p = sub.add_parser("asm", help="assemble .fsm programs to bytes", parents=[sweep])
     p.add_argument("programs", nargs="+")
+    p.add_argument("--board", help="board to remap watch-axes programs to")
+    p.add_argument("--odr", type=float, help="FSM rate in Hz, for timers in ms")
     p.set_defaults(func=cmd_asm)
 
-    p = sub.add_parser("sim", help="run programs on recordings")
+    p = sub.add_parser("sim", help="run programs on recordings", parents=[sweep])
     p.add_argument("programs", nargs="+", help=".fsm or .ucf files, then recordings")
-    p.add_argument("--board", help="axis mapping (default: from the recording)")
+    p.add_argument(
+        "--board",
+        help="axis mapping for sensor-axes programs (default: the recording's)",
+    )
     p.add_argument("--odr", type=float, help="FSM rate in Hz (default: recording rate)")
     p.add_argument(
         "--fs", type=float, default=4.0, help="accelerometer full scale in g"
