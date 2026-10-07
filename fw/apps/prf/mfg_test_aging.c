@@ -27,6 +27,7 @@
 #include "pbl/services/idle_watchdog.h"
 #include <pbl/logging/logging.h>
 #include "pbl/util/units.h"
+#include <stdio.h>
 #include <time.h>
 
 #define STATUS_STRING_LEN                200
