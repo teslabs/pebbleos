@@ -17,6 +17,13 @@ Agent notes:
   `sendkey` rather than the interactive QEMU window.
 - Phone-dependent features get their data from `./pbl feed <feed>` (e.g.
   `./pbl feed weather`); feeds live in `tools/libs/pbl-cli/pbl/feeds/`.
+- `./pbl console` needs a terminal; send shell commands and collect logs
+  from a script instead (see the console section of
+  `docs/development/debugging.md`). Logs go over PULSE, not `uart1.log`.
+- Run `pkill -f qemu-pebble` before launching: an emulator left from an
+  earlier run keeps the ports.
+- Take a screenshot after navigating to confirm where the UI is before
+  sending more keys.
 
 ## Touch
 
