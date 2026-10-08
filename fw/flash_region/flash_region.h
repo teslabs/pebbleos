@@ -14,6 +14,9 @@
 #endif
 
 #ifdef CONFIG_PBLBOOT
+#define FLASH_REGION_CD_BEGIN FLASH_REGION_START_ADDR(CD)
+#define FLASH_REGION_CD_END   FLASH_REGION_END_ADDR(CD)
+
 // We assume that if we have pblboot, we use the two slots with direct XIP
 #if defined(CONFIG_RECOVERY_FW) && !defined(CONFIG_MFG) && !defined(CONFIG_RECOVERY_FW_AS_FW)
 // On recovery we always write to slot 0
