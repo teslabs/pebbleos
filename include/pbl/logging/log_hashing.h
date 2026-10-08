@@ -111,16 +111,13 @@
  */
 void PBL_LOG_x_printf_arg_check(const char *fmt, ...) PBL_FORMAT_PRINTF(1, 2);
 
-#define NEW_LOG_HASH(logfunc, level, color, fmt, ...)                            \
-  {                                                                              \
-    static const char str[] PBL_NOCOMMON PBL_SECTION(".log_strings") =           \
-        __FILE__ ":" STRINGIFY(__LINE__) ":" STRINGIFY(level) ":" color ":" fmt; \
-    _Pragma("GCC diagnostic push");                                              \
-    _Pragma("GCC diagnostic ignored \"-Warray-bounds\"");                        \
-    logfunc((uint32_t)&str[LOG_SECTION_OFFSET(level, fmt)], ##__VA_ARGS__);      \
-    _Pragma("GCC diagnostic pop");                                               \
-    if (0)                                                                       \
-      PBL_LOG_x_printf_arg_check(fmt, ##__VA_ARGS__);                            \
+#define NEW_LOG_HASH(logfunc, level, color, fmt, ...)                                    \
+  {                                                                                      \
+    static const char str[] PBL_NOCOMMON PBL_SECTION(".log_strings") =                   \
+        __FILE__ ":" STRINGIFY(__LINE__) ":" STRINGIFY(level) ":" color ":" fmt;         \
+    logfunc((uint32_t)((uintptr_t)str + LOG_SECTION_OFFSET(level, fmt)), ##__VA_ARGS__); \
+    if (0)                                                                               \
+      PBL_LOG_x_printf_arg_check(fmt, ##__VA_ARGS__);                                    \
   }
 
 PBL_ALWAYS_INLINE static uint32_t LOG_SECTION_OFFSET(const uint8_t level, const char *fmt) {
