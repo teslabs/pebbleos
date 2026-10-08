@@ -205,7 +205,11 @@ class DeviceAdapter(ABC):
         if not self.has(Capability.PROMPT):
             logger.warning("confirm the pairing on the watch: press Up")
             return
-        self.prompt(self.command("click", button=1))
+        from harness.helpers.pairing import CONFIRM, WatchPairing
+
+        pairing = WatchPairing(self)
+        pairing.wait(CONFIRM)
+        pairing.confirm()
 
     def reset(self):
         """Restart the firmware, and wait until it answers again."""
