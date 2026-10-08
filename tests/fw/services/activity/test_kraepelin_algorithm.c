@@ -1255,7 +1255,6 @@ void test_kraepelin_algorithm__step_tests(void) {
       "-----------------------------");
 
   float weighted_sum = 0.0;
-  int pass_count = 0;
   int fail_count = 0;
   StepFileTestEntry *entry = &test_entry[0];
   StepTestResults *results;
@@ -1271,7 +1270,6 @@ void test_kraepelin_algorithm__step_tests(void) {
       fail_count++;
     } else {
       status = "pass";
-      pass_count++;
     }
     printf("\n%-40s %-10d %-10d %-10d %-10d %-10d %-10d %-10.2f %-10s", entry->name,
            entry->exp_steps, results->steps, error, entry->exp_steps_min, entry->exp_steps_max,
@@ -1607,7 +1605,6 @@ void test_kraepelin_algorithm__sleep_tests(void) {
   }
 
   float weighted_sum = 0.0;
-  int pass_count = 0;
   int fail_count = 0;
   SleepFileTestEntry *entry = &test_entry[0];
   SleepTestResults *results;
@@ -1616,9 +1613,7 @@ void test_kraepelin_algorithm__sleep_tests(void) {
 
     // Generate the status string
     const char *status = prv_status_str(results->all_passed);
-    if (results->all_passed) {
-      pass_count++;
-    } else {
+    if (!results->all_passed) {
       fail_count++;
     }
 
@@ -1794,7 +1789,6 @@ void test_kraepelin_algorithm__activity_tests(void) {
   }
 
   float weighted_sum = 0.0;
-  int pass_count = 0;
   int fail_count = 0;
   ActivityFileTestEntry *entry = &test_entry[0];
   ActivityTestResults *results;
@@ -1803,9 +1797,7 @@ void test_kraepelin_algorithm__activity_tests(void) {
 
     // Generate the status string
     const char *status = prv_status_str(results->all_passed);
-    if (results->all_passed) {
-      pass_count++;
-    } else {
+    if (!results->all_passed) {
       fail_count++;
     }
 
