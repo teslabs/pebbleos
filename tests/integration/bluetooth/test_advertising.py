@@ -15,7 +15,6 @@ import pytest
 from harness.ble import PAIRING_SERVICE
 from harness.ble.scanner import Scanner
 from harness.errors import WatchTimeout
-from harness.helpers.pairing import SUCCESS_SHOWN_S
 from harness.helpers.ui import TRANSITION_S, Button
 
 pytestmark = pytest.mark.integration_boards("qemu_emery")
@@ -144,7 +143,7 @@ def wait_window(ui, name, timeout=10.0):
 def bonded(phones, watch):
     """A phone paired, then gone."""
     phone = phones().connect()
-    watch.wait(timeout=SUCCESS_SHOWN_S + 5)
+    watch.close_success()
     phone.disconnect()
     return phone
 
@@ -227,7 +226,7 @@ def test_recovery_stays_discoverable_when_bonded(dut, watch, phones):
 @pytest.mark.variants("normal", "prf")
 def test_silent_while_connected(dut, build, watch, phones):
     phone = phones().connect()
-    watch.wait(timeout=SUCCESS_SHOWN_S + 5)
+    watch.close_success()
 
     assert scan(dut, link=phone.link) is None, "advertising while connected"
 

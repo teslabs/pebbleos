@@ -146,7 +146,7 @@ def test_declined_then_paired(watch, phones):
 
 def test_bonded_phone_reconnects_without_prompt(watch, phones):
     phone = phones().connect()
-    watch.wait(timeout=SUCCESS_SHOWN_S + 5)
+    watch.close_success()
     phone.disconnect()
 
     phone.connect()

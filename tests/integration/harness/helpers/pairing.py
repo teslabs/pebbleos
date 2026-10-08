@@ -95,6 +95,22 @@ class WatchPairing:
         """Close the result shown once the pairing is over."""
         self.press(button)
 
+    def close_success(self, timeout=SUCCESS_SHOWN_S + 5):
+        """Wait for the pairing to succeed, then close what the watch shows
+        rather than wait out the time it stays up."""
+        deadline = time.monotonic() + timeout
+        while (prompt := self.prompt()) is not None:
+            if prompt.state == SUCCESS:
+                # Back, as the watchface ignores it if the window goes first.
+                self.ui.press(Button.BACK)
+                self.wait(timeout=max(deadline - time.monotonic(), TRANSITION_S))
+                return
+            if time.monotonic() > deadline:
+                raise WatchTimeout(
+                    f"the pairing prompt is {prompt.state}, not success, after {timeout}s"
+                )
+            time.sleep(POLL_S)
+
     def wait_phone_name(self, name, timeout=30.0):
         """Wait until the watch has read the connected phone's ``name``."""
         deadline = time.monotonic() + timeout
@@ -112,7 +128,9 @@ class WatchPairing:
         current = self.prompt()
         if current is not None and current.state == CONFIRM:
             self.decline()
-        if current is not None and current.state != SUCCESS:
+        if current is not None and current.state == SUCCESS:
+            self.close_success()
+        elif current is not None:
             self.wait(FAILED, timeout=PROMPT_TIMEOUT_S + 5)
             self.dismiss()
         self.wait(timeout=SUCCESS_SHOWN_S + 5)

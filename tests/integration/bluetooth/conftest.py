@@ -3,7 +3,7 @@
 
 import pytest
 from harness.connections import Capability
-from harness.helpers.pairing import SUCCESS_SHOWN_S, WatchPairing
+from harness.helpers.pairing import WatchPairing
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def phone(watch, phones):
     """A phone paired and connected to the watch, with the pairing result
     gone from the screen."""
     phone = phones().connect()
-    watch.wait(timeout=SUCCESS_SHOWN_S + 5)
+    watch.close_success()
     return phone
 
 

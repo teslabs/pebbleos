@@ -11,7 +11,7 @@ import time
 import pytest
 from harness.ble import ParameterRequest
 from harness.errors import HarnessError, WatchTimeout
-from harness.helpers.pairing import CONFIRM, FAILED, SUCCESS, SUCCESS_SHOWN_S
+from harness.helpers.pairing import CONFIRM, FAILED, SUCCESS
 
 pytestmark = pytest.mark.integration_boards("qemu_emery")
 BOTH = pytest.mark.variants("normal", "prf")
@@ -47,7 +47,7 @@ def _wait_status(dut, timeout=15.0, **expected):
 def _bonded(watch, phones):
     """A phone paired and connected, with the pairing's success gone."""
     phone = phones().connect()
-    watch.wait(timeout=SUCCESS_SHOWN_S + 5)
+    watch.close_success()
     return phone
 
 
@@ -102,7 +102,7 @@ def test_connectivity_status(watch, phones):
     paired = phone.link.read_connectivity()
     assert paired.connected and paired.paired and paired.encrypted
     assert paired.has_bonded_gateway
-    watch.wait(timeout=SUCCESS_SHOWN_S + 5)
+    watch.close_success()
 
     phone.disconnect()
     phone.connect()
