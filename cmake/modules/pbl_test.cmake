@@ -32,8 +32,6 @@ set(PBL_TEST_C_FLAGS
   -fno-common
   -ffp-contract=off
   -fexcess-precision=standard
-  # clang errors on the true == true assertions some tests compile.
-  -Wno-tautological-compare
 )
 
 # Headers every test sees, in the order the compiler must find them:
