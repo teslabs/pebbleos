@@ -32,6 +32,7 @@ set(PBL_TEST_C_FLAGS
   -Wno-enum-conversion
   -g3
   -gdwarf-4
+  -Werror=macro-redefined
   -O0
   -fdata-sections
   -ffunction-sections
