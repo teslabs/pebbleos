@@ -15,7 +15,6 @@ import dataclasses
 import logging
 import os
 import threading
-import time
 
 from harness.ble.ppogatt import PPoGATT
 from harness.errors import HarnessError, WatchTimeout
@@ -60,7 +59,6 @@ ESTABLISH_S = 0.3
 ESTABLISH_TIMEOUT_S = 5.0
 MTU_EXCHANGE_TIMEOUT_S = 10.0
 PAIRING_TIMEOUT_S = 40.0
-CONFIRM_DELAY_S = 1.0
 SESSION_TIMEOUT_S = 15.0
 
 
@@ -243,8 +241,6 @@ class BleLink:
 
     def _confirm_on_watch(self, number):
         if self.confirm_pairing is not None:
-            # Let the watch show its prompt before confirming it.
-            time.sleep(CONFIRM_DELAY_S)
             self.confirm_pairing()
         return True
 
