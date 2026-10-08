@@ -2,7 +2,7 @@
   "_notes": [ "You need to increase the revision for each change of this file AND",
               "increase PROCESS_INFO_CURRENT_SDK_VERSION_MINOR in pebble_process_info.h"
             ],
-  "revision" : "110",
+  "revision" : "111",
   "version" : "2.0",
   "files": [
     "include/pbl/drivers/button_id.h",
@@ -123,7 +123,8 @@
     "fw/applib/ui/content_indicator.h",
     "fw/applib/rockyjs/rocky.h",
     "fw/applib/unobstructed_area_service.h",
-    "fw/applib/mic_stream.h"
+    "fw/applib/mic_stream.h",
+    "fw/applib/mic_capture.h"
   ],
   "exports": [
     {
@@ -4444,6 +4445,38 @@
               "type": "function",
               "name": "mic_stream_to_phone_is_active",
               "addedRevision": "110"
+            }, {
+              "type": "define",
+              "name": "MIC_CAPTURE_SAMPLE_RATE"
+            }, {
+              "type": "type",
+              "name": "MicCaptureStartResult"
+            }, {
+              "type": "type",
+              "name": "MicCaptureStopReason"
+            }, {
+              "type": "type",
+              "name": "MicCaptureDataHandler"
+            }, {
+              "type": "type",
+              "name": "MicCaptureStoppedHandler"
+            }, {
+              "type": "type",
+              "name": "MicCaptureHandlers"
+            }, {
+              "type": "function",
+              "name": "mic_capture_start",
+              "addedRevision": "111",
+              "stubReturn": "MicCaptureStartErrUnavailable"
+            }, {
+              "type": "function",
+              "name": "mic_capture_stop",
+              "addedRevision": "111",
+              "stubReturn": "void"
+            }, {
+              "type": "function",
+              "name": "mic_capture_is_active",
+              "addedRevision": "111"
             }
           ]
         }, {

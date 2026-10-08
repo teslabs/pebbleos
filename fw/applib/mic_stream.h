@@ -8,7 +8,7 @@
 //! @addtogroup Foundation
 //! @{
 //!   @addtogroup Microphone
-//! \brief Stream the watch microphone to the phone
+//! \brief Stream the watch microphone to the phone, or capture it on the watch
 //!
 //! Streams the microphone to your app's PebbleKit JS companion. The watch encodes the audio
 //! (Speex wideband, ~10 kbps) and the phone decodes it and delivers 16 kHz, 16-bit mono PCM to

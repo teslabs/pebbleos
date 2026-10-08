@@ -101,6 +101,12 @@ uint8_t sys_speaker_get_state(void);
 void sys_speaker_register_finish(void);
 bool sys_speaker_is_muted(void);
 
+//! Captures local microphone PCM for the app. See mic_capture.h.
+int32_t sys_mic_capture_start(void);
+uint32_t sys_mic_capture_read(uint32_t session, int16_t *samples);
+void sys_mic_capture_stop(uint32_t session);
+bool sys_mic_capture_is_active(uint32_t session);
+
 //! Streams the app's microphone to the phone. See mic_stream.h.
 uint8_t sys_mic_stream_start(uint32_t *stream_id);
 void sys_mic_stream_stop(void);

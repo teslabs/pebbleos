@@ -12,6 +12,7 @@
 #include <pbl/services/blob_db/endpoint_private.h>
 #include <pbl/services/data_logging/data_logging_service.h>
 #include <pbl/services/filesystem/pfs.h>
+#include <pbl/services/mic_capture.h>
 #include <pbl/services/mic_manager.h>
 #include <pbl/services/mic_stream.h>
 #include <pbl/services/music_internal.h>
@@ -126,6 +127,9 @@ void services_normal_init(void) {
 #endif
 #ifdef CONFIG_SERVICE_MIC_STREAM
   mic_stream_service_init();
+#endif
+#ifdef CONFIG_SERVICE_MIC_CAPTURE
+  mic_capture_service_init();
 #endif
 #ifdef CONFIG_MIC
   voice_init();

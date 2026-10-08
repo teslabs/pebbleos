@@ -22,6 +22,7 @@ typedef enum MicClient {
   MicClientNone = 0,
   MicClientVoiceDictation,
   MicClientAppStream,
+  MicClientAppCapture,
 } MicClient;
 
 typedef enum MicManagerAppCheck {

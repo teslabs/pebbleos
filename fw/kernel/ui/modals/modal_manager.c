@@ -36,6 +36,10 @@
 #include <pbl/services/mic_stream.h>
 #endif
 
+#ifdef CONFIG_SERVICE_MIC_CAPTURE
+#include <pbl/services/mic_capture.h>
+#endif
+
 typedef struct ModalContext {
   WindowStack window_stack;
 } ModalContext;
@@ -339,6 +343,9 @@ static void prv_handle_app_to_modal_transition_focus(void) {
 #ifdef CONFIG_SERVICE_MIC_STREAM
   // The OS mic banner is no longer guaranteed visible, so the stream must end
   mic_stream_service_handle_app_focus_lost();
+#endif
+#ifdef CONFIG_SERVICE_MIC_CAPTURE
+  mic_capture_service_handle_focus_lost();
 #endif
 }
 

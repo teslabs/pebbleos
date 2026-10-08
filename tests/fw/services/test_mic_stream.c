@@ -434,6 +434,15 @@ void test_mic_stream__stop_on_app_exit(void) {
   cl_assert(s_stream_id != first_id);
 }
 
+void test_mic_stream__refused_while_capturing(void) {
+  cl_assert(mic_manager_reserve(MicClientAppCapture));
+  cl_assert_equal_i(MicStreamServiceStartErrBusy,
+                    mic_stream_service_start(PebbleTask_App, &s_stream_id));
+  cl_assert(!mic_stream_service_is_active());
+  cl_assert_equal_i(0, s_setup_sessions);
+  mic_manager_release(MicClientAppCapture);
+}
+
 void test_mic_stream__endpoint_busy(void) {
   // Dictation holds the audio endpoint before it starts the mic
   s_transfer_busy = true;

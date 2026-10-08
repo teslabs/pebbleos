@@ -478,3 +478,14 @@ pbl_clar_test(test_system_task
     CONFIG_SERVICE_SYSTEM_TASK_LOG_LEVEL=0
     PBL_NO_LINKER_SCRIPT
 )
+
+pbl_clar_test(test_mic_capture
+  SOURCES
+    fw/services/mic_capture/mic_capture.c
+    fw/services/mic_manager/mic_manager.c
+    fw/services/blob_db/app_db.c
+    tests/fakes/fake_events.c
+    tests/fakes/fake_settings_file.c
+  DEFINES CONFIG_SERVICE_MIC_CAPTURE
+  OVERRIDES dummy_board
+)

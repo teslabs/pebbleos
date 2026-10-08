@@ -128,6 +128,7 @@ typedef enum {
   //! Emitted when the system language changes; i18n_get() already returns the new strings
   PEBBLE_LANGUAGE_CHANGE_EVENT,
   PEBBLE_MIC_STREAM_EVENT,
+  PEBBLE_MIC_CAPTURE_EVENT,
 
   PEBBLE_NUM_EVENTS
 } PebbleEventType;
@@ -507,6 +508,16 @@ typedef struct PBL_PACKED { // 6 bytes
   uint32_t stream_id;       //!< From mic_stream_service_start()
 } PebbleMicStreamEvent;
 
+enum {
+  MicCaptureEventData = 0,
+  MicCaptureEventStopped
+};
+typedef struct PBL_PACKED {
+  uint32_t session;
+  uint8_t type;
+  uint8_t stop_reason;
+} PebbleMicCaptureEvent;
+
 typedef enum {
   VoiceEventTypeSessionSetup,
   VoiceEventTypeSessionResult,
@@ -818,6 +829,7 @@ typedef struct PBL_PACKED PBL_ALIGNED(sizeof(void *)) {
     PebbleSpeakerEvent speaker;
     PebbleBacklightEvent backlight;
     PebbleMicStreamEvent mic_stream;
+    PebbleMicCaptureEvent mic_capture;
   };
   PebbleTaskBitset task_mask; // 1 == filter out, 0 == leave in
   // NOTE: we put this 8 bit field at the end so that we can pack this structure and still keep the
