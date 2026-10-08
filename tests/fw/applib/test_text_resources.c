@@ -48,7 +48,7 @@ extern FontInfo *s_test_emoji_font;
 // Helpers
 ////////////////////////////////////
 
-static uint8_t glyph_get_size_bytes(const GlyphData *glyph) {
+static size_t glyph_get_size_bytes(const GlyphData *glyph) {
   return ((glyph->header.width_px * glyph->header.height_px) + (8 - 1)) / 8;
 }
 
@@ -126,7 +126,7 @@ void test_text_resources__get_glyph_multiple(void) {
   uint32_t gothic_18_handle = RESOURCE_ID_GOTHIC_18;
   cl_assert(text_resources_init_font(0, gothic_18_handle, 0, &s_font_info));
 
-  uint8_t glyph_size_bytes;
+  size_t glyph_size_bytes;
   const GlyphData *glyph;
 
   glyph = text_resources_get_glyph(&s_font_cache, 'a', &s_font_info, NULL);
@@ -166,7 +166,7 @@ void test_text_resources__test_backup_wildcard(void) {
       text_resources_get_glyph(&s_font_cache, WILDCARD_CODEPOINT, &s_font_info, NULL);
   cl_assert_equal_i(glyph->header.width_px, 5);
   cl_assert_equal_i(glyph->header.height_px, 12);
-  uint8_t glyph_size_bytes = glyph_get_size_bytes(glyph);
+  size_t glyph_size_bytes = glyph_get_size_bytes(glyph);
   cl_assert_equal_m(wildcard_bytes, glyph->data, glyph_size_bytes);
 }
 
@@ -187,7 +187,7 @@ void test_text_resources__test_gothic_wildcard(void) {
       text_resources_get_glyph(&s_font_cache, WILDCARD_CODEPOINT, &s_font_info, NULL);
   cl_assert_equal_i(glyph->header.width_px, 7);
   cl_assert_equal_i(glyph->header.height_px, 15);
-  uint8_t glyph_size_bytes = glyph_get_size_bytes(glyph);
+  size_t glyph_size_bytes = glyph_get_size_bytes(glyph);
   cl_assert_equal_m(wildcard_bytes, glyph->data, glyph_size_bytes);
 }
 
@@ -207,7 +207,7 @@ void test_text_resources__extended_font(void) {
   cl_assert(s_font_info.loaded);
   cl_assert(s_font_info.extended);
 
-  uint8_t glyph_size_bytes;
+  size_t glyph_size_bytes;
   const GlyphData *glyph;
 
   glyph = text_resources_get_glyph(&s_font_cache, 'a', &s_font_info, NULL);
@@ -235,7 +235,7 @@ void test_text_resources__test_emoji_font(void) {
   uint32_t gothic_18_emoji_handle = RESOURCE_ID_GOTHIC_18_EMOJI;
   cl_assert(text_resources_init_font(0, gothic_18_emoji_handle, 0, &s_font_info));
 
-  uint8_t glyph_size_bytes;
+  size_t glyph_size_bytes;
   const GlyphData *glyph;
 
   const Codepoint PHONE_CODEPOINT = 0x260E;
@@ -252,7 +252,7 @@ void DISABLED_test_text_resources__test_emoji_fallback(void) {
   uint32_t gothic_18_handle = RESOURCE_ID_GOTHIC_18;
   cl_assert(text_resources_init_font(0, gothic_18_handle, 0, &s_font_info));
 
-  uint8_t glyph_size_bytes;
+  size_t glyph_size_bytes;
   const GlyphData *glyph;
 
   const Codepoint PHONE_CODEPOINT = 0x260E;
@@ -389,7 +389,7 @@ void test_text_resources__fallback_not_used_when_present(void) {
 
   const GlyphData *primary_g = text_resources_get_glyph(&s_font_cache, 'a', &s_font_info, NULL);
   cl_assert(primary_g != NULL);
-  uint8_t primary_size = glyph_get_size_bytes(primary_g);
+  size_t primary_size = glyph_get_size_bytes(primary_g);
 
   // Copy the primary glyph bitmap so we have a stable snapshot even after a cache reset.
   uint8_t primary_bytes[CACHE_GLYPH_SIZE];
@@ -411,7 +411,7 @@ void test_text_resources__fallback_not_used_when_present(void) {
 
   const GlyphData *fallback_g = text_resources_get_glyph(&s_font_cache, 'a', &s_fallback, NULL);
   cl_assert(fallback_g != NULL);
-  uint8_t fallback_size = glyph_get_size_bytes(fallback_g);
+  size_t fallback_size = glyph_get_size_bytes(fallback_g);
 
   uint8_t fallback_bytes[CACHE_GLYPH_SIZE];
   cl_assert(fallback_size <= sizeof(fallback_bytes));
@@ -480,7 +480,7 @@ void test_text_resources__extension_routed_miss_rescued_from_base(void) {
   cl_assert(text_resources_init_font(0, RESOURCE_ID_GOTHIC_18, 0, &s_font_info));
   const GlyphData *base_g = text_resources_get_glyph(&s_font_cache, PI, &s_font_info, NULL);
   cl_assert(base_g != NULL);
-  uint8_t base_size = glyph_get_size_bytes(base_g);
+  size_t base_size = glyph_get_size_bytes(base_g);
   uint8_t base_bytes[CACHE_GLYPH_SIZE];
   cl_assert(base_size <= sizeof(base_bytes));
   memcpy(base_bytes, base_g->data, base_size);
@@ -517,7 +517,7 @@ void test_text_resources__base_routed_miss_rescued_from_extension(void) {
   cl_assert(text_resources_init_font(0, RESOURCE_ID_GOTHIC_18_EXTENDED, 0, &s_probe));
   const GlyphData *ext_g = text_resources_get_glyph(&s_font_cache, ELLIPSIS, &s_probe, NULL);
   cl_assert(ext_g != NULL);
-  uint8_t ext_size = glyph_get_size_bytes(ext_g);
+  size_t ext_size = glyph_get_size_bytes(ext_g);
   uint8_t ext_bytes[CACHE_GLYPH_SIZE];
   cl_assert(ext_size <= sizeof(ext_bytes));
   memcpy(ext_bytes, ext_g->data, ext_size);
@@ -553,7 +553,7 @@ void test_text_resources__in_font_rescue_regressions(void) {
   const GlyphData *base_ellipsis =
       text_resources_get_glyph(&s_font_cache, ELLIPSIS, &s_font_info, NULL);
   cl_assert(base_ellipsis != NULL);
-  uint8_t base_ellipsis_size = glyph_get_size_bytes(base_ellipsis);
+  size_t base_ellipsis_size = glyph_get_size_bytes(base_ellipsis);
   uint8_t base_ellipsis_bytes[CACHE_GLYPH_SIZE];
   cl_assert(base_ellipsis_size <= sizeof(base_ellipsis_bytes));
   memcpy(base_ellipsis_bytes, base_ellipsis->data, base_ellipsis_size);
@@ -561,7 +561,7 @@ void test_text_resources__in_font_rescue_regressions(void) {
   const GlyphData *base_wildcard =
       text_resources_get_glyph(&s_font_cache, ABSENT, &s_font_info, NULL);
   cl_assert(base_wildcard != NULL);
-  uint8_t wildcard_size = glyph_get_size_bytes(base_wildcard);
+  size_t wildcard_size = glyph_get_size_bytes(base_wildcard);
   uint8_t wildcard_bytes[CACHE_GLYPH_SIZE];
   cl_assert(wildcard_size <= sizeof(wildcard_bytes));
   memcpy(wildcard_bytes, base_wildcard->data, wildcard_size);
