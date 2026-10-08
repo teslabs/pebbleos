@@ -37,6 +37,9 @@ jobs:
               - 'tools/**'
               - 'CMakeLists.txt'
               - 'Kconfig'
+              - 'SDK_VERSION'
+              - 'pbl.yml'
+              - 'requirements.txt'
 
   build-native:
     needs: changes-native
