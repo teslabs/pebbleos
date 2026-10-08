@@ -319,7 +319,7 @@ void test_dict__merge(void) {
     dict_serialize_tuplets_to_buffer(dest_tuplets, ARRAY_LENGTH(dest_tuplets), dest_buffer,
                                      &tmp_size);
     DictionaryIterator dest_iter;
-    dict_read_begin_from_buffer(&dest_iter, dest_buffer, dest_size);
+    dict_read_begin_from_buffer(&dest_iter, dest_buffer, tmp_size);
 
     tmp_size = dest_size;
     dict_merge(&dest_iter, &tmp_size, &source_iter, should_update_existing_keys_only,
