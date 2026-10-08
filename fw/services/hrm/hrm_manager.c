@@ -547,54 +547,40 @@ static void prv_queue_system_task_event(const PebbleHRMEvent *event) {
 }
 
 static void prv_populate_hrm_event(PebbleHRMEvent *event, HRMFeature feature, const HRMData *data) {
+  // Zero the whole union, events are copied to apps.
+  memset(event, 0, sizeof(*event));
   switch (feature) {
     case HRMFeature_BPM:
-      *event = (PebbleHRMEvent){
-        .event_type = HRMEvent_BPM,
-        .bpm = {
-          .bpm = data->hrm_bpm,
-          .quality = data->hrm_quality,
-        },
-      };
+      event->event_type = HRMEvent_BPM;
+      event->bpm.bpm = data->hrm_bpm;
+      event->bpm.quality = data->hrm_quality;
       break;
     case HRMFeature_HRV:
-      *event = (PebbleHRMEvent){
-        .event_type = HRMEvent_HRV,
-        .hrv = {
-          .ppi_ms = data->hrv_ppi_ms,
-          .quality = data->hrv_quality,
-        },
-      };
+      event->event_type = HRMEvent_HRV;
+      event->hrv.ppi_ms = data->hrv_ppi_ms;
+      event->hrv.quality = data->hrv_quality;
       break;
     case HRMFeature_SpO2:
-      *event = (PebbleHRMEvent){
-        .event_type = HRMEvent_SpO2,
-        .spo2 = {
-          .percent = data->spo2_percent,
-          .quality = data->spo2_quality,
-          .confidence = data->spo2_confidence,
-          .valid_level = data->spo2_valid_level,
-          .invalid = data->spo2_invalid,
-        },
-      };
+      event->event_type = HRMEvent_SpO2;
+      event->spo2.percent = data->spo2_percent;
+      event->spo2.quality = data->spo2_quality;
+      event->spo2.confidence = data->spo2_confidence;
+      event->spo2.valid_level = data->spo2_valid_level;
+      event->spo2.invalid = data->spo2_invalid;
       break;
 #ifdef CONFIG_MFG
     case HRMFeature_CTR: {
       HRMCTRData *ctr_data = kernel_zalloc_check(sizeof(HRMCTRData));
       memcpy(ctr_data->ctr, data->ctr, sizeof(HRMCTRData));
-      *event = (PebbleHRMEvent){
-        .event_type = HRMEvent_CTR,
-        .ctr = ctr_data,
-      };
+      event->event_type = HRMEvent_CTR;
+      event->ctr = ctr_data;
       break;
     }
     case HRMFeature_Leakage: {
       HRMLeakageData *leakage_data = kernel_zalloc_check(sizeof(HRMLeakageData));
       memcpy(leakage_data->leakage, data->leakage, sizeof(HRMLeakageData));
-      *event = (PebbleHRMEvent){
-        .event_type = HRMEvent_Leakage,
-        .leakage = leakage_data,
-      };
+      event->event_type = HRMEvent_Leakage;
+      event->leakage = leakage_data;
       break;
     }
 #endif
