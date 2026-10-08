@@ -3,5 +3,14 @@
 
 #include <pbl/bluetooth/pairability.h>
 
+#include "pairability_priv.h"
+
+static bool s_pairable;
+
 void pbl_bt_le_pairability_set_enabled(bool enabled) {
+  s_pairable = enabled;
+}
+
+bool pairability_is_enabled(void) {
+  return s_pairable;
 }
