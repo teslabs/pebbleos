@@ -16,9 +16,6 @@
 
 #include <string.h>
 
-// 16-bit UUID of the GATT "Service Changed" characteristic (BT assigned numbers).
-#define PBL_BT_GATT_SERVICE_CHANGED_CHARACTERISTIC_UUID (0x2a05)
-
 // A long-ish nominal watchdog period; the value is irrelevant to the tests,
 // which fire the timer explicitly through stub_new_timer_fire.
 #define WATCHDOG_TIMEOUT_MS (10000)
