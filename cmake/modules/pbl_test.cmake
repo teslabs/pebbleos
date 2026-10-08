@@ -23,7 +23,6 @@ set(PBL_TEST_C_FLAGS
   -std=c11
   -Wall
   -Werror
-  -Wno-enum-conversion
   -g3
   -gdwarf-4
   -O0
