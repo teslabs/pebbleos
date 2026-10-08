@@ -191,7 +191,7 @@
 #endif
 
 #ifndef ISDIGIT
-#define ISDIGIT(ch) isdigit(ch)
+#define ISDIGIT(ch) isdigit((unsigned char)(ch))
 #endif
 
 #define OUTCHAR(str, len, size, ch) \
@@ -486,7 +486,7 @@ int vsnprintf(char *str, size_t size, const char *format, va_list args) {
            * (7.19.6.1, 5)
            */
           precision = 0;
-          while (isdigit(ch = *format++)) {
+          while (ISDIGIT(ch = *format++)) {
           }
           state = PRINT_S_MOD;
         } else {
