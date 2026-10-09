@@ -24,6 +24,11 @@ def _free_port():
         return s.getsockname()[1]
 
 
+def _tcp_port(chardev):
+    address = chardev["filename"].removeprefix("disconnected:").split(",")[0]
+    return int(address.rsplit(":", 1)[1])
+
+
 class _Monitor:
     def __init__(self, path):
         self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -81,8 +86,8 @@ class QemuAdapter(DeviceAdapter):
     def __init__(self, config):
         super().__init__(config)
         self.workdir = config.results_dir
-        self.console_port = _free_port()
-        self.pebble_port = _free_port()
+        self.console_port = None
+        self.pebble_port = None
         # Unix socket paths are limited to ~100 characters.
         self._sockdir = None
         self._process = None
@@ -118,8 +123,8 @@ class QemuAdapter(DeviceAdapter):
             "-monitor", f"unix:{self.monitor_socket},server=on,wait=off",
             "-qmp", f"unix:{self.qmp_socket},server=on,wait=off",
             "-serial", f"file:{os.path.join(self.workdir, 'uart1.log')}",
-            "-serial", f"tcp:127.0.0.1:{self.pebble_port},server=on,wait=off",
-            "-serial", f"tcp:127.0.0.1:{self.console_port},server=on,wait=off",
+            "-serial", "tcp:127.0.0.1:0,server=on,wait=off",
+            "-serial", "tcp:127.0.0.1:0,server=on,wait=off",
             *(["-serial", self._bt_hci] if self._bt_hci else []),
             *machine_args,
             "-kernel", self.build.elf,
@@ -160,16 +165,27 @@ class QemuAdapter(DeviceAdapter):
             command, stdout=self._qemu_log, stderr=subprocess.STDOUT
         )
 
+        # QMP answers once every chardev is up; QEMU picks the TCP ports.
         deadline = time.monotonic() + 10
-        while not os.path.exists(self.monitor_socket):
+        while True:
             if self._process.poll() is not None:
                 raise HarnessError(
                     f"QEMU exited with {self._process.returncode}; see "
                     f"{os.path.join(self.workdir, 'qemu.log')}"
                 )
             if time.monotonic() > deadline:
-                raise HarnessError("QEMU did not open its monitor socket")
-            time.sleep(0.05)
+                raise HarnessError("QEMU did not answer on its QMP socket")
+            try:
+                qmp = _Qmp(self.qmp_socket)
+                break
+            except (OSError, ValueError):
+                time.sleep(0.05)
+        try:
+            chardevs = {c["label"]: c for c in qmp.execute("query-chardev")["return"]}
+        finally:
+            qmp.close()
+        self.pebble_port = _tcp_port(chardevs["serial1"])
+        self.console_port = _tcp_port(chardevs["serial2"])
 
     def _close_device(self):
         if self._process is not None and self._process.poll() is None:
