@@ -34,7 +34,7 @@ jobs:
         run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -61,7 +61,7 @@ jobs:
         run: pbl bundle
 
       - name: Store build
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: itest-build-${{ matrix.watch }}-${{ matrix.variant }}
           include-hidden-files: true
@@ -95,7 +95,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
@@ -120,14 +120,14 @@ jobs:
           echo "$sdk/sftool" >> "$GITHUB_PATH"
 
       - name: Download build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: itest-build-${{ matrix.watch }}-${{ matrix.variant }}
           path: build
 
       - name: Download normal build
         if: matrix.variant == 'prf'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: itest-build-${{ matrix.watch }}-normal
           path: build-main
@@ -139,14 +139,14 @@ jobs:
 
       - name: Store results
         if: (!cancelled())
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: hw-itest-${{ matrix.watch }}-${{ matrix.variant }}
           path: build/itest
           retention-days: 14
 
       - name: Publish integration test report
-        uses: mikepenz/action-junit-report@v6
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6.6.1
         if: (!cancelled())
         with:
           report_paths: build/itest/junit.xml
