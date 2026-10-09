@@ -209,8 +209,10 @@ void uart_posix_bottom_start(enum uart_posix_channel id) {
         channel->device ? prv_serial_open(channel->device) : prv_tcp_connect(channel->port);
     atomic_store(&channel->client_fd, fd);
     prv_start_thread(prv_peer_thread, (void *)(intptr_t)id);
-  } else if (channel->port != 0) {
-    prv_tcp_listen(id);
+  } else if (channel->port != 0 || channel->listen_fd >= 0) {
+    if (channel->listen_fd < 0) {
+      prv_tcp_listen(id);
+    }
     prv_start_thread(prv_tcp_thread, (void *)(intptr_t)id);
   } else if (id == UART_POSIX_CONSOLE) {
     prv_terminal_raw();
@@ -235,12 +237,21 @@ void uart_posix_bottom_write(enum uart_posix_channel id, uint8_t c) {
   }
 }
 
+// "fd:N" serves on a listening socket inherited from the parent, kept across reboots.
+static void prv_set_listen(enum uart_posix_channel id, const char *value) {
+  if (strncmp(value, "fd:", 3) == 0) {
+    s_channels[id].listen_fd = atoi(value + 3);
+  } else {
+    s_channels[id].port = atoi(value);
+  }
+}
+
 static void prv_set_console_port(const char *value) {
-  s_channels[UART_POSIX_CONSOLE].port = atoi(value);
+  prv_set_listen(UART_POSIX_CONSOLE, value);
 }
 
 static void prv_set_qemu_port(const char *value) {
-  s_channels[UART_POSIX_QEMU].port = atoi(value);
+  prv_set_listen(UART_POSIX_QEMU, value);
 }
 
 static void prv_set_bt_hci(const char *value) {
@@ -251,10 +262,11 @@ static void prv_set_bt_hci(const char *value) {
   }
 }
 
-POSIX_HOST_OPTION(.flag = 'c', .arg = "port", .help = "serve the console on this TCP port",
+POSIX_HOST_OPTION(.flag = 'c', .arg = "port|fd:N",
+                  .help = "serve the console on this TCP port or listening socket",
                   .set = prv_set_console_port)
-POSIX_HOST_OPTION(.flag = 'p', .arg = "port",
-                  .help = "serve the QEMU serial protocol on this TCP port",
+POSIX_HOST_OPTION(.flag = 'p', .arg = "port|fd:N",
+                  .help = "serve the QEMU serial protocol on this TCP port or listening socket",
                   .set = prv_set_qemu_port)
 POSIX_HOST_OPTION(.flag = 'b', .arg = "port|device",
                   .help = "connect the Bluetooth HCI UART to this TCP port or serial device",
