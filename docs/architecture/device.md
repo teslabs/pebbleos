@@ -71,6 +71,24 @@ calls `pbl_device_init()` on the devices it uses itself.
 Hardware needed before the kernel runs, such as clocks
 (`pbl_soc_early_init()`), stays outside the model, as in Linux.
 
+## Multi-function devices
+
+A chip with several unrelated functions, such as the nPM1300 PMIC (charger,
+GPIOs, regulators), is one parent device plus one child device per function,
+as in the Linux MFD layer. The parent (`struct pbl_npm1300`) sits on its I2C
+bus, owns the register access under a lock, so a read-modify-write in one
+function cannot interleave with another, and ends its init with
+`pbl_device_init_children()`, so a device that depends on the PMIC can rely
+on its rails and pins being configured. The children embed their class
+struct: a `struct pbl_gpio_port` over the PMIC's GPIOs, and a
+`struct pbl_regulator` per rail.
+
+Board-level facts live in the board: each rail is a
+`PBL_NPM1300_REGULATOR_DEFINE()` with its voltage, mode and whether it is
+always on; consumers point at the regulator (`MicDevice.vdd`) and switch it
+through its use count, and a PMIC pin is an ordinary
+`PBL_GPIO(&s_npm1300.gpio, ...)`.
+
 ## Adding a driver
 
 1. Define the driver struct embedding the class struct, the class ops and
