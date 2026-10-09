@@ -18,12 +18,6 @@ ABS_MAX = 32767
 HCI_DRAIN_S = 0.2
 
 
-def _free_port():
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
 def _tcp_port(chardev):
     address = chardev["filename"].removeprefix("disconnected:").split(",")[0]
     return int(address.rsplit(":", 1)[1])
