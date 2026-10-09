@@ -8,6 +8,7 @@
 #include <pbl/util/units.h>
 
 #include <apps/system/timeline/timeline.h>
+#include <fake_settings_file.h>
 #include <fixtures/screen_grid.h>
 #include <resource/resource.h>
 #include <resource/resource_ids.auto.h>
@@ -51,7 +52,7 @@ typedef struct ListViewConfig {
   bool day_separator;
 } ListViewConfig;
 
-static void prv_add_timeline_item(const TimelineItemConfig *config, bool past) {
+static void prv_add_timeline_item(const TimelineItemConfig *config, bool past, uint8_t pin_index) {
   PBL_ASSERTN(config);
   TimelineItem *item = NULL;
   const time_t now = rtc_get_time();
@@ -69,6 +70,8 @@ static void prv_add_timeline_item(const TimelineItemConfig *config, bool past) {
     attribute_list_destroy_list(&list);
     PBL_ASSERTN(item);
     item->header.all_day = config->all_day;
+    // Use distinct keys in the fake settings store, which cannot handle CRC8 collisions.
+    item->header.id = (Uuid){.byte15 = pin_index + 1};
   }
   if (item) {
     pin_db_insert_item(item);
@@ -125,7 +128,7 @@ static void prv_create_list_view_and_render(ListViewConfig *config) {
 
   for (int i = 0; i < (int)ARRAY_LENGTH(config->pins); i++) {
     if (config->pins[i]) {
-      prv_add_timeline_item(config->pins[i], config->past);
+      prv_add_timeline_item(config->pins[i], config->past, i);
     }
   }
 
@@ -179,6 +182,7 @@ static void prv_create_list_view_and_render(ListViewConfig *config) {
   timeline_layer_deinit(&timeline_layer);
   timeline_model_deinit();
   pin_db_flush();
+  fake_settings_file_reset();
 }
 
 // Content size grids
@@ -394,4 +398,49 @@ void test_timeline_list_view__all_day_future(void) {
 void test_timeline_list_view__all_day_past(void) {
   prv_create_and_render_all_day(true /* past */);
   FAKE_GRAPHICS_CONTEXT_CHECK_DEST_BITMAP_FILE();
+}
+
+static void prv_create_and_render_short_titles(bool past) {
+  prv_create_list_view_and_render(&(ListViewConfig){
+    .pins =
+        {&(TimelineItemConfig){
+           .relative_timestamp = PBL_SEC_PER_HOUR,
+           .title = "Sunrise",
+           .subtitle = "92°/70°",
+           .icon = TIMELINE_RESOURCE_TIMELINE_CALENDAR,
+         },
+         &(TimelineItemConfig){
+           .relative_timestamp = 12 * PBL_SEC_PER_HOUR,
+           .title = "Sunset",
+           .subtitle = "94°/75°",
+           .icon = TIMELINE_RESOURCE_TIMELINE_CALENDAR,
+         }},
+    .past = past,
+  });
+}
+
+void test_timeline_list_view__content_sizes_time_title_spacing(void) {
+  ScreenGrid grid;
+  screen_grid_init(&grid, 2);
+  for (PreferredContentSize size = grid.first_size; size <= grid.last_size; size++) {
+    system_theme_set_content_size(size);
+    prv_create_and_render_short_titles(false /* past */);
+    screen_grid_add(&grid, fake_graphics_context_get_context(), size, 0);
+    prv_create_and_render_short_titles(true /* past */);
+    screen_grid_add(&grid, fake_graphics_context_get_context(), size, 1);
+  }
+  screen_grid_check(&grid, TEST_PBI_FILE);
+}
+
+void test_timeline_list_view__content_sizes_all_day(void) {
+  ScreenGrid grid;
+  screen_grid_init(&grid, 2);
+  for (PreferredContentSize size = grid.first_size; size <= grid.last_size; size++) {
+    system_theme_set_content_size(size);
+    prv_create_and_render_all_day(false /* past */);
+    screen_grid_add(&grid, fake_graphics_context_get_context(), size, 0);
+    prv_create_and_render_all_day(true /* past */);
+    screen_grid_add(&grid, fake_graphics_context_get_context(), size, 1);
+  }
+  screen_grid_check(&grid, TEST_PBI_FILE);
 }

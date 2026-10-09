@@ -569,6 +569,13 @@ static GTextNode *prv_create_pin_view_node(TimelineLayout *layout) {
     const int hour_title_margin = is_fat ? style->fat_time_margin_h : style->thin_time_margin_h;
     if (time_text_node) {
       time_text_node->margin.h += hour_title_margin;
+#if PBL_RECT
+      if (!layout->info->all_day &&
+          system_theme_get_content_size() == PreferredContentSizeExtraLarge) {
+        // The 36px title font needs a tighter gap below the time header.
+        time_text_node->margin.h -= 8;
+      }
+#endif
     }
 
     static const LayoutNodeTextConfig s_primary_config = {
