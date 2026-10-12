@@ -89,6 +89,10 @@ typedef struct HRMSubscriberState {
 
   /** Tick count of the last usable reading this subscriber received. */
   RtcTicks last_valid_bpm_ticks;
+  /** Waiting for a usable reading since @ref due_since_ticks. */
+  bool is_due;
+  /** Tick count at which this subscriber became due, valid while @ref is_due. */
+  RtcTicks due_since_ticks;
 } HRMSubscriberState;
 
 /**
@@ -153,7 +157,7 @@ struct HRMManagerState {
   /** Battery state subscription, to track the charger. */
   EventServiceInfo charger_subscription;
 
-  /** Timer turning the sensor back on. */
+  /** Timer checking due, expired, and unserved subscriptions. */
   TimerID update_enable_timer_id;
 
   /** Driver reports since the last turn-off check, up to @ref HRM_CHECK_SENSOR_DISABLE_COUNT. */

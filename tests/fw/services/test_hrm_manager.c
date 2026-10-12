@@ -44,9 +44,14 @@ static struct {
   HRMFeature features;
   bool low_latency;
   int enable_count;
+  int enable_failures;
 } s_hrm_state;
 
 bool hrm_enable(HRMDevice *dev, HRMFeature features, bool low_latency) {
+  if (s_hrm_state.enable_failures > 0) {
+    s_hrm_state.enable_failures--;
+    return false;
+  }
   s_hrm_state.low_latency = low_latency;
   s_hrm_state.enabled = true;
   s_hrm_state.features = features;
@@ -1169,5 +1174,327 @@ void test_hrm_manager__immediate_off_wrist(void) {
   cl_assert_equal_i(s_cb_events_1[0].event_type, HRMEvent_BPM);
   cl_assert_equal_i(s_cb_events_1[0].bpm.quality, HRMQuality_OffWrist);
 
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
+// A silent driver must not prevent the unserved periodic subscriber from being deferred.
+void test_hrm_manager__silent_driver_serve_timeout(void) {
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1, 600, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                    HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+
+  prv_advance_time_ms(HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_b(hrm_is_enabled(HRM), false);
+  const uint32_t backoff_ms = (600 - HRM_SENSOR_SPIN_UP_SEC) * PBL_MSEC_PER_SEC;
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()), backoff_ms);
+
+  prv_advance_time_ms(backoff_ms);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                    HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+  sys_hrm_manager_unsubscribe(session_ref);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!stub_new_timer_is_scheduled(prv_get_timer_id()));
+}
+
+// A live subscriber keeps sampling even when the driver correctly reports off-wrist.
+void test_hrm_manager__live_off_wrist_subscription_keeps_sensor_on(void) {
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1, 1, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  const HRMData off_wrist_data = {
+    .features = HRMFeature_BPM,
+    .hrm_bpm = 0,
+    .hrm_quality = HRMQuality_OffWrist,
+  };
+  prv_advance_time_ms(20 * PBL_SEC_PER_MIN * PBL_MSEC_PER_SEC);
+  for (int i = 0; i <= HRM_CHECK_SENSOR_DISABLE_COUNT; ++i) {
+    hrm_manager_new_data_cb(&off_wrist_data);
+    fake_system_task_callbacks_invoke_pending();
+  }
+  cl_assert_equal_b(hrm_is_enabled(HRM), true);
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
+void test_hrm_manager__poor_reports_do_not_extend_serve_deadline(void) {
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1, 600, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  const HRMData poor_data = {
+    .features = HRMFeature_BPM,
+    .hrm_bpm = 70,
+    .hrm_quality = HRMQuality_Acceptable,
+  };
+  for (int elapsed_s = 30; elapsed_s < HRM_MAX_UNSERVED_TIME_SEC; elapsed_s += 30) {
+    prv_advance_time_ms(30 * PBL_MSEC_PER_SEC);
+    for (int i = 0; i < HRM_CHECK_SENSOR_DISABLE_COUNT; ++i) {
+      hrm_manager_new_data_cb(&poor_data);
+    }
+    hrm_manager_handle_prefs_changed();
+    fake_system_task_callbacks_invoke_pending();
+    cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                      (HRM_MAX_UNSERVED_TIME_SEC - elapsed_s) * PBL_MSEC_PER_SEC);
+  }
+  prv_advance_time_ms(30 * PBL_MSEC_PER_SEC);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!hrm_is_enabled(HRM));
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
+void test_hrm_manager__silent_activity_interval_change_preserves_on_time(void) {
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1, 1, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!stub_new_timer_is_scheduled(prv_get_timer_id()));
+  prv_advance_time_ms(60 * PBL_MSEC_PER_SEC);
+  cl_assert(sys_hrm_manager_set_update_interval(session_ref, 86400, 0));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(hrm_is_enabled(HRM));
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()), 60 * PBL_MSEC_PER_SEC);
+  prv_advance_time_ms(60 * PBL_MSEC_PER_SEC);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!hrm_is_enabled(HRM));
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                    (86400 - HRM_SENSOR_SPIN_UP_SEC) * PBL_MSEC_PER_SEC);
+  sys_hrm_manager_unsubscribe(session_ref);
+  fake_system_task_callbacks_invoke_pending();
+
+  session_ref = sys_hrm_manager_app_subscribe(1, 1, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  prv_advance_time_ms((HRM_MAX_UNSERVED_TIME_SEC + 1) * PBL_MSEC_PER_SEC);
+  cl_assert(sys_hrm_manager_set_update_interval(session_ref, 86400, 0));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!hrm_is_enabled(HRM));
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
+void test_hrm_manager__serve_timeout_from_tick_zero(void) {
+  fake_rtc_set_ticks(0);
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1, 600, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  prv_advance_time_ms(HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!hrm_is_enabled(HRM));
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
+void test_hrm_manager__stale_timeout_obeys_gates_and_restart_gets_full_window(void) {
+  fake_event_set_callback(prv_charger_event_cb);
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1, 600, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  for (int gate = 0; gate < 3; ++gate) {
+    // Queue the old timer callback, then close a gate before KernelBG evaluates it.
+    prv_advance_time_ms(HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+    cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+    if (gate == 0) {
+      hrm_manager_enable(false);
+    } else if (gate == 1) {
+      s_activity_prefs_heart_rate_is_enabled = false;
+      hrm_manager_handle_prefs_changed();
+    } else {
+      prv_put_battery_state_change_event(true);
+    }
+    fake_system_task_callbacks_invoke_pending();
+    cl_assert(!hrm_is_enabled(HRM));
+    cl_assert(!stub_new_timer_is_scheduled(prv_get_timer_id()));
+    prv_advance_time_ms(300 * PBL_MSEC_PER_SEC);
+    if (gate == 0) {
+      hrm_manager_enable(true);
+    } else if (gate == 1) {
+      s_activity_prefs_heart_rate_is_enabled = true;
+      hrm_manager_handle_prefs_changed();
+    } else {
+      prv_put_battery_state_change_event(false);
+    }
+    fake_system_task_callbacks_invoke_pending();
+    cl_assert(hrm_is_enabled(HRM));
+    cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                      HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+  }
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
+void test_hrm_manager__path_restart_and_old_callback_keep_new_serve_window(void) {
+  s_activity_prefs_spo2_is_enabled = true;
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1, 600, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  const NewTimerCallback old_cb = prv_find_timer(prv_get_timer_id())->cb;
+  prv_advance_time_ms(90 * PBL_MSEC_PER_SEC);
+  cl_assert(sys_hrm_manager_set_features(session_ref, HRMFeature_SpO2));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_i(s_hrm_state.enable_count, 2);
+  cl_assert_equal_i(s_hrm_state.features, HRMFeature_SpO2);
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                    HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+
+  prv_advance_time_ms(30 * PBL_MSEC_PER_SEC);
+  old_cb(nullptr);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(hrm_is_enabled(HRM));
+  cl_assert_equal_i(s_hrm_state.enable_count, 2);
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()), 90 * PBL_MSEC_PER_SEC);
+  prv_advance_time_ms(90 * PBL_MSEC_PER_SEC);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!hrm_is_enabled(HRM));
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
+void test_hrm_manager__silent_live_subscription_expires_and_renewal_is_respected(void) {
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1, 1, 30, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()), 30 * PBL_MSEC_PER_SEC);
+  const NewTimerCallback old_cb = prv_find_timer(prv_get_timer_id())->cb;
+  prv_advance_time_ms(10 * PBL_MSEC_PER_SEC);
+  cl_assert(sys_hrm_manager_set_update_interval(session_ref, 1, 60));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()), 60 * PBL_MSEC_PER_SEC);
+  prv_advance_time_ms(20 * PBL_MSEC_PER_SEC);
+  old_cb(nullptr);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(hrm_is_enabled(HRM));
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()), 40 * PBL_MSEC_PER_SEC);
+  prv_advance_time_ms(40 * PBL_MSEC_PER_SEC);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!hrm_is_enabled(HRM));
+  cl_assert(!stub_new_timer_is_scheduled(prv_get_timer_id()));
+
+  // Silent expiry keeps the session, so a holder that renews it late still revives it
+  cl_assert(prv_get_subscriber_state_from_ref(session_ref) != nullptr);
+  cl_assert(sys_hrm_manager_set_update_interval(session_ref, 1, 60));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(hrm_is_enabled(HRM));
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
+void test_hrm_manager__periodic_timeout_does_not_stop_another_live_reader(void) {
+  HRMSessionRef periodic_ref = sys_hrm_manager_app_subscribe(1, 600, 0, HRMFeature_BPM);
+  HRMSessionRef live_ref = sys_hrm_manager_app_subscribe(2, 1, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  prv_advance_time_ms(HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(hrm_is_enabled(HRM));
+  cl_assert_equal_i(prv_get_subscriber_state_from_ref(periodic_ref)->last_valid_bpm_ticks,
+                    rtc_get_ticks());
+  sys_hrm_manager_unsubscribe(live_ref);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!hrm_is_enabled(HRM));
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                    (600 - HRM_SENSOR_SPIN_UP_SEC) * PBL_MSEC_PER_SEC);
+  sys_hrm_manager_unsubscribe(periodic_ref);
+}
+
+void test_hrm_manager__queued_timeout_after_unsubscribe_cannot_stop_new_live_reader(void) {
+  HRMSessionRef periodic_ref = sys_hrm_manager_app_subscribe(1, 600, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  prv_advance_time_ms(HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  sys_hrm_manager_unsubscribe(periodic_ref);
+  HRMSessionRef live_ref = sys_hrm_manager_app_subscribe(2, 1, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(hrm_is_enabled(HRM));
+  cl_assert(!stub_new_timer_is_scheduled(prv_get_timer_id()));
+  sys_hrm_manager_unsubscribe(live_ref);
+}
+
+void test_hrm_manager__silent_live_reader_does_not_delay_next_periodic_optical_path(void) {
+  s_activity_prefs_spo2_is_enabled = true;
+  HRMSessionRef live_ref = sys_hrm_manager_app_subscribe(1, 1, 0, HRMFeature_BPM);
+  HRMSessionRef periodic_ref = sys_hrm_manager_app_subscribe(2, 600, 0, HRMFeature_SpO2);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_i(s_hrm_state.features, HRMFeature_SpO2);
+  const HRMData spo2_data = {
+    .features = HRMFeature_SpO2,
+    .spo2_percent = 97,
+    .spo2_quality = HRMQuality_Good,
+  };
+  for (int i = 0; i < HRM_CHECK_SENSOR_DISABLE_COUNT; ++i) {
+    hrm_manager_new_data_cb(&spo2_data);
+  }
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_i(s_hrm_state.features, HRMFeature_BPM);
+  const uint32_t next_due_ms = (600 - HRM_SENSOR_SPIN_UP_SEC) * PBL_MSEC_PER_SEC;
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()), next_due_ms);
+
+  prv_advance_time_ms(next_due_ms);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(hrm_is_enabled(HRM));
+  cl_assert_equal_i(s_hrm_state.features, HRMFeature_SpO2);
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                    HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+  sys_hrm_manager_unsubscribe(periodic_ref);
+  sys_hrm_manager_unsubscribe(live_ref);
+}
+
+// A periodic subscriber that becomes due while another reader has kept the sensor on gets its own
+// full serve window.
+void test_hrm_manager__serve_window_starts_when_subscriber_is_due(void) {
+  HRMSessionRef live_ref = sys_hrm_manager_app_subscribe(1, 1, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(hrm_is_enabled(HRM));
+  prv_advance_time_ms(10 * PBL_SEC_PER_MIN * PBL_MSEC_PER_SEC);
+
+  HRMSessionRef periodic_ref = sys_hrm_manager_app_subscribe(2, 600, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_i(prv_get_subscriber_state_from_ref(periodic_ref)->last_valid_bpm_ticks, 0);
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                    HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+
+  prv_advance_time_ms(HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(hrm_is_enabled(HRM));
+  cl_assert_equal_i(prv_get_subscriber_state_from_ref(periodic_ref)->last_valid_bpm_ticks,
+                    rtc_get_ticks());
+  sys_hrm_manager_unsubscribe(periodic_ref);
+  sys_hrm_manager_unsubscribe(live_ref);
+}
+
+// A failed sensor enable is retried after a backoff instead of waiting for an unrelated event.
+void test_hrm_manager__enable_failure_retries_after_backoff(void) {
+  hrm_manager_enable(false);
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1, 600, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  s_hrm_state.enable_failures = 1;
+  hrm_manager_enable(true);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(!hrm_is_enabled(HRM));
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                    HRM_SENSOR_SPIN_UP_SEC * PBL_MSEC_PER_SEC);
+
+  prv_advance_time_ms(HRM_SENSOR_SPIN_UP_SEC * PBL_MSEC_PER_SEC);
+  cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert(hrm_is_enabled(HRM));
+  cl_assert_equal_i(stub_new_timer_timeout(prv_get_timer_id()),
+                    HRM_MAX_UNSERVED_TIME_SEC * PBL_MSEC_PER_SEC);
+  sys_hrm_manager_unsubscribe(session_ref);
+}
+
+// Retries stop once the failure limit is reached.
+void test_hrm_manager__enable_failure_limit_stops_retries(void) {
+  hrm_manager_enable(false);
+  HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1, 600, 0, HRMFeature_BPM);
+  fake_system_task_callbacks_invoke_pending();
+  s_hrm_state.enable_failures = HRM_MAX_ENABLE_FAILURES;
+  hrm_manager_enable(true);
+  fake_system_task_callbacks_invoke_pending();
+  for (int i = 1; i < HRM_MAX_ENABLE_FAILURES; ++i) {
+    prv_advance_time_ms(HRM_SENSOR_SPIN_UP_SEC * PBL_MSEC_PER_SEC);
+    cl_assert(stub_new_timer_fire(prv_get_timer_id()));
+    fake_system_task_callbacks_invoke_pending();
+  }
+  cl_assert(!hrm_is_enabled(HRM));
+  cl_assert_equal_i(s_hrm_state.enable_failures, 0);
+  cl_assert(!stub_new_timer_is_scheduled(prv_get_timer_id()));
   sys_hrm_manager_unsubscribe(session_ref);
 }
