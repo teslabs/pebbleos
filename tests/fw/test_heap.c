@@ -329,3 +329,34 @@ void test_heap__fuzz_on_free(void) {
   prv_alloc_and_test_fuzz_on_free(true);
   prv_alloc_and_test_fuzz_on_free(false);
 }
+
+void test_heap__largest_free_block_after_smaller_hole(void) {
+  const unsigned int heap_size_bytes = 128 * BLOCK_SIZE;
+  uint8_t *heap_space = malloc(heap_size_bytes);
+  cl_assert(heap_space != NULL);
+  Heap heap;
+  heap_init(&heap, heap_space, heap_space + heap_size_bytes, false);
+
+  void *first = heap_malloc(&heap, 3 * BLOCK_SIZE, 0);
+  void *guard = heap_malloc(&heap, BLOCK_SIZE, 0);
+  void *larger = heap_malloc(&heap, 9 * BLOCK_SIZE, 0);
+  void *second_guard = heap_malloc(&heap, BLOCK_SIZE, 0);
+  void *tail = heap_malloc(&heap, 109 * BLOCK_SIZE, 0);
+  cl_assert(first && guard && larger && second_guard && tail);
+
+  heap_free(&heap, first, 0);
+  heap_free(&heap, larger, 0);
+  unsigned int used, free_bytes, max_free;
+  heap_calc_totals(&heap, &used, &free_bytes, &max_free);
+  cl_assert_equal_i(free_bytes, 14 * BLOCK_SIZE);
+  cl_assert_equal_i(max_free, 10 * BLOCK_SIZE);
+
+  heap_free(&heap, guard, 0);
+  heap_free(&heap, second_guard, 0);
+  heap_free(&heap, tail, 0);
+  heap_calc_totals(&heap, &used, &free_bytes, &max_free);
+  cl_assert_equal_i(used, 0);
+  cl_assert_equal_i(free_bytes, heap_size_bytes);
+  cl_assert_equal_i(max_free, heap_size_bytes);
+  free(heap_space);
+}

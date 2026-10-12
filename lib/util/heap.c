@@ -163,7 +163,7 @@ static void prv_calc_totals(Heap *const heap, unsigned int *used, unsigned int *
 
       /* Check to see if the current fragment is larger that any  */
       /* we have seen and update the Max Value if it is larger.   */
-      if (heap_info_ptr->Size > *max_free) {
+      if (heap_info_ptr->Size * ALIGNMENT_SIZE > *max_free) {
         *max_free = heap_info_ptr->Size * ALIGNMENT_SIZE;
       }
     }
