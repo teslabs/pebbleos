@@ -109,8 +109,9 @@ static void prv_render_bpm(GContext *ctx, Layer *base_layer) {
         health_util_create_text_node(bpm_size, data->bpm_font, TEXT_COLOR, container);
     snprintf((char *)number_text_node->text, bpm_size, "%" PRIu32, data->now_bpm);
 
-    GTextNodeText *units_text_node = health_util_create_text_node_with_text(
-        i18n_get("BPM", base_layer), data->units_font, TEXT_COLOR, container);
+    // Drawn in an ASCII-only numeric font, so it is not translated
+    GTextNodeText *units_text_node =
+        health_util_create_text_node_with_text("BPM", data->units_font, TEXT_COLOR, container);
     units_text_node->node.offset.x += 2;
     units_text_node->node.offset.y = units_offset_y;
   }

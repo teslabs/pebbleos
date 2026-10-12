@@ -92,8 +92,9 @@ void health_util_duration_to_hours_and_minutes_text_node(int duration_s, void *i
     snprintf((char *)hours_text_node->text, hours_and_minutes_buffer_size,
              i18n_get("%d", i18n_owner), hours);
 
-    GTextNodeText *hours_units_text_node = health_util_create_text_node_with_text(
-        i18n_get("h", i18n_owner), units_font, color, container);
+    // Units are drawn in an ASCII-only numeric font, so they are not translated
+    GTextNodeText *hours_units_text_node =
+        health_util_create_text_node_with_text("h", units_font, color, container);
     hours_units_text_node->node.offset.y = units_offset_y;
   }
 
@@ -108,8 +109,8 @@ void health_util_duration_to_hours_and_minutes_text_node(int duration_s, void *i
     snprintf((char *)minutes_text_node->text, hours_and_minutes_buffer_size,
              i18n_get("%d", i18n_owner), minutes);
 
-    GTextNodeText *minutes_units_text_node = health_util_create_text_node_with_text(
-        i18n_get("min", i18n_owner), units_font, color, container);
+    GTextNodeText *minutes_units_text_node =
+        health_util_create_text_node_with_text("min", units_font, color, container);
     minutes_units_text_node->node.offset.y = units_offset_y;
   }
 }
