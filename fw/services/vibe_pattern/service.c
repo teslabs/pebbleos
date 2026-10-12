@@ -65,7 +65,8 @@ DEFINE_SYSCALL(bool, sys_vibe_history_was_vibrating, uint64_t time_search) {
 // @param cutoff The time to cut off the list at. 0 means to clear the list.
 static void prv_vibe_history_clear(uint64_t cutoff) {
   pbl_mutex_assert_held(&s_vibe_history_mutex, true);
-  while (s_vibe_history && s_vibe_history->time_end != END_NOT_SET) {
+  while (s_vibe_history &&
+         (cutoff == HISTORY_CLEAR_ALL || s_vibe_history->time_end != END_NOT_SET)) {
     VibeHistory *vibe = s_vibe_history;
     if (cutoff != HISTORY_CLEAR_ALL && vibe->time_end >= cutoff) {
       break;
@@ -76,23 +77,28 @@ static void prv_vibe_history_clear(uint64_t cutoff) {
 }
 
 DEFINE_SYSCALL(void, sys_vibe_history_start_collecting, void) {
+  pbl_mutex_lock(&s_vibe_history_mutex, PBL_FOREVER);
   s_vibe_history_enabled = true;
+  pbl_mutex_unlock(&s_vibe_history_mutex);
 }
 
 DEFINE_SYSCALL(void, sys_vibe_history_stop_collecting, void) {
-  s_vibe_history_enabled = false;
   pbl_mutex_lock(&s_vibe_history_mutex, PBL_FOREVER);
+  s_vibe_history_enabled = false;
   prv_vibe_history_clear(HISTORY_CLEAR_ALL);
   pbl_mutex_unlock(&s_vibe_history_mutex);
 }
 
 static void prv_vibe_history_start_event(void) {
+  pbl_mutex_lock(&s_vibe_history_mutex, PBL_FOREVER);
   if (!s_vibe_history_enabled) {
+    pbl_mutex_unlock(&s_vibe_history_mutex);
     return;
   }
   VibeHistory *vibe = kernel_malloc(sizeof(VibeHistory));
   if (vibe == nullptr) {
     s_vibe_history_enabled = false;
+    pbl_mutex_unlock(&s_vibe_history_mutex);
     return;
   }
   list_init((ListNode *)vibe);
@@ -102,7 +108,6 @@ static void prv_vibe_history_start_event(void) {
   vibe->time_start = ((uint64_t)s) * 1000 + ms;
   vibe->time_end = END_NOT_SET;
 
-  pbl_mutex_lock(&s_vibe_history_mutex, PBL_FOREVER);
   if (s_vibe_history == nullptr) {
     s_vibe_history = vibe;
   } else {
@@ -114,11 +119,10 @@ static void prv_vibe_history_start_event(void) {
 
 // Ends the last vibration event
 static void prv_vibe_history_end_event(void) {
-  if (!s_vibe_history_enabled) {
-    return;
-  }
-  if (!s_vibe_history) {
-    // Possible that it was enabled while the watch was vibrating
+  pbl_mutex_lock(&s_vibe_history_mutex, PBL_FOREVER);
+  if (!s_vibe_history_enabled || !s_vibe_history) {
+    // Possible that it was enabled while the watch was vibrating.
+    pbl_mutex_unlock(&s_vibe_history_mutex);
     return;
   }
 
@@ -126,7 +130,6 @@ static void prv_vibe_history_end_event(void) {
   uint16_t ms;
   rtc_get_time_ms(&s, &ms);
 
-  pbl_mutex_lock(&s_vibe_history_mutex, PBL_FOREVER);
   VibeHistory *vibe = (VibeHistory *)list_get_tail((ListNode *)s_vibe_history);
   if (vibe->time_end == END_NOT_SET) {
     vibe->time_end = ((uint64_t)s) * 1000 + ms;
