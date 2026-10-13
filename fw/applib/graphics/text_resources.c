@@ -514,7 +514,9 @@ static bool prv_load_font_res(ResAppNum app_num, uint32_t resource_id, FontResou
       break;
     case FONT_VERSION_3:
       // Make sure that the font header is internally consistent
-      PBL_ASSERTN(header.size == sizeof(FontMetaDataV3));
+      if (header.size != sizeof(FontMetaDataV3)) {
+        return false;
+      }
 
       // HACK alert: Copy the feature bits to the top two bits of the header version.
       if (header.features & FEATURE_OFFSET_16) {
@@ -586,6 +588,8 @@ bool text_resources_init_font(ResAppNum app_num, uint32_t font_resource, uint32_
       !prv_load_font_res(app_num, font_resource, &font_info->base, false /* is_extended */)) {
     return false;
   }
+  font_info->extended = false;
+  font_info->extension = (FontResource){};
   // look for an extension font and load it
   if (extended_resource) {
     // if you want 3rd party apps to use extended fonts, you'll have to unwatch when they unload
