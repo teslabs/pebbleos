@@ -38,7 +38,9 @@
 #include <kernel/event_loop.h>
 #include <kernel/events.h>
 #include <kernel/pbl_malloc.h>
+#include <resource/language_pack.h>
 #include <resource/resource.h>
+#include <resource/resource_ids.auto.h>
 #include <shell/normal/language_ui.h>
 #include <shell/prefs.h>
 
@@ -555,15 +557,12 @@ static void prv_resource_changed_handler(void *data) {
   struct DomainBinding *db = (struct DomainBinding *)data;
   // Mark as invalid
   PBL_LOG_DBG("lang resource file reloading");
-  shell_prefs_set_language_english(false);
   const uint32_t prev_language_id = prv_language_id();
-  db->need_reload = true;
-  prv_mapit(db->resource_id, db);
-  prv_put_event_if_changed(prev_language_id);
-
-  if (resource_is_valid(SYSTEM_APP, db->resource_id)) {
-    language_ui_display_changed(db->lang_name);
+  if (!shell_prefs_get_language_english()) {
+    db->need_reload = true;
+    prv_mapit(db->resource_id, db);
   }
+  prv_put_event_if_changed(prev_language_id);
 }
 
 static void prv_resource_changed_callback(void *data) {
@@ -572,6 +571,28 @@ static void prv_resource_changed_callback(void *data) {
   PBL_LOG_DBG("lang resource file was modified");
   launcher_task_add_callback(prv_resource_changed_handler, data);
 }
+
+#ifndef CONFIG_RECOVERY_FW
+// Language changes remap s_system_domain, so they run on the launcher task like its readers.
+static void prv_deselect_pack_cb(void *data) {
+  const uint8_t slot = (uintptr_t)data;
+  // Even with English toggled on: toggling it off would select whatever the slot holds by then.
+  if (shell_prefs_get_language() == shell_language_for_pack_slot(slot)) {
+    shell_prefs_set_language(ShellLanguageEnglish);
+  }
+}
+
+static void prv_deselect_pack(uint8_t slot) {
+  launcher_task_add_callback(prv_deselect_pack_cb, (void *)(uintptr_t)slot);
+}
+
+static void prv_select_installed_pack_cb(void *data) {
+  shell_prefs_set_language(ShellLanguageInstalledPack);
+  if (s_system_domain.mohandle.mo.mo_htable) {
+    language_ui_display_changed(s_system_domain.lang_name);
+  }
+}
+#endif
 
 static void prv_unset(void) {
   s_system_domain.need_reload = false;
@@ -623,6 +644,38 @@ void i18n_enable(bool enable) {
   }
   prv_put_event_if_changed(prev_language_id);
 }
+
+#ifndef CONFIG_RECOVERY_FW
+static bool s_select_on_install;
+
+const char *i18n_pack_install_begin(const char *filename) {
+  s_select_on_install = false;
+  if (strcmp(filename, language_pack_filename(0)) == 0) {
+    // Legacy transfers replace slot zero and select it once complete.
+    s_select_on_install = true;
+    return filename;
+  }
+  if (strcmp(filename, LANGUAGE_PACK_ADD_FILENAME) != 0) {
+    return filename;
+  }
+  for (uint8_t slot = 0; slot < LANGUAGE_PACK_COUNT; ++slot) {
+    if (language_pack_is_installed(slot)) {
+      continue;
+    }
+    // The empty slot may still be selected, e.g. slot zero on a fresh watch.
+    prv_deselect_pack(slot);
+    return language_pack_filename(slot);
+  }
+  return NULL;
+}
+
+void i18n_pack_install_end(bool success) {
+  if (success && s_select_on_install) {
+    launcher_task_add_callback(prv_select_installed_pack_cb, NULL);
+  }
+  s_select_on_install = false;
+}
+#endif
 
 void command_i18n_resource(const char *arg) {
   uint32_t resource_id = atoi(arg);

@@ -8,6 +8,13 @@
 
 #include <applib/i18n.h>
 
+const char *PBL_WEAK i18n_pack_install_begin(const char *filename) {
+  return filename;
+}
+
+void PBL_WEAK i18n_pack_install_end(bool success) {
+}
+
 const char *PBL_WEAK i18n_get(const char *msgid, const void *owner) {
   // If a string wasn't found, we want to return the original string.
   // However, if we have a context, this string needs to not show the context.

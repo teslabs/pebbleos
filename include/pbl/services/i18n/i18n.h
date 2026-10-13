@@ -199,4 +199,16 @@ char *i18n_get_lang_name(void);
  */
 void i18n_enable(bool enable);
 
+/**
+ * @brief Resolve the file a PutBytes file transfer writes to.
+ *
+ * Additive pack installs go to the first free pack slot; other files are unchanged.
+ *
+ * @return File name to write, or NULL if every pack slot is occupied.
+ */
+const char *i18n_pack_install_begin(const char *filename);
+
+/** @brief Finish a transfer started with i18n_pack_install_begin(). */
+void i18n_pack_install_end(bool success);
+
 /** @} */

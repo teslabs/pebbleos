@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <string.h>
+
 #include <pbl/services/filesystem/pfs.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/services/i18n/mo.h>
@@ -9,7 +11,9 @@
 #include <fixtures/load_test_resources.h>
 #include <flash_region/flash_region.h>
 #include <kernel/events.h>
+#include <resource/language_pack.h>
 #include <resource/resource_ids.auto.h>
+#include <shell/prefs.h>
 
 #define I18N_FIXTURE_PATH "i18n"
 
@@ -28,6 +32,16 @@ bool shell_prefs_get_language_english(void) {
 }
 void shell_prefs_set_language_english(bool english) {
   s_is_english = english;
+}
+static ShellLanguage s_language;
+ShellLanguage shell_prefs_get_language(void) {
+  return s_language;
+}
+void shell_prefs_set_language(ShellLanguage language) {
+  s_language = language;
+  shell_prefs_set_language_english(language == ShellLanguageEnglish);
+  const uint8_t slot = shell_language_pack_slot(language);
+  i18n_set_resource(language_pack_resource_id(slot, RESOURCE_ID_STRINGS, RESOURCE_ID_STRINGS));
 }
 
 void launcher_task_add_callback(void (*callback)(void *data), void *data) {
@@ -48,6 +62,7 @@ void test_i18n__initialize(void) {
   pfs_init(false);
   pfs_format(true /* write erase headers */);
   load_resource_fixture_on_pfs(RESOURCES_FIXTURE_PATH, FRENCH_FIXTURE_NAME, "lang");
+  s_language = ShellLanguageInstalledPack;
   shell_prefs_set_language_english(false);
   i18n_set_resource(RESOURCE_ID_STRINGS);
 }
@@ -209,4 +224,12 @@ void test_i18n__language_change_event(void) {
   shell_prefs_set_language_english(true);
   i18n_set_resource(RESOURCE_ID_STRINGS);
   cl_assert_equal_i(s_num_language_change_events, 3);
+}
+
+void test_i18n__installation_preserves_english(void) {
+  shell_prefs_set_language(ShellLanguageEnglish);
+  load_resource_fixture_on_pfs(RESOURCES_FIXTURE_PATH, FRENCH_FIXTURE_NAME, "lang");
+  cl_assert(shell_prefs_get_language_english());
+  cl_assert_equal_s(i18n_get_locale(), "en_US");
+  cl_assert_equal_s(i18n_get("Music", __FILE__), "Music");
 }

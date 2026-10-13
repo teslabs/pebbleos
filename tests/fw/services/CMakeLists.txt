@@ -39,6 +39,29 @@ pbl_clar_test(test_put_bytes
   OVERRIDES dummy_board
 )
 
+pbl_clar_test(test_language_pack_storage
+  SOURCES
+    fw/services/put_bytes/put_bytes_storage_file.c
+    fw/services/i18n/i18n.c
+    fw/resource/resource.c
+    fw/resource/resource_storage.c
+    fw/resource/resource_storage_builtin.c
+    fw/resource/resource_storage_file.c
+    fw/resource/resource_storage_flash.c
+    fw/services/filesystem/flash_translation.c
+    fw/services/filesystem/pfs.c
+    fw/services/filesystem/app_file.c
+    fw/flash_region/flash_region.c
+    fw/flash_region/filesystem_regions.c
+    drivers/flash/flash_crc.c
+    tests/fakes/fake_bootbits.c
+    tests/fakes/fake_spi_flash.c
+    tests/fakes/fake_rtc.c
+    tests/fixtures/resources/builtin_resources.auto.c
+    tests/fixtures/resources/pfs_resource_table.c
+  OVERRIDES dummy_board
+)
+
 pbl_clar_test(test_tick_timer
   SOURCES
     fw/services/tick_timer/service.c
