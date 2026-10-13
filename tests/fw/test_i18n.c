@@ -226,6 +226,21 @@ void test_i18n__language_change_event(void) {
   cl_assert_equal_i(s_num_language_change_events, 3);
 }
 
+void test_i18n__extra_pack_metadata_preserves_translations(void) {
+  const char *translated = i18n_get("Music", __FILE__);
+  load_resource_fixture_on_pfs(RESOURCES_FIXTURE_PATH, CHINESE_FIXTURE_NAME, "lang1");
+  I18nPackInfo pack;
+  cl_assert(i18n_get_pack_info(1, &pack));
+  cl_assert_equal_s(pack.locale, "zh_CN");
+  for (size_t i = strlen(pack.name); i < sizeof(pack.name); ++i) {
+    cl_assert_equal_i(pack.name[i], 0);
+  }
+  cl_assert_equal_s(i18n_get_locale(), "fr_FR");
+  cl_assert_equal_s(translated, "Musique");
+  cl_assert(i18n_get("Music", __FILE__) == translated);
+  i18n_free_all(__FILE__);
+}
+
 void test_i18n__installation_preserves_english(void) {
   shell_prefs_set_language(ShellLanguageEnglish);
   load_resource_fixture_on_pfs(RESOURCES_FIXTURE_PATH, FRENCH_FIXTURE_NAME, "lang");

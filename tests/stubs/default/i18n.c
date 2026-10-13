@@ -8,6 +8,10 @@
 
 #include <applib/i18n.h>
 
+bool PBL_WEAK i18n_get_pack_info(uint8_t slot, I18nPackInfo *info) {
+  return false;
+}
+
 const char *PBL_WEAK i18n_pack_install_begin(const char *filename) {
   return filename;
 }

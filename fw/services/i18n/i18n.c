@@ -192,8 +192,39 @@ static bool prv_get_property(const char *header, const char *name, char *buffer,
   return true;
 }
 
+#define HEADER_BUFFER_SIZE 400
+
+static bool prv_parse_metadata(const char *header, char *iso_locale, char *lang_name,
+                               uint16_t *lang_version) {
+  // Isolate the language substring
+  if (!prv_get_property(header, "Language: ", iso_locale, ISO_LOCALE_LENGTH)) {
+    PBL_LOG_WRN("Could not parse a language from language pack");
+    return false;
+  }
+
+  // Isolate the language name
+  if (!prv_get_property(header, "Name: ", lang_name, LOCALE_NAME_LENGTH)) {
+    strcpy(lang_name, iso_locale);
+  }
+
+  // Isolate the version value
+  char version_str[10] = {};
+  if (!prv_get_property(header, "Project-Id-Version: ", version_str, 10)) {
+    PBL_LOG_WRN("Could not parse a version from language pack");
+    return false;
+  }
+  char *version_end;
+  *lang_version = strtol(version_str, &version_end, 0);
+  if (version_end == version_str) {
+    PBL_LOG_WRN("Could not parse a version from language pack");
+    return false;
+  }
+
+  PBL_LOG_DBG("language: %s, version %d", iso_locale, *lang_version);
+  return true;
+}
+
 static bool prv_get_metadata(struct DomainBinding *db) {
-  const size_t HEADER_BUFFER_SIZE = 400;
   // malloc a comfortable amount of RAM to save the header in
   char *header = kernel_malloc_check(HEADER_BUFFER_SIZE);
   size_t header_len = 0;
@@ -206,32 +237,7 @@ static bool prv_get_metadata(struct DomainBinding *db) {
     goto cleanup;
   }
 
-  // Isolate the language substring
-  if (!prv_get_property(header, "Language: ", db->iso_locale, ISO_LOCALE_LENGTH)) {
-    PBL_LOG_WRN("Could not parse a language from language pack");
-    goto cleanup;
-  }
-
-  // Isolate the language name
-  if (!prv_get_property(header, "Name: ", db->lang_name, LOCALE_NAME_LENGTH)) {
-    strcpy(db->lang_name, db->iso_locale);
-  }
-
-  // Isolate the version value
-  char version_str[10] = {};
-  if (!prv_get_property(header, "Project-Id-Version: ", version_str, 10)) {
-    PBL_LOG_WRN("Could not parse a version from language pack");
-    goto cleanup;
-  }
-  char *version_end;
-  db->lang_version = strtol(version_str, &version_end, 0);
-  if (version_end == version_str) {
-    PBL_LOG_WRN("Could not parse a version from language pack");
-    goto cleanup;
-  }
-
-  success = true;
-  PBL_LOG_DBG("language: %s, version %d", db->iso_locale, db->lang_version);
+  success = prv_parse_metadata(header, db->iso_locale, db->lang_name, &db->lang_version);
 
 cleanup:
   kernel_free(header);
@@ -643,6 +649,45 @@ void i18n_enable(bool enable) {
     prv_unset();
   }
   prv_put_event_if_changed(prev_language_id);
+}
+
+bool i18n_get_pack_info(uint8_t slot, I18nPackInfo *info) {
+#ifndef CONFIG_RECOVERY_FW
+  if (slot >= LANGUAGE_PACK_COUNT || !info) {
+    return false;
+  }
+  const uint32_t resource_id =
+      language_pack_resource_id(slot, RESOURCE_ID_STRINGS, RESOURCE_ID_STRINGS);
+  // Only the header entry is needed, which msgfmt sorts first; skip the htable and CRC.
+  MoHeader hdr;
+  MoEntry original;
+  MoEntry translation;
+  if (resource_load_byte_range_system(SYSTEM_APP, resource_id, 0, (uint8_t *)&hdr, sizeof(hdr)) !=
+          sizeof(hdr) ||
+      hdr.mo_magic != MO_MAGIC || hdr.mo_nstring == 0 ||
+      resource_load_byte_range_system(SYSTEM_APP, resource_id, hdr.mo_otable, (uint8_t *)&original,
+                                      sizeof(original)) != sizeof(original) ||
+      original.len != 0 ||
+      resource_load_byte_range_system(SYSTEM_APP, resource_id, hdr.mo_ttable,
+                                      (uint8_t *)&translation,
+                                      sizeof(translation)) != sizeof(translation)) {
+    return false;
+  }
+  char *header = kernel_malloc_check(HEADER_BUFFER_SIZE);
+  const size_t length = MIN(translation.len, HEADER_BUFFER_SIZE - 1);
+  bool valid = resource_load_byte_range_system(SYSTEM_APP, resource_id, translation.off,
+                                               (uint8_t *)header, length) == length;
+  if (valid) {
+    header[length] = '\0';
+    // Zero-pad: the phone echoes these back and they are compared with memcmp.
+    *info = (I18nPackInfo){};
+    valid = prv_parse_metadata(header, info->locale, info->name, &info->version);
+  }
+  kernel_free(header);
+  return valid;
+#else
+  return false;
+#endif
 }
 
 #ifndef CONFIG_RECOVERY_FW

@@ -199,6 +199,15 @@ char *i18n_get_lang_name(void);
  */
 void i18n_enable(bool enable);
 
+typedef struct {
+  char locale[ISO_LOCALE_LENGTH];
+  char name[LOCALE_NAME_LENGTH];
+  uint16_t version;
+} I18nPackInfo;
+
+/** @brief Read metadata from an installed pack without changing the UI language. */
+bool i18n_get_pack_info(uint8_t slot, I18nPackInfo *info);
+
 /**
  * @brief Resolve the file a PutBytes file transfer writes to.
  *
