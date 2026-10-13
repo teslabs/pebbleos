@@ -157,3 +157,17 @@ void test_language_pack_storage__other_files_are_untouched(void) {
   pb_storage_file_deinit(&storage, true);
   cl_assert_equal_i(s_language, ShellLanguageInstalledPack);
 }
+
+void test_language_pack_storage__transfer_blocks_removing_its_slot(void) {
+  cl_assert(prv_add_pack(0, true));
+  uint8_t buffer[sizeof(PutBytesStorageInfo) + sizeof(LANGUAGE_PACK_ADD_FILENAME)];
+  PutBytesStorageInfo *info = (PutBytesStorageInfo *)buffer;
+  strcpy(info->filename, LANGUAGE_PACK_ADD_FILENAME);
+  PutBytesStorage storage = {};
+  cl_assert(pb_storage_file_init(&storage, ObjectFile, 1, info, 0));
+  cl_assert_equal_s(info->filename, "lang1");
+  cl_assert(!i18n_remove_pack(1));
+  cl_assert(i18n_remove_pack(0));
+  pb_storage_file_deinit(&storage, true);
+  cl_assert(i18n_remove_pack(1));
+}

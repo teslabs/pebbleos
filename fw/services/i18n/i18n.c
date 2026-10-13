@@ -31,6 +31,7 @@
 
 #include <pbl/kernel/assert.h>
 #include <pbl/logging/logging.h>
+#include <pbl/services/filesystem/pfs.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/services/i18n/mo.h>
 #include <pbl/util/list.h>
@@ -579,6 +580,9 @@ static void prv_resource_changed_callback(void *data) {
 }
 
 #ifndef CONFIG_RECOVERY_FW
+// Pack slot a PutBytes transfer holds open, or LANGUAGE_PACK_COUNT
+static uint8_t s_install_slot = LANGUAGE_PACK_COUNT;
+
 // Language changes remap s_system_domain, so they run on the launcher task like its readers.
 static void prv_deselect_pack_cb(void *data) {
   const uint8_t slot = (uintptr_t)data;
@@ -690,15 +694,48 @@ bool i18n_get_pack_info(uint8_t slot, I18nPackInfo *info) {
 #endif
 }
 
+bool i18n_pack_has_fonts(uint8_t slot) {
+#ifndef CONFIG_RECOVERY_FW
+  for (uint32_t font = RESOURCE_ID_GOTHIC_14_EXTENDED;
+       font <= RESOURCE_ID_LECO_60_BOLD_NUMBERS_AM_PM_EXTENDED; ++font) {
+    if (resource_is_valid(SYSTEM_APP, language_pack_resource_id(slot, font, RESOURCE_ID_STRINGS))) {
+      return true;
+    }
+  }
+#endif
+  return false;
+}
+
+bool i18n_remove_pack(uint8_t slot) {
+#ifndef CONFIG_RECOVERY_FW
+  const char *filename = language_pack_filename(slot);
+  if (!filename) {
+    return false;
+  }
+  // PFS croaks when deleting a file that a transfer still holds open
+  if (slot == s_install_slot || pfs_remove(filename) != S_SUCCESS) {
+    return false;
+  }
+  prv_deselect_pack(slot);
+  return true;
+#else
+  return false;
+#endif
+}
+
 #ifndef CONFIG_RECOVERY_FW
 static bool s_select_on_install;
 
 const char *i18n_pack_install_begin(const char *filename) {
   s_select_on_install = false;
-  if (strcmp(filename, language_pack_filename(0)) == 0) {
-    // Legacy transfers replace slot zero and select it once complete.
-    s_select_on_install = true;
-    return filename;
+  s_install_slot = LANGUAGE_PACK_COUNT;
+  for (uint8_t slot = 0; slot < LANGUAGE_PACK_COUNT; ++slot) {
+    if (strcmp(filename, language_pack_filename(slot)) == 0) {
+      // Legacy transfers replace slot zero and select it once complete.
+      s_select_on_install = slot == 0;
+      s_install_slot = slot;
+      return filename;
+    }
   }
   if (strcmp(filename, LANGUAGE_PACK_ADD_FILENAME) != 0) {
     return filename;
@@ -709,6 +746,7 @@ const char *i18n_pack_install_begin(const char *filename) {
     }
     // The empty slot may still be selected, e.g. slot zero on a fresh watch.
     prv_deselect_pack(slot);
+    s_install_slot = slot;
     return language_pack_filename(slot);
   }
   return NULL;
@@ -719,6 +757,7 @@ void i18n_pack_install_end(bool success) {
     launcher_task_add_callback(prv_select_installed_pack_cb, NULL);
   }
   s_select_on_install = false;
+  s_install_slot = LANGUAGE_PACK_COUNT;
 }
 #endif
 

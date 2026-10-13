@@ -15,6 +15,10 @@ add_custom_command(
 )
 add_custom_target(pbl_timezone_fixture DEPENDS ${timezone_fixture})
 
+pbl_clar_test(test_language_pack_protocol
+  SOURCES fw/kernel/language_pack_protocol.c
+)
+
 pbl_clar_test(test_pfs
   MODULES pfs
   SOURCES

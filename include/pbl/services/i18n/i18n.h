@@ -208,6 +208,12 @@ typedef struct {
 /** @brief Read metadata from an installed pack without changing the UI language. */
 bool i18n_get_pack_info(uint8_t slot, I18nPackInfo *info);
 
+/** @brief Whether a pack carries at least one valid font, with or without a translation. */
+bool i18n_pack_has_fonts(uint8_t slot);
+
+/** @brief Remove an installed pack, falling back to English if it was active. */
+bool i18n_remove_pack(uint8_t slot);
+
 /**
  * @brief Resolve the file a PutBytes file transfer writes to.
  *

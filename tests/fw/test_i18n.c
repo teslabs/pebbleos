@@ -241,10 +241,54 @@ void test_i18n__extra_pack_metadata_preserves_translations(void) {
   i18n_free_all(__FILE__);
 }
 
+void test_i18n__select_extra_pack_and_remove(void) {
+  load_resource_fixture_on_pfs(RESOURCES_FIXTURE_PATH, FRENCH_FIXTURE_NAME, "lang2");
+  shell_prefs_set_language(ShellLanguagePack2);
+  cl_assert_equal_s(i18n_get_locale(), "fr_FR");
+  cl_assert_equal_s(i18n_get("Music", __FILE__), "Musique");
+  cl_assert(i18n_remove_pack(2));
+  cl_assert_equal_s(i18n_get_locale(), "en_US");
+  cl_assert_equal_s(i18n_get("Music", __FILE__), "Music");
+  I18nPackInfo pack;
+  cl_assert(i18n_get_pack_info(0, &pack));
+  cl_assert(!i18n_get_pack_info(2, &pack));
+}
+
+void test_i18n__remove_resets_selection_with_english_toggled(void) {
+  load_resource_fixture_on_pfs(RESOURCES_FIXTURE_PATH, FRENCH_FIXTURE_NAME, "lang2");
+  shell_prefs_set_language(ShellLanguagePack2);
+  shell_prefs_set_language_english(true);
+  cl_assert(i18n_remove_pack(2));
+  cl_assert_equal_i(shell_prefs_get_language(), ShellLanguageEnglish);
+}
+
 void test_i18n__installation_preserves_english(void) {
   shell_prefs_set_language(ShellLanguageEnglish);
   load_resource_fixture_on_pfs(RESOURCES_FIXTURE_PATH, FRENCH_FIXTURE_NAME, "lang");
   cl_assert(shell_prefs_get_language_english());
   cl_assert_equal_s(i18n_get_locale(), "en_US");
   cl_assert_equal_s(i18n_get("Music", __FILE__), "Music");
+}
+
+void test_i18n__missing_and_invalid_slots(void) {
+  I18nPackInfo pack;
+  cl_assert(!i18n_get_pack_info(1, &pack));
+  cl_assert(!i18n_get_pack_info(LANGUAGE_PACK_COUNT, &pack));
+  cl_assert(!i18n_get_pack_info(0, NULL));
+  cl_assert(!i18n_remove_pack(LANGUAGE_PACK_COUNT));
+  cl_assert_equal_s(i18n_get_locale(), "fr_FR");
+}
+
+void test_i18n__invalid_pack_remains_removable(void) {
+  int fd = pfs_open("lang3", OP_FLAG_WRITE, FILE_TYPE_STATIC, 1);
+  cl_assert(fd >= 0);
+  const uint8_t invalid = 0;
+  cl_assert_equal_i(pfs_write(fd, &invalid, 1), 1);
+  pfs_close(fd);
+  I18nPackInfo pack;
+  cl_assert(!i18n_get_pack_info(3, &pack));
+  cl_assert(language_pack_is_installed(3));
+  cl_assert(i18n_remove_pack(3));
+  cl_assert(!language_pack_is_installed(3));
+  cl_assert_equal_s(i18n_get_locale(), "fr_FR");
 }
