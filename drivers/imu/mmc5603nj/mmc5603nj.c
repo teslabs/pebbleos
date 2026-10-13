@@ -65,7 +65,10 @@ void mag_init(void) {
 // mag.h implementation
 
 void mag_use(void) {
-  PBL_ASSERTN(s_initialized);
+  if (!s_initialized) {
+    return;
+  }
+
   pbl_mutex_lock(&s_mag_mutex, PBL_FOREVER);
   ++s_use_refcount;
   pbl_mutex_unlock(&s_mag_mutex);
@@ -77,7 +80,10 @@ void mag_start_sampling(void) {
 }
 
 void mag_release(void) {
-  PBL_ASSERTN(s_initialized);
+  if (!s_initialized) {
+    return;
+  }
+
   pbl_mutex_lock(&s_mag_mutex, PBL_FOREVER);
   PBL_ASSERTN(s_use_refcount != 0);
   --s_use_refcount;
@@ -91,6 +97,10 @@ void mag_release(void) {
 
 // callers responsibility to know if there is valid data to be read
 MagReadStatus mag_read_data(MagData *data) {
+  if (!s_initialized) {
+    return MagReadNoMag;
+  }
+
   pbl_mutex_lock(&s_mag_mutex, PBL_FOREVER);
   MagReadStatus rv = prv_mmc5603nj_get_sample(data);
   pbl_mutex_unlock(&s_mag_mutex);
@@ -98,6 +108,10 @@ MagReadStatus mag_read_data(MagData *data) {
 }
 
 bool mag_change_sample_rate(MagSampleRate rate) {
+  if (!s_initialized) {
+    return false;
+  }
+
   pbl_mutex_lock(&s_mag_mutex, PBL_FOREVER);
 
   if (s_use_refcount == 0) {
