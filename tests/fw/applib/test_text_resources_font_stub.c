@@ -8,6 +8,8 @@
 // link time rather than colliding with it.
 
 #include <applib/fonts/fonts.h>
+#include <resource/language_pack.h>
+#include <resource/resource_ids.auto.h>
 
 FontInfo *s_test_fallback_font;
 
@@ -15,6 +17,24 @@ FontInfo *s_test_fallback_font;
 // fonts_get_system_emoji_font_for_size(); a test installs one by pointing s_test_emoji_font at its
 // own FontInfo.
 FontInfo *s_test_emoji_font;
+FontInfo *s_test_language_fonts[LANGUAGE_PACK_COUNT];
+uint32_t s_test_language_generation;
+
+int s_test_language_font_calls;
+
+bool sys_font_get_language_font(uint32_t base_resource_id, uint8_t slot, FontInfo *font_out) {
+  ++s_test_language_font_calls;
+  if (base_resource_id != RESOURCE_ID_GOTHIC_18 || slot >= LANGUAGE_PACK_COUNT ||
+      !s_test_language_fonts[slot]) {
+    return false;
+  }
+  *font_out = *s_test_language_fonts[slot];
+  return true;
+}
+
+uint32_t sys_font_get_language_generation(void) {
+  return s_test_language_generation;
+}
 
 GFont sys_font_get_system_font(const char *key) {
   if (key == nullptr) {

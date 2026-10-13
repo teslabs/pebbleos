@@ -573,12 +573,6 @@ static const FontResource *prv_font_res_for_codepoint(Codepoint codepoint,
   return font_res;
 }
 
-static void prv_resource_changed_callback(void *data) {
-  FontInfo *font_info = (FontInfo *)data;
-  font_info->loaded = false;
-  font_info->extended = false;
-}
-
 ///////////////////////////
 // Public API
 bool text_resources_init_font(ResAppNum app_num, uint32_t font_resource, uint32_t extended_resource,
@@ -592,13 +586,9 @@ bool text_resources_init_font(ResAppNum app_num, uint32_t font_resource, uint32_
   font_info->extension = (FontResource){};
   // look for an extension font and load it
   if (extended_resource) {
-    // if you want 3rd party apps to use extended fonts, you'll have to unwatch when they unload
-    // and create a syscall for resource_watch
+    // System fonts are invalidated when a pack file changes; 3rd party apps would need their own
+    // resource watch, unwatched when they unload.
     PBL_ASSERTN(app_num == SYSTEM_APP);
-    if (font_info->extension_changed_cb == nullptr) {
-      font_info->extension_changed_cb =
-          resource_watch(app_num, extended_resource, prv_resource_changed_callback, font_info);
-    }
     font_info->extended = prv_load_font_res(app_num, extended_resource, &font_info->extension,
                                             true /* is_extended */);
   }
@@ -668,11 +658,36 @@ static void prv_set_location(GlyphLocation *location_out, const FontCache *font_
   }
 }
 
+// The font another pack extends base_resource_id with, fetched once per base and generation.
+static FontInfo *prv_get_language_font(FontCache *font_cache, uint32_t base_resource_id,
+                                       uint8_t slot) {
+  if (font_cache->language_base_id != base_resource_id) {
+    font_cache->language_base_id = base_resource_id;
+    font_cache->language_fetched = 0;
+  }
+  FontInfo *font = &font_cache->language_fonts[slot];
+  if (!(font_cache->language_fetched & (1u << slot))) {
+    font_cache->language_fetched |= 1u << slot;
+    // The entry is about to hold another font, so an offset table read from it is stale
+    if (font_cache->cached_font == &font->base || font_cache->cached_font == &font->extension) {
+      font_cache->cached_font = NULL;
+    }
+    if (!sys_font_get_language_font(base_resource_id, slot, font)) {
+      font->loaded = false;
+    }
+  }
+  return font->loaded ? font : NULL;
+}
+
 static const GlyphData *prv_get_glyph(FontCache *font_cache, Codepoint codepoint,
                                       FontInfo *font_info, bool need_bitmap,
                                       GlyphLocation *location_out) {
   if (location_out) {
     *location_out = (GlyphLocation){};
+  }
+
+  if (font_cache->language_generation != sys_font_get_language_generation()) {
+    text_resources_reset_cache(font_cache);
   }
 
   if (!font_info->loaded) {
@@ -688,6 +703,20 @@ static const GlyphData *prv_get_glyph(FontCache *font_cache, Codepoint codepoint
   if (data) {
     prv_set_location(location_out, font_cache, font_info, owner, font_res);
     return data;
+  }
+
+  if (font_info->base.app_num == SYSTEM_APP) {
+    for (uint8_t slot = 0; slot < LANGUAGE_PACK_COUNT; ++slot) {
+      FontInfo *extra = prv_get_language_font(font_cache, font_info->base.resource_id, slot);
+      if (!extra) {
+        continue;
+      }
+      data = prv_get_glyph_in_font(font_cache, codepoint, extra, need_bitmap, &owner, &font_res);
+      if (data) {
+        prv_set_location(location_out, font_cache, font_info, owner, font_res);
+        return data;
+      }
+    }
   }
 
   // (b) Missing from the primary font: retry the SAME codepoint once against the system fallback
@@ -760,4 +789,16 @@ GRect text_resources_get_glyph_frame(FontCache *font_cache, Codepoint codepoint,
 bool text_resources_glyph_is_color(const GlyphLocation *location) {
   return location->font_res &&
          HAS_FEATURE(location->font_res->md.version, VERSION_FIELD_FEATURE_COLOR);
+}
+
+void text_resources_reset_cache(FontCache *font_cache) {
+  memset(font_cache->cache_keys, 0, sizeof(font_cache->cache_keys));
+  memset(font_cache->cache_data, 0, sizeof(font_cache->cache_data));
+  keyed_circular_cache_init(&font_cache->line_cache, font_cache->cache_keys, font_cache->cache_data,
+                            sizeof(LineCacheData), LINE_CACHE_SIZE);
+  font_cache->glyph_buffer_key = 0;
+  font_cache->offset_table_id = -1;
+  font_cache->cached_font = NULL;
+  font_cache->language_fetched = 0;
+  font_cache->language_generation = sys_font_get_language_generation();
 }
