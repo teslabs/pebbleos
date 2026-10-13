@@ -117,7 +117,7 @@ static void prv_lookup(const char *msgid, struct DomainBinding *db, size_t *rlen
   uint32_t step = prv_collision_step(hashval, mohandle->mo.hdr.mo_hsize);
   uint32_t idx = hashval % mohandle->mo.hdr.mo_hsize;
   size_t len = strlen(msgid);
-  while (1) {
+  for (uint32_t probe = 0; probe < mohandle->mo.hdr.mo_hsize; ++probe) {
     uint32_t strno = mohandle->mo.mo_htable[idx];
     if (strno-- == 0) {
       /* unexpected miss */
@@ -180,10 +180,10 @@ static bool prv_get_property(const char *header, const char *name, char *buffer,
   str += strlen(name);
 
   char *end = strchr(str, '\n');
-  unsigned int length = end - str;
-  if (end == nullptr || length > size) { // strchr failed
+  if (end == nullptr || (size_t)(end - str) >= size) {
     return false;
   }
+  const size_t length = end - str;
 
   memcpy(buffer, str, length);
   buffer[length] = '\0';
@@ -283,12 +283,19 @@ static bool prv_mapit(const uint32_t resource_id, struct DomainBinding *db) {
 
   mohandle->len = size;
   /* validate htable */
-  if (mohandle->mo.hdr.mo_hsize < 2) {
+  if (mohandle->mo.hdr.mo_hsize <= 2 || mohandle->mo.hdr.mo_hsize > size / sizeof(uint32_t)) {
     goto fail;
   }
 
   size_t htable_size = sizeof(uint32_t) * mohandle->mo.hdr.mo_hsize;
-  uint32_t *htable = kernel_malloc_check(htable_size);
+  if (mohandle->mo.hdr.mo_hoffset > size || htable_size > size - mohandle->mo.hdr.mo_hoffset) {
+    goto fail;
+  }
+  // A corrupt pack can claim an htable close to its own size
+  uint32_t *htable = kernel_malloc(htable_size);
+  if (!htable) {
+    goto fail;
+  }
   mohandle->mo.mo_htable = htable;
   if (resource_load_byte_range_system(SYSTEM_APP, resource_id, mohandle->mo.hdr.mo_hoffset,
                                       (uint8_t *)htable, htable_size) == 0) {
