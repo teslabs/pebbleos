@@ -212,7 +212,7 @@ static bool prv_get_metadata(struct DomainBinding *db) {
 
   // Isolate the language name
   if (!prv_get_property(header, "Name: ", db->lang_name, LOCALE_NAME_LENGTH)) {
-    strcpy(db->lang_name, "Unknown");
+    strcpy(db->lang_name, db->iso_locale);
   }
 
   // Isolate the version value
