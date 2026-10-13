@@ -19,6 +19,7 @@
 #include <board/board.h>
 #include <popups/timeline/peek.h>
 #include <process_management/app_install_manager.h>
+#include <resource/language_pack.h>
 #include <resource/resource_ids.auto.h>
 #include <shell/normal/prefs_sync.h>
 #include <shell/normal/quick_launch.h>
@@ -1929,7 +1930,8 @@ ShellLanguage shell_prefs_get_language(void) {
 }
 
 uint32_t shell_prefs_get_language_resource_id(void) {
-  return RESOURCE_ID_STRINGS;
+  const uint8_t slot = shell_language_pack_slot(shell_prefs_get_language());
+  return language_pack_resource_id(slot, RESOURCE_ID_STRINGS, RESOURCE_ID_STRINGS);
 }
 
 void shell_prefs_set_language(ShellLanguage language) {
