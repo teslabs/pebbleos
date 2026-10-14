@@ -61,7 +61,7 @@ html_theme_options = {
         {"title": "Boards", "url": "boards/index"},
         {
             "title": "API reference",
-            "url": "https://pebbleos-core.readthedocs.io/en/latest/apidoc/index.html",
+            "url": "https://pebbleos.readthedocs.io/en/latest/apidoc/index.html",
         },
     ],
 }
