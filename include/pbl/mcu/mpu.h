@@ -48,8 +48,8 @@ typedef enum MpuCachePolicy {
  * The two-bit ARMv8-M field cannot express two of them precisely:
  * - @ref MpuPermissions_NoAccess degrades to @ref MpuPermissions_PrivRO, which still allows
  *   privileged reads. Use PSPLIM, not this, for thread stack overflow detection.
- * - @ref MpuPermissions_PrivRW_UserRO is aliased to @ref MpuPermissions_PrivRW_UserRW, so
- *   unprivileged code gains write access.
+ * - @ref MpuPermissions_PrivRW_UserRO is mapped read-only for everyone, so privileged code
+ *   must write to such a region with mpu_user_ro_write(). Only one such region is supported.
  */
 typedef enum MpuPermissions {
   /** No access. */

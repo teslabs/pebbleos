@@ -29,11 +29,12 @@ static inline uint8_t mair_index(uint32_t cache_policy) {
 //     AP=0b10 (RO priv only), the same encoding used for PrivRO. Don't
 //     rely on this for thread-stack-overflow detection -- use PSPLIM.
 //   - PrivRW_UserRO: the AP field cannot split write access by privilege.
-//     We pick AP=0b01 (R/W any privilege level), which gives the user
-//     write access too. See the MpuPermissions doc in pbl/mcu/mpu.h.
+//     We pick AP=0b11 (RO any privilege level) and privileged writers go
+//     through mpu_user_ro_write(), which disables the region around the
+//     copy so the PRIVDEFENA background map applies.
 static const uint8_t s_permission_to_ap[MpuPermissionsCount] = {
   [MpuPermissions_NoAccess] = 0x2,      [MpuPermissions_PrivRW] = 0x0,
-  [MpuPermissions_PrivRW_UserRO] = 0x1, [MpuPermissions_PrivRW_UserRW] = 0x1,
+  [MpuPermissions_PrivRW_UserRO] = 0x3, [MpuPermissions_PrivRW_UserRW] = 0x1,
   [MpuPermissions_PrivRO] = 0x2,        [MpuPermissions_PrivRO_UserRO] = 0x3,
 };
 
@@ -55,7 +56,11 @@ static uint8_t get_permission_value(const MpuRegion *region) {
   return s_permission_to_ap[region->permissions];
 }
 
-static MpuPermissions decode_permission_value(uint8_t ap) {
+static MpuPermissions decode_permission_value(int region_num, uint8_t ap) {
+  if (region_num == s_user_ro_region && (ap & 0x3) == 0x3) {
+    return MpuPermissions_PrivRW_UserRO;
+  }
+
   // ARMv8-M's two-bit AP loses information: AP=0b10 could have been set
   // for either NoAccess or PrivRO. Decode to PrivRO canonically.
   switch (ap & 0x3) {
@@ -166,7 +171,7 @@ MpuRegion mpu_get_region(int region_num) {
   region.executable = ((rbar >> MPU_RBAR_XN_Pos) & 0x1) == 0;
 
   access_permissions = (rbar & MPU_RBAR_AP_Msk) >> MPU_RBAR_AP_Pos;
-  region.permissions = decode_permission_value(access_permissions);
+  region.permissions = decode_permission_value(region_num, access_permissions);
 
   region.size = (rlar & MPU_RLAR_LIMIT_Msk) - region.base_address + 0x20;
   region.enabled = (rlar & MPU_RLAR_EN_Msk) != 0;
