@@ -98,7 +98,10 @@ static PBL_USED void mcu_call_unprivileged_enter(void (*fn)(void *), void *ctx, 
     *state = (McuUnprivilegedCallContext){};
   }
 
-  PBL_ASSERTN(!state->active);
+  if (state->active) {
+    // Nested call, e.g. app code made a syscall that ran another app callback.
+    syscall_failed();
+  }
 
   *state = (McuUnprivilegedCallContext){
     .active = true,
