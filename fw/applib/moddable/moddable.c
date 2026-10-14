@@ -9,6 +9,7 @@
 #include <applib/app.h>
 #include <applib/app_logging.h>
 #include <applib/moddable/moddable.h>
+#include <applib/moddable/moddable_private.h>
 #include <applib/ui/dialogs/expandable_dialog.h>
 #include <logging/logging_private.h>
 #include <syscall/syscall.h>
@@ -45,9 +46,25 @@ static void prv_watchface_fatal_error(void *data) {
   watchface_launch_default(nullptr);
 }
 
+// The running machine and the XS stack it was created with. The machine is in
+// App RAM, where the app can rewrite it, so the FFI syscalls check it against
+// this copy in kernel memory.
+static struct {
+  const xsMachine *the;
+  const xsSlot *stack_bottom;
+  const xsSlot *stack_top;
+} s_machine;
+
+bool moddable_machine_is_current(const struct sxMachine *machine) {
+  const xsMachine *the = (const xsMachine *)machine;
+  return the != nullptr && the == s_machine.the && the->stackBottom == s_machine.stack_bottom &&
+         the->stackTop == s_machine.stack_top;
+}
+
 void moddable_cleanup(void) {
   ModdablePebbleAppState state = (ModdablePebbleAppState)app_state_get_js_memory_api_context();
 
+  s_machine = (typeof(s_machine)){};
   if (state->the)
     xsDeleteMachine(state->the);
 
@@ -184,6 +201,11 @@ PBL_SYSCALL(void, moddable_createMachine, (VAL, ModdableCreationRecord *, cr)) {
   }
 
   state->the = the;
+  s_machine = (typeof(s_machine)){
+    .the = the,
+    .stack_bottom = the->stackBottom,
+    .stack_top = the->stackTop,
+  };
   s_app_build_ffi = (txBuildFFI)fxBuildFFI;
   state->fxBuildFFI = fxBuildFFI ? (void *)prv_build_ffi : nullptr;
   state->eventedTimer = EVENTED_TIMER_INVALID_ID;
