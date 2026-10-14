@@ -178,6 +178,21 @@ bool mcu_call_unprivileged_reentry_setup(uintptr_t orig_sp, uintptr_t *lr_ptr) {
   return true;
 }
 
+void mcu_call_unprivileged_unwind(void) {
+  PBL_ASSERTN(mcu_state_is_thread_privileged());
+
+  McuUnprivilegedCallContext *state = prv_active_unprivileged_call_ctx_for_current_task();
+  if (state == nullptr) {
+    return;
+  }
+
+  state->active = false;
+  state->thread_id = 0;
+
+  prv_set_syscall_lr(state->outer_syscall_lr);
+  prv_set_syscall_sp(state->outer_syscall_sp);
+}
+
 //! Run @p fn unprivileged for the duration of one call, then return to the
 //! caller still in privileged thread mode.
 //!
