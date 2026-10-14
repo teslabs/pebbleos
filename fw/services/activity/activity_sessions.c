@@ -372,12 +372,16 @@ static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
     // Collect stats on sleep
     ActivitySleepStats stats;
     if (!prv_compute_sleep_stats(now_utc, 0 /*min_end_utc*/, max_end_utc, &stats)) {
-      // No sleep session to be in, e.g. it was lost across a reboot
+      // No sleep session to be in, e.g. it was lost across a reboot or rejected
+      sleep_data->total_minutes = 0;
+      sleep_data->restful_minutes = 0;
+      sleep_data->enter_at_minute = 0;
+      sleep_data->exit_at_minute = 0;
       if (sleep_data->cur_state != ActivitySleepStateAwake) {
         sleep_data->cur_state = ActivitySleepStateAwake;
         sleep_data->cur_state_elapsed_minutes = 0;
       }
-      goto unlock;
+      goto post_event;
     }
 
     // Update our sleep metrics
@@ -414,6 +418,7 @@ static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
           (stats.last_session_len_sec + now_utc - stats.last_exit_utc) / PBL_SEC_PER_MIN;
     }
 
+  post_event:
     // If the info that is part of a health sleep event has changed, send out a notification event
     if ((sleep_data->total_minutes != prev_sleep_data.total_minutes) ||
         (sleep_data->restful_minutes != prev_sleep_data.restful_minutes)) {
@@ -440,7 +445,6 @@ static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
                   sleep_data->cur_state_elapsed_minutes);
     }
   }
-unlock:
   pbl_mutex_unlock(&state->mutex);
 }
 
