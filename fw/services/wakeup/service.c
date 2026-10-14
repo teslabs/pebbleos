@@ -79,6 +79,8 @@ static TimerID s_current_timer_id = TIMER_INVALID_ID; // single timer reused for
 // single structure containing the global wakeup state
 static WakeupState s_wakeup_state = {-1, -1, 0};
 static bool s_catchup_enabled = false; // enables catching up with missed events
+static bool s_dispatched = false;
+static time_t s_last_dispatch_time;
 
 void wakeup_dispatcher_system_task(void *data) {
   WakeupId wakeup_id = (WakeupId)(intptr_t)data;
@@ -86,6 +88,9 @@ void wakeup_dispatcher_system_task(void *data) {
 
   // Delete event from settings
   prv_wakeup_settings_delete_entry(wakeup_id);
+
+  s_dispatched = true;
+  s_last_dispatch_time = rtc_get_time();
 
   AppInstallId app_id = app_install_get_id_for_uuid(&entry.uuid);
 
@@ -197,6 +202,12 @@ static void prv_wakeup_timer_next_pending(void) {
       s_catchup_enabled = (time_difference < 0) ? true : false;
       // Enforces the catchup gap to be at least WAKEUP_CATCHUP_WINDOW gap
       time_difference = MAX(time_difference, WAKEUP_CATCHUP_WINDOW);
+    }
+
+    // Space out events of different apps that fall close together
+    if (s_dispatched) {
+      int32_t spacing = s_last_dispatch_time + WAKEUP_CATCHUP_WINDOW - current_time;
+      time_difference = MAX(time_difference, MIN(spacing, WAKEUP_CATCHUP_WINDOW));
     }
 
     // timers are in milliseconds, set main callback dispatch for wakeup
@@ -460,10 +471,12 @@ static bool prv_check_count_and_availability_callback(SettingsFile *file, Settin
     return true; // continue iterating
   }
 
-  if (uuid_equal(&sys_process_manager_get_current_process_md()->uuid, &entry.uuid)) {
-    check->wakeup_count++;
+  if (!uuid_equal(&sys_process_manager_get_current_process_md()->uuid, &entry.uuid)) {
+    return true; // continue iterating
   }
-  // If the wakeup_id is with the same minute as another wakeup event
+
+  check->wakeup_count++;
+  // If the wakeup_id is with the same minute as another wakeup event of the app
   if ((entry.timestamp - WAKEUP_EVENT_WINDOW < check->wakeup_timestamp) &&
       (check->wakeup_timestamp < (entry.timestamp + WAKEUP_EVENT_WINDOW))) {
     check->wakeup_count = E_RANGE;

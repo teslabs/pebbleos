@@ -361,3 +361,49 @@ void test_wakeup__invalid_ids_dropped_at_boot(void) {
   cl_assert(!settings_file_exists(&file, &key, sizeof(key)));
   settings_file_close(&file);
 }
+
+void test_wakeup__gap_only_within_app(void) {
+  const time_t event_time = sys_get_time() + WAKEUP_EVENT_WINDOW;
+
+  // Another app filling its quota around the same time can't deny this app
+  stub_app_set_uuid(OTHER_UUID);
+  WakeupId other_id = sys_wakeup_schedule(event_time, 0, false);
+  cl_assert(other_id > 0);
+  for (int i = 1; i < MAX_WAKEUP_EVENTS_PER_APP; i++) {
+    cl_assert(sys_wakeup_schedule(event_time + i * WAKEUP_EVENT_WINDOW, 0, false) > 0);
+  }
+
+  stub_app_set_uuid(TEST_UUID);
+  WakeupId wakeup_id = sys_wakeup_schedule(event_time, 0, false);
+  cl_assert(wakeup_id > 0);
+  cl_assert_equal_i(sys_wakeup_query(wakeup_id), event_time);
+
+  // The window still applies to the app's own events
+  cl_assert_equal_i(sys_wakeup_schedule(event_time + WAKEUP_EVENT_WINDOW - 1, 0, false), E_RANGE);
+}
+
+void test_wakeup__simultaneous_events_spaced(void) {
+  const time_t event_time = sys_get_time() + WAKEUP_EVENT_WINDOW;
+
+  stub_app_set_uuid(OTHER_UUID);
+  WakeupId other_id = sys_wakeup_schedule(event_time, 0, false);
+  cl_assert(other_id > 0);
+  stub_app_set_uuid(TEST_UUID);
+  WakeupId wakeup_id = sys_wakeup_schedule(event_time, 0, false);
+  cl_assert(wakeup_id > 0);
+
+  rtc_set_time(event_time);
+  wakeup_enable(false);
+  wakeup_enable(true);
+
+  WakeupId first_id = wakeup_get_next_scheduled();
+  WakeupId second_id = (first_id == wakeup_id) ? other_id : wakeup_id;
+  cl_assert(first_id == wakeup_id || first_id == other_id);
+
+  stub_new_timer_fire(wakeup_get_current());
+  wakeup_dispatcher_system_task((void *)(uintptr_t)first_id);
+
+  // The second event is delayed instead of preempting the first one right away
+  cl_assert_equal_i(wakeup_get_next_scheduled(), second_id);
+  cl_assert_equal_i(stub_new_timer_timeout(wakeup_get_current()) / 1000, WAKEUP_CATCHUP_WINDOW);
+}
