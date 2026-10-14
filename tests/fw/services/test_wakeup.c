@@ -3,6 +3,7 @@
 
 #include <time.h>
 
+#include <pbl/kernel/compiler.h>
 #include <pbl/services/event_service.h>
 #include <pbl/services/filesystem/pfs.h>
 #include <pbl/services/settings/settings_file.h>
@@ -25,9 +26,27 @@
 #include <fake_system_task.h>
 #include <fake_time.h>
 
-#define TEST_UUID                                                                              \
-  UuidMake(0xF9, 0xC6, 0xEB, 0xE4, 0x06, 0xCD, 0x46, 0xF1, 0xB1, 0x51, 0x24, 0x08, 0x74, 0xD2, \
-           0x07, 0x73)
+#define OTHER_UUID                                                                             \
+  UuidMake(0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, \
+           0x0F, 0x10)
+
+typedef struct PBL_PACKED {
+  Uuid uuid;
+  int32_t reason;
+  bool repeating;
+  uint16_t repeat_hours_offset;
+  bool notify_if_missed;
+  int32_t timestamp;
+  bool utc;
+} TestWakeupEntry;
+
+static void prv_store_entry(WakeupId wakeup_id, Uuid uuid, time_t timestamp) {
+  TestWakeupEntry entry = {.uuid = uuid, .timestamp = timestamp};
+  SettingsFile file;
+  cl_must_pass(settings_file_open(&file, "wakeup", 8 * 1024));
+  cl_must_pass(settings_file_set(&file, &wakeup_id, sizeof(wakeup_id), &entry, sizeof(entry)));
+  settings_file_close(&file);
+}
 
 // Stubs
 ////////////////////////////////////
@@ -63,6 +82,7 @@ void test_wakeup__initialize(void) {
   pfs_init(false);
 
   stub_pebble_tasks_set_current(PebbleTask_KernelBackground);
+  stub_app_init();
 
   // Reset variable due to previous callbacks
   s_popup_occurred = false;
@@ -288,4 +308,56 @@ void test_wakeup__handle_clock_change_scheduled_jump(void) {
   cl_assert_equal_b(s_popup_occurred, true);
   // Make sure the wakeup event is no longer scheduled
   cl_assert_equal_i(sys_wakeup_query(first_timer), E_DOES_NOT_EXIST);
+}
+
+void test_wakeup__id_independent_of_timestamp(void) {
+  sys_wakeup_cancel_all_for_app();
+
+  WakeupId far_id = sys_wakeup_schedule(INT32_MAX, 0, false);
+  cl_assert(far_id > 0);
+  cl_assert(far_id != INT32_MAX);
+
+  // A reboot must not derive the next ID from the far timestamp
+  wakeup_init();
+
+  WakeupId next_id = sys_wakeup_schedule(sys_get_time() + WAKEUP_EVENT_WINDOW, 0, false);
+  cl_assert(next_id > 0);
+  cl_assert(next_id != far_id);
+  cl_assert_equal_i(sys_wakeup_query(far_id), INT32_MAX);
+  cl_assert_equal_i(sys_wakeup_query(next_id), sys_get_time() + WAKEUP_EVENT_WINDOW);
+}
+
+void test_wakeup__id_wraps_and_skips_used(void) {
+  sys_wakeup_cancel_all_for_app();
+
+  const time_t other_time = sys_get_time() + 10 * WAKEUP_EVENT_WINDOW;
+  prv_store_entry(INT32_MAX, OTHER_UUID, other_time);
+  prv_store_entry(1, OTHER_UUID, other_time + WAKEUP_EVENT_WINDOW);
+  wakeup_init();
+
+  WakeupId wakeup_id = sys_wakeup_schedule(sys_get_time() + WAKEUP_EVENT_WINDOW, 0, false);
+  cl_assert_equal_i(wakeup_id, 2);
+
+  // The other app's entries are untouched and not visible to this app
+  stub_app_set_uuid(OTHER_UUID);
+  cl_assert_equal_i(sys_wakeup_query(INT32_MAX), other_time);
+  cl_assert_equal_i(sys_wakeup_query(1), other_time + WAKEUP_EVENT_WINDOW);
+  cl_assert_equal_i(sys_wakeup_query(wakeup_id), E_DOES_NOT_EXIST);
+  stub_app_set_uuid(TEST_UUID);
+}
+
+void test_wakeup__invalid_ids_dropped_at_boot(void) {
+  sys_wakeup_cancel_all_for_app();
+
+  prv_store_entry(-5, TEST_UUID, sys_get_time() + WAKEUP_EVENT_WINDOW);
+  prv_store_entry(0, TEST_UUID, sys_get_time() + 2 * WAKEUP_EVENT_WINDOW);
+  wakeup_init();
+
+  SettingsFile file;
+  WakeupId key = -5;
+  cl_must_pass(settings_file_open(&file, "wakeup", 8 * 1024));
+  cl_assert(!settings_file_exists(&file, &key, sizeof(key)));
+  key = 0;
+  cl_assert(!settings_file_exists(&file, &key, sizeof(key)));
+  settings_file_close(&file);
 }

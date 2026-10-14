@@ -36,7 +36,7 @@ typedef int32_t WakeupId;
 
 /** @brief Wakeup event passed to the app it launches. */
 typedef struct {
-  /** Event identifier, its scheduling timestamp. */
+  /** Event identifier. */
   WakeupId wakeup_id;
   /** Reason given by the app when scheduling the event. */
   int32_t wakeup_reason;
