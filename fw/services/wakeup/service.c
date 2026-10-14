@@ -32,6 +32,8 @@ PBL_LOG_MODULE_DEFINE(service_wakeup, CONFIG_SERVICE_WAKEUP_LOG_LEVEL);
 // complexity, I have hard coded this buffer to a max size instead of going the linked_list
 // route. 16 apps should be more than enough.
 #define NUM_APPS_ALERT_ON_BOOT 16
+// Longest timer armed at once, events further away re-arm it when it expires
+#define WAKEUP_TIMER_MAX_S (24 * 60 * 60)
 
 static PBL_MUTEX_DEFINE(s_mutex);
 
@@ -85,6 +87,11 @@ static time_t s_last_dispatch_time;
 void wakeup_dispatcher_system_task(void *data) {
   WakeupId wakeup_id = (WakeupId)(intptr_t)data;
   WakeupEntry entry = prv_wakeup_settings_get_entry(wakeup_id);
+
+  if (entry.timestamp > rtc_get_time()) {
+    prv_wakeup_timer_next_pending();
+    return;
+  }
 
   // Delete event from settings
   prv_wakeup_settings_delete_entry(wakeup_id);
@@ -210,9 +217,11 @@ static void prv_wakeup_timer_next_pending(void) {
       time_difference = MAX(time_difference, MIN(spacing, WAKEUP_CATCHUP_WINDOW));
     }
 
+    time_difference = MIN(time_difference, WAKEUP_TIMER_MAX_S);
+
     // timers are in milliseconds, set main callback dispatch for wakeup
     // WakeupId is used to save/restore/lookup wakeup events
-    new_timer_start(s_current_timer_id, (time_difference * 1000), prv_wakeup_dispatcher,
+    new_timer_start(s_current_timer_id, (uint32_t)time_difference * 1000, prv_wakeup_dispatcher,
                     (void *)((intptr_t)s_wakeup_state.current_wakeup_id), 0);
   }
 }
