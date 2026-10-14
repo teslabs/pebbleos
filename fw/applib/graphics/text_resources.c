@@ -313,7 +313,7 @@ static bool prv_load_glyph_bitmap(Codepoint codepoint, const FontResource *font_
   }
 
   PBL_ASSERT(glyph_size_bytes <= CACHE_GLYPH_SIZE,
-             "text codepoint %" PRIx32 " is %zu bytes, overflowing %zu max size", codepoint,
+             "text codepoint %" PRIx32 " is %zu bytes, overflowing %d max size", codepoint,
              glyph_size_bytes, CACHE_GLYPH_SIZE);
 
   if (glyph_size_bytes) {

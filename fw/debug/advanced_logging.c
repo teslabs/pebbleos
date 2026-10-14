@@ -32,7 +32,7 @@ static void write_message(void) {
   bool result =
       pbl_shared_cbuf_read(&s_buffer, &s_buffer_client, sizeof(uint8_t), &data_read, &read_length);
   PBL_ASSERTN(result);
-  PBL_ASSERT(read_length == sizeof(uint8_t), "read_length %u sizeof(uint8_t) %u", read_length,
+  PBL_ASSERT(read_length == sizeof(uint8_t), "read_length %u sizeof(uint8_t) %zu", read_length,
              sizeof(uint8_t));
   uint8_t msg_length = *data_read;
 
