@@ -19,10 +19,6 @@
 #include <syscall/syscall.h>
 #include <system/reboot_reason.h>
 
-[[noreturn]] void pbl_kernel_assert_failed(const char *filename, int line) {
-  pbl_panic_bare_at(filename, line);
-}
-
 void passert_check_task(PebbleTask expected_task) {
   uintptr_t saved_lr = (uintptr_t)PBL_RETURN_ADDRESS(0);
 
