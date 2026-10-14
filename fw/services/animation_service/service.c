@@ -62,7 +62,7 @@ static void prv_timer_callback(void *context) {
       }
       break;
     default:
-      PBL_CROAK("Invalid task %s", pebble_task_get_name(pebble_task_get_current()));
+      pbl_panic("Invalid task %s", pebble_task_get_name(pebble_task_get_current()));
   }
 }
 

@@ -343,7 +343,7 @@ void reg_timer_delete_then_add_from_cb_menu_cb(int index, void *ctx) {
 // =================================================================================
 void croak_menu_cb(int index, void *ctx) {
   menu_callback_prefix(index, ctx);
-  PBL_CROAK("DIE!");
+  pbl_panic("DIE!");
 }
 
 // =================================================================================

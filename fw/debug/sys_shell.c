@@ -45,7 +45,7 @@ static int prv_cmd_crash_hard(const struct pbl_shell *sh, size_t argc, char **ar
 }
 
 static int prv_cmd_croak(const struct pbl_shell *sh, size_t argc, char **argv) {
-  PBL_CROAK("You asked for this!");
+  pbl_panic("You asked for this!");
 }
 
 static int prv_cmd_factory_reset(const struct pbl_shell *sh, size_t argc, char **argv) {

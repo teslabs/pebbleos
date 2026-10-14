@@ -602,7 +602,7 @@ static bool prv_app_switch(bool gracefully) {
   // Launch the new app
   if (!prv_app_start(s_next_app.md, s_next_app.common.args, s_next_app.common.reason)) {
     if (s_next_app.md->process_storage != ProcessStorageFlash) {
-      PBL_CROAK("Failed to start system app <%s>!", process_metadata_get_name(s_next_app.md));
+      pbl_panic("Failed to start system app <%s>!", process_metadata_get_name(s_next_app.md));
     }
     PBL_LOG_WRN("Failed to start app <%s>! Restarting launcher",
                 process_metadata_get_name(s_next_app.md));

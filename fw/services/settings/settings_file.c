@@ -45,7 +45,7 @@ static status_t prv_open(SettingsFile *file, const char *name, uint8_t flags, in
       // This is very bad. Someone didn't use a mutex. There could already be
       // silent corruption, so it's better to crash now rather than let things
       // get even more scrambled.
-      PBL_CROAK("Settings file is already open!");
+      pbl_panic("Settings file is already open!");
     }
     return fd;
   }

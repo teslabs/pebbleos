@@ -14,7 +14,7 @@
 [[noreturn]] static void prv_enter_standby(void) {
   pmic_power_off();
 
-  PBL_CROAK("We were not shut down!");
+  pbl_panic("We were not shut down!");
 }
 #else
 [[noreturn]] static void prv_enter_standby(void) {

@@ -90,7 +90,7 @@ static void prv_force_close_timer_callback(void *data) {
   ProcessContext *context = prv_get_context_for_task(task);
 
   if (!prv_force_stop_task_if_unprivileged(context)) {
-    PBL_CROAK("task stuck inside privileged code!");
+    pbl_panic("task stuck inside privileged code!");
   }
   process_manager_put_kill_process_event(task, false /*graceful*/);
 }
@@ -509,7 +509,7 @@ bool process_manager_make_process_safe_to_kill(PebbleTask task, bool gracefully)
   pbl_thread_suspend(nullptr /* self */);
 
   // We don't expect someone to resume us.
-  PBL_CROAK("");
+  pbl_panic("");
 }
 
 // ---------------------------------------------------------------------------------------------

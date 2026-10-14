@@ -73,7 +73,7 @@ static void menu_select_callback(int index, void *ctx) {
   // Run the appropriate test
   if (index == 0) {
     // CROAK
-    PBL_CROAK("CROAK");
+    pbl_panic("CROAK");
 
   } else if (index == 1) {
     // stuck timer callback

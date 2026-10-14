@@ -164,7 +164,7 @@ static void prv_sys_timer_callback(void *cb_data) {
       process_manager_send_event_to_process(timer->target_task, &e);
       break;
     default:
-      PBL_CROAK("Invalid task %s", pebble_task_get_name(pebble_task_get_current()));
+      pbl_panic("Invalid task %s", pebble_task_get_name(pebble_task_get_current()));
   }
 }
 

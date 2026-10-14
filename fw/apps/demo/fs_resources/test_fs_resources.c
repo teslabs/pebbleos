@@ -42,7 +42,7 @@ static void push_window(FSResourceAppData *data) {
 static void handle_init(void) {
   FSResourceAppData *data = (FSResourceAppData *)app_malloc_check(sizeof(FSResourceAppData));
   if (data == nullptr) {
-    PBL_CROAK("Out of memory");
+    pbl_panic("Out of memory");
   }
   app_state_set_user_data(data);
   push_window(data);

@@ -19,7 +19,7 @@ static void prv_croak_on_double_free(void *ptr) {
   // croak message out over APP_LOG correctly so if we didn't do this developers
   // wouldn't see the croak reason.
   APP_LOG(APP_LOG_LEVEL_ERROR, "Double free detected on pointer <%p>", ptr);
-  PBL_CROAK("Double free detected on pointer <%p>", ptr);
+  pbl_panic("Double free detected on pointer <%p>", ptr);
 }
 
 static void prv_warn_on_heap_corruption(void *ptr) {
@@ -29,7 +29,7 @@ static void prv_warn_on_heap_corruption(void *ptr) {
 
 static void prv_croak_on_heap_corruption(void *ptr) {
   APP_LOG(APP_LOG_LEVEL_ERROR, "Error: Heap corrupt around <%p>", ptr);
-  PBL_CROAK("Error: Heap corrupt around <%p>", ptr);
+  pbl_panic("Error: Heap corrupt around <%p>", ptr);
 }
 
 void process_heap_set_exception_handlers(Heap *heap, const PebbleProcessMd *app_md) {
