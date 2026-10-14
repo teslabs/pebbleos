@@ -621,7 +621,7 @@ void modal_manager_handle_button_event(PebbleEvent *event) {
       break;
     }
     default:
-      PBL_CROAK("Invalid event type: %u", event->type);
+      pbl_panic("Invalid event type: %u", event->type);
   }
 }
 

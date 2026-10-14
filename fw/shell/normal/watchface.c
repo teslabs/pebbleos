@@ -283,7 +283,7 @@ void watchface_handle_button_event(PebbleEvent *e) {
       click_recognizer_handle_button_up(&s_click_manager.recognizers[e->button.button_id]);
       break;
     default:
-      PBL_CROAK("Invalid event type: %u", e->type);
+      pbl_panic("Invalid event type: %u", e->type);
       break;
   }
 }

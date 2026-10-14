@@ -161,7 +161,7 @@ static void push_window(ClickAppData *data) {
 static void handle_init(void) {
   ClickAppData *data = (ClickAppData *)app_malloc_check(sizeof(ClickAppData));
   if (data == nullptr) {
-    PBL_CROAK("Out of memory");
+    pbl_panic("Out of memory");
   }
   app_state_set_user_data(data);
   push_window(data);

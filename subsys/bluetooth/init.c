@@ -66,7 +66,7 @@ static void prv_reset_cb(int reason) {
 #ifdef CONFIG_BT_HCI_SF32LB52
   // Controller stopped answering HCI. Crash so the coredump captures LCPU RAM
   // (core_dump wakes the LCPU itself); the reboot cold-recovers the controller.
-  PBL_CROAK("NimBLE host reset 0x%04x; captured LCPU RAM", (uint16_t)reason);
+  pbl_panic("NimBLE host reset 0x%04x; captured LCPU RAM", (uint16_t)reason);
 #endif
 }
 
@@ -193,7 +193,7 @@ bool pbl_bt_start(struct pbl_bt_config *config) {
   f_rc = (pbl_sem_take(&s_host_started, PBL_MSEC(s_bt_stack_start_stop_timeout_ms)) == 0);
   if (!f_rc) {
     // core_dump wakes the LCPU itself, so its RAM is captured here too.
-    PBL_CROAK("NimBLE host start timed out");
+    pbl_panic("NimBLE host start timed out");
   }
 
   rc = prv_ensure_addr();

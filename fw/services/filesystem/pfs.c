@@ -1454,7 +1454,7 @@ status_t pfs_remove(const char *name) {
   status_t rv = get_avail_fd(name, &fd, false);
   if (rv >= FDAlreadyLoaded) { // the file is in the cache
     if (rv == FDBusy) {
-      PBL_CROAK("Cannot delete %s, it is currently in use", PFS_FD(fd).file.name);
+      pbl_panic("Cannot delete %s, it is currently in use", PFS_FD(fd).file.name);
     }
     page = PFS_FD(fd).file.start_page;
     mark_fd_free(fd);
@@ -1568,7 +1568,7 @@ void pfs_remove_files(PFSFilenameTestCallback callback) {
     status_t rv = get_avail_fd(file_name, &fd, false);
     if (rv >= FDAlreadyLoaded) { // the file is in the cache
       if (rv == FDBusy) {
-        PBL_CROAK("Cannot delete %s, it is currently in use", PFS_FD(fd).file.name);
+        pbl_panic("Cannot delete %s, it is currently in use", PFS_FD(fd).file.name);
       }
       mark_fd_free(fd);
     }

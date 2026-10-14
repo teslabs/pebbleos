@@ -40,8 +40,6 @@ void passert_check_not_task(enum PebbleTask unexpected_task);
 
 #endif // UNITTEST
 
-#define PBL_CROAK(fmt, ...) pbl_panic(fmt, ##__VA_ARGS__)
-
 typedef struct Heap Heap;
 
 [[noreturn]] void croak_oom(size_t bytes, int saved_lr, Heap *heap_ptr);

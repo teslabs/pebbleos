@@ -1098,7 +1098,7 @@ static VoiceUiState prv_get_next_state(VoiceUiState current_state, VoiceUiState 
 
   // No valid transition found!
 
-  PBL_CROAK("Cannot transition from state %" PRIu16 " to state %" PRIu16, current_state,
+  pbl_panic("Cannot transition from state %" PRIu16 " to state %" PRIu16, current_state,
             next_state);
 }
 

@@ -64,7 +64,7 @@ static uint8_t *read_file_into_ram(SettingsRawIter *iter) {
   // that way we should be able to avoid getting into a reboot loop.
   pfs_close_and_remove(iter->fd);
   PBL_LOG_ERR("Data at address %p. Rebooting...", contents);
-  PBL_CROAK("Internal logic error.");
+  pbl_panic("Internal logic error.");
 }
 
 static int sfs_seek(SettingsRawIter *iter, int amount, int whence) {

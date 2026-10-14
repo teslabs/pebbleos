@@ -88,7 +88,7 @@ static volatile bool s_lcdc_eof_cb_fired;
 #ifndef CONFIG_RELEASE
 // Test hook: arm a one-shot drop of the next LCDC transfer-complete callback,
 // simulating the silent-loss failure mode. The silent-loss timer should fire
-// ~DISPLAY_SILENT_LOSS_TIMEOUT_MS later and PBL_CROAK.
+// ~DISPLAY_SILENT_LOSS_TIMEOUT_MS later and a panic.
 static volatile bool s_test_drop_next_complete;
 #endif
 
@@ -247,12 +247,12 @@ static void prv_silent_loss_handler(void *data) {
   // hal_sifli/sf32lb52 system_bf0_ap.c), so the snapshot stores above land
   // in D-cache. PebbleOS captures coredump RAM after the crash path may
   // have already invalidated the cache, so flush the dirty lines back to
-  // physical SRAM before we trip PBL_CROAK.
+  // physical SRAM before we trip a panic.
   uintptr_t snap_addr = (uintptr_t)s_lcdc_pre_crash_regs;
   size_t snap_size = sizeof(s_lcdc_pre_crash_regs);
   dcache_align(&snap_addr, &snap_size);
   dcache_flush((const void *)snap_addr, snap_size);
-  PBL_CROAK("LCDC silent loss: no EOF in %ums (State=%d Err=0x%lx y=%u..%u)",
+  pbl_panic("LCDC silent loss: no EOF in %ums (State=%d Err=0x%lx y=%u..%u)",
             (unsigned)DISPLAY_SILENT_LOSS_TIMEOUT_MS, (int)state->hlcdc.State,
             (unsigned long)state->hlcdc.ErrorCode, (unsigned)s_update_y0, (unsigned)s_update_y1);
 }
@@ -309,7 +309,7 @@ void HAL_LCDC_SendLayerDataCpltCbk(LCDC_HandleTypeDef *lcdc) {
     s_test_drop_next_complete = false;
     // Simulate the lost-completion failure mode: leave s_eof_observed false
     // and don't post the terminate event. The silent-loss timer should fire
-    // ~DISPLAY_SILENT_LOSS_TIMEOUT_MS later and PBL_CROAK.
+    // ~DISPLAY_SILENT_LOSS_TIMEOUT_MS later and a panic.
     return;
   }
 #endif

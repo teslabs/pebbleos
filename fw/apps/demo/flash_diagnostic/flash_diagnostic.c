@@ -268,7 +268,7 @@ static void push_window(FlashDiagAppData *data) {
 static void handle_init(void) {
   FlashDiagAppData *data = (FlashDiagAppData *)app_malloc_check(sizeof(FlashDiagAppData));
   if (data == nullptr) {
-    PBL_CROAK("Out of memory");
+    pbl_panic("Out of memory");
   }
   app_state_set_user_data(data);
   push_window(data);
