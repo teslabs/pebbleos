@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <string.h>
+
 #include <pbl/mcu/mpu.h>
 #include <pbl/util/size.h>
 
@@ -34,6 +36,8 @@ static const uint8_t s_permission_to_ap[MpuPermissionsCount] = {
   [MpuPermissions_PrivRW_UserRO] = 0x1, [MpuPermissions_PrivRW_UserRW] = 0x1,
   [MpuPermissions_PrivRO] = 0x2,        [MpuPermissions_PrivRO_UserRO] = 0x3,
 };
+
+static int s_user_ro_region = -1;
 
 static const uint32_t s_cache_settings[] = {
   [MpuCachePolicy_NotCacheable] =
@@ -110,9 +114,41 @@ void mpu_get_register_settings(const MpuRegion *region, uint32_t *base_address_r
 void mpu_set_region(const MpuRegion *region) {
   uint32_t base_reg, attr_reg;
 
+  if (region->permissions == MpuPermissions_PrivRW_UserRO) {
+    KERNEL_ASSERT(s_user_ro_region < 0 || s_user_ro_region == region->region_num);
+    s_user_ro_region = region->region_num;
+  }
+
   mpu_get_register_settings(region, &base_reg, &attr_reg);
 
   ARM_MPU_SetRegion(region->region_num, base_reg, attr_reg);
+}
+
+void mpu_user_ro_write(void *dst, const void *src, size_t n) {
+  if (s_user_ro_region < 0) {
+    memcpy(dst, src, n);
+    return;
+  }
+
+  const uint32_t primask = __get_PRIMASK();
+  __disable_irq();
+
+  const uint32_t rnr = MPU->RNR;
+  MPU->RNR = (uint32_t)s_user_ro_region;
+  const uint32_t rlar = MPU->RLAR;
+  MPU->RLAR = rlar & ~MPU_RLAR_EN_Msk;
+  __DSB();
+  __ISB();
+
+  memcpy(dst, src, n);
+
+  __DSB();
+  MPU->RLAR = rlar;
+  MPU->RNR = rnr;
+  __DSB();
+  __ISB();
+
+  __set_PRIMASK(primask);
 }
 
 MpuRegion mpu_get_region(int region_num) {

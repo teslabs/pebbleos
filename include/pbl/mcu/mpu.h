@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 /**
@@ -111,6 +112,19 @@ void mpu_disable(void);
  * @param region Region to program, in slot @ref MpuRegion::region_num.
  */
 void mpu_set_region(const MpuRegion *region);
+
+/**
+ * @brief Write to a @ref MpuPermissions_PrivRW_UserRO region from privileged code.
+ *
+ * On ARMv8-M the region is disabled for the duration of the copy with interrupts masked, so
+ * privileged code falls back to the default memory map and unprivileged code never runs while
+ * it is lifted. Elsewhere this is a plain copy.
+ *
+ * @param dst Destination.
+ * @param src Source.
+ * @param n Number of bytes.
+ */
+void mpu_user_ro_write(void *dst, const void *src, size_t n);
 
 /**
  * @brief Read back a programmed region.
