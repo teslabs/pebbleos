@@ -44,16 +44,16 @@ typedef struct {
 } CustomDayPickerData;
 
 static const char *prv_kind_strings[DayPickerKindNumItems] = {
-  [DayPickerKindEveryday] = "Every Day", [DayPickerKindWeekdays] = "Weekdays",
-  [DayPickerKindWeekends] = "Weekends",  [DayPickerKindCustom] = "Custom",
-  [DayPickerKindJustOnce] = "Just Once",
+  [DayPickerKindEveryday] = i18n_noop("Every Day"), [DayPickerKindWeekdays] = i18n_noop("Weekdays"),
+  [DayPickerKindWeekends] = i18n_noop("Weekends"),  [DayPickerKindCustom] = i18n_noop("Custom"),
+  [DayPickerKindJustOnce] = i18n_noop("Just Once"),
 };
 
 const char *day_picker_kind_get_string(DayPickerKind kind) {
   if (kind >= DayPickerKindNumItems) {
     return "";
   }
-  return i18n_noop(prv_kind_strings[kind]);
+  return prv_kind_strings[kind];
 }
 
 static DayPickerKind prv_row_to_kind(bool allow_once, int row) {
