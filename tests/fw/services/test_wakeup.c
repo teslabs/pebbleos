@@ -407,3 +407,25 @@ void test_wakeup__simultaneous_events_spaced(void) {
   cl_assert_equal_i(wakeup_get_next_scheduled(), second_id);
   cl_assert_equal_i(stub_new_timer_timeout(wakeup_get_current()) / 1000, WAKEUP_CATCHUP_WINDOW);
 }
+
+void test_wakeup__far_future_not_early(void) {
+  const time_t start_time = sys_get_time();
+  const time_t event_time = start_time + 60 * 24 * 60 * 60;
+
+  WakeupId wakeup_id = sys_wakeup_schedule(event_time, 0, false);
+  cl_assert(wakeup_id > 0);
+  cl_assert_equal_i(wakeup_get_next_scheduled(), wakeup_id);
+
+  uint32_t timeout_s = stub_new_timer_timeout(wakeup_get_current()) / 1000;
+  cl_assert(timeout_s > 0);
+  cl_assert(timeout_s < event_time - start_time);
+
+  // The timer expiring before the event is due re-arms it instead of firing
+  rtc_set_time(start_time + timeout_s);
+  stub_new_timer_fire(wakeup_get_current());
+  wakeup_dispatcher_system_task((void *)(uintptr_t)wakeup_id);
+
+  cl_assert_equal_i(sys_wakeup_query(wakeup_id), event_time);
+  cl_assert_equal_i(wakeup_get_next_scheduled(), wakeup_id);
+  cl_assert(stub_new_timer_timeout(wakeup_get_current()) / 1000 > 0);
+}
