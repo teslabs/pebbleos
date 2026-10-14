@@ -55,6 +55,9 @@ typedef struct PBL_PACKED {
   int32_t timestamp;
 } WakeupState;
 
+#define WAKEUP_ID_MIN 1
+#define WAKEUP_ID_MAX INT32_MAX
+
 struct prv_missed_events_s {
   uint8_t missed_apps_count;
   AppInstallId *missed_app_ids;
@@ -68,7 +71,7 @@ struct prv_check_app_and_wakeup_event_s {
 // Local prototypes
 static WakeupEntry prv_wakeup_settings_get_entry(WakeupId wakeup_id);
 static void prv_wakeup_settings_delete_entry(WakeupId wakeup_id);
-static StatusCode prv_wakeup_settings_add_entry(WakeupId wakeup_id, WakeupEntry entry);
+static WakeupId prv_wakeup_settings_add_entry(WakeupEntry entry);
 static void prv_wakeup_timer_next_pending(void);
 
 static bool s_wakeup_enabled = false;
@@ -236,6 +239,10 @@ static bool prv_check_for_events(SettingsFile *file, SettingsRecordInfo *info, v
   return false; // stop iterating
 }
 
+static WakeupId prv_wakeup_id_next(WakeupId wakeup_id) {
+  return (wakeup_id >= WAKEUP_ID_MAX) ? WAKEUP_ID_MIN : (wakeup_id + 1);
+}
+
 static void prv_update_events_callback(SettingsFile *old_file, SettingsFile *new_file,
                                        SettingsRecordInfo *info, void *context) {
   // Check if valid entry
@@ -265,10 +272,13 @@ static void prv_update_events_callback(SettingsFile *old_file, SettingsFile *new
   time_t current_time = rtc_get_time();
   int32_t time_difference = timestamp - current_time;
 
-  if (timestamp >= s_wakeup_state.next_wakeup_id) {
-    s_wakeup_state.next_wakeup_id = timestamp + 1;
-  } else if (wakeup_id >= s_wakeup_state.next_wakeup_id) {
-    s_wakeup_state.next_wakeup_id = wakeup_id + 1;
+  // Entries outside the ID range can never fire
+  if (wakeup_id < WAKEUP_ID_MIN) {
+    return;
+  }
+
+  if (wakeup_id >= s_wakeup_state.next_wakeup_id) {
+    s_wakeup_state.next_wakeup_id = prv_wakeup_id_next(wakeup_id);
   }
 
   // schedule non-expired events
@@ -307,7 +317,7 @@ void wakeup_init(void) {
 
   // Create single reusable timer for wakeup events
   s_current_timer_id = new_timer_create();
-  s_wakeup_state.next_wakeup_id = rtc_get_time();
+  s_wakeup_state.next_wakeup_id = CLIP(rtc_get_time(), WAKEUP_ID_MIN, WAKEUP_ID_MAX);
   s_wakeup_state.timestamp = -1;
 
   SettingsFile wakeup_settings;
@@ -360,7 +370,6 @@ PBL_SYSCALL(WakeupId, sys_wakeup_schedule, (VAL, time_t, timestamp), (VAL, int32
 
   time_t current_time = rtc_get_time();
   int32_t time_difference = timestamp - current_time;
-  WakeupId wakeup_id = s_wakeup_state.next_wakeup_id++;
 
   // Disallow scheduling past events
   if (time_difference <= 0) {
@@ -377,12 +386,9 @@ PBL_SYSCALL(WakeupId, sys_wakeup_schedule, (VAL, time_t, timestamp), (VAL, int32
     .utc = clock_is_timezone_set()
   };
 
-  // Add to settings file
-  StatusCode retval = prv_wakeup_settings_add_entry(wakeup_id, entry);
-
-  // If there was an error adding the wakeup event, return the error
-  if (retval < S_SUCCESS) {
-    return retval;
+  WakeupId wakeup_id = prv_wakeup_settings_add_entry(entry);
+  if (wakeup_id < 0) {
+    return wakeup_id;
   }
 
   // If this new event is sooner than the currently scheduled timer, make this
@@ -466,8 +472,19 @@ static bool prv_check_count_and_availability_callback(SettingsFile *file, Settin
   return true; // continue iterating
 }
 
-static StatusCode prv_wakeup_settings_add_entry(WakeupId wakeup_id, WakeupEntry entry) {
-  status_t status = S_SUCCESS;
+static WakeupId prv_wakeup_id_alloc(SettingsFile *file) {
+  WakeupId wakeup_id;
+
+  do {
+    wakeup_id = s_wakeup_state.next_wakeup_id;
+    s_wakeup_state.next_wakeup_id = prv_wakeup_id_next(wakeup_id);
+  } while (settings_file_exists(file, &wakeup_id, sizeof(wakeup_id)));
+
+  return wakeup_id;
+}
+
+static WakeupId prv_wakeup_settings_add_entry(WakeupEntry entry) {
+  WakeupId status;
 
   pbl_mutex_lock(&s_mutex, PBL_FOREVER);
   {
@@ -486,8 +503,12 @@ static StatusCode prv_wakeup_settings_add_entry(WakeupId wakeup_id, WakeupEntry 
       } else if (check.wakeup_count >= MAX_WAKEUP_EVENTS_PER_APP) {
         status = E_OUT_OF_RESOURCES;
       } else {
-        settings_file_set(&wakeup_settings, (uint8_t *)&wakeup_id, sizeof(WakeupId),
-                          (uint8_t *)&entry, sizeof(WakeupEntry));
+        WakeupId wakeup_id = prv_wakeup_id_alloc(&wakeup_settings);
+        status = settings_file_set(&wakeup_settings, (uint8_t *)&wakeup_id, sizeof(WakeupId),
+                                   (uint8_t *)&entry, sizeof(WakeupEntry));
+        if (status == S_SUCCESS) {
+          status = wakeup_id;
+        }
       }
       settings_file_close(&wakeup_settings);
     } else {
