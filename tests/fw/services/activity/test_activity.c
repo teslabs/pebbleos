@@ -1506,6 +1506,34 @@ void test_activity__sleep_state_without_session(void) {
 }
 
 // ---------------------------------------------------------------------------------------
+// Deleting the only (ongoing) sleep session must clear the sleep totals
+void test_activity__sleep_totals_cleared_on_session_delete(void) {
+  int32_t value;
+
+  activity_start_tracking(false /*test_mode*/);
+  fake_system_task_callbacks_invoke_pending();
+
+  prv_feed_canned_accel_data(150 * PBL_SEC_PER_MIN, 0, ActivitySleepStateLightSleep);
+  activity_get_metric(ActivityMetricSleepTotalSeconds, 1, &value);
+  cl_assert(value > 0);
+
+  // The algorithm rejects the ongoing session, e.g. because the watch was not worn
+  ActivitySession session = s_test_alg_state.minute_data.sessions[0];
+  prv_activity_algorithm_erase_minute_data();
+  activity_sessions_prv_delete_activity_session(&session);
+
+  prv_feed_canned_accel_data(PBL_SEC_PER_MIN * ACTIVITY_SESSION_UPDATE_MIN, 0,
+                             ActivitySleepStateAwake);
+
+  activity_get_metric(ActivityMetricSleepTotalSeconds, 1, &value);
+  cl_assert_equal_i(value, 0);
+  activity_get_metric(ActivityMetricSleepEnterAtSeconds, 1, &value);
+  cl_assert_equal_i(value, 0);
+  activity_get_metric(ActivityMetricSleepExitAtSeconds, 1, &value);
+  cl_assert_equal_i(value, 0);
+}
+
+// ---------------------------------------------------------------------------------------
 // Test that sleep sessions get registered in the correct day
 void test_activity__sleep_history(void) {
   // Start activity tracking. This method assumes it can be called from any task, so we must
