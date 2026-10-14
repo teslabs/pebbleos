@@ -9,3 +9,7 @@
 TimelineResourceId PBL_WEAK weather_type_get_timeline_resource_id(WeatherType weather_type) {
   return 0;
 }
+
+const char *PBL_WEAK weather_type_get_phrase(WeatherType weather_type) {
+  return nullptr;
+}
