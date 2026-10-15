@@ -13,9 +13,9 @@
 
 PBL_WEAK [[noreturn]] void pbl_panic_at(const char *filename, int line_number, const char *message,
                                         ...) {
-  if (clar_expecting_passert) {
-    clar_passert_occurred = true;
-    longjmp(clar_passert_jmp_buf, 1);
+  if (clar_expecting_panic) {
+    clar_panic_occurred = true;
+    longjmp(clar_panic_jmp_buf, 1);
   } else {
     va_list ap;
     va_start(ap, message);

@@ -23,7 +23,7 @@ PBL_WEAK [[noreturn]] void syscall_failed(void) {
   s_syscall_did_fail = true;
   printf("Warning: Syscall failed!\n");
 
-  // Use cl_assert_passert() if you want to catch this getting hit.
+  // Use cl_assert_panic() if you want to catch this getting hit.
   PBL_ASSERTN(false);
 }
 
