@@ -33,7 +33,6 @@ extern FontInfo *s_test_fallback_font;
 extern FontInfo *s_test_emoji_font;
 extern FontInfo *s_test_language_fonts[LANGUAGE_PACK_COUNT];
 extern int s_test_language_font_calls;
-extern uint32_t s_test_language_generation;
 
 #define FONT_COMPRESSION_FIXTURE_PATH "font_compression"
 
@@ -58,7 +57,7 @@ void test_text_resources__initialize(void) {
   s_test_fallback_font = nullptr;
   s_test_emoji_font = nullptr;
   memset(s_test_language_fonts, 0, sizeof(FontInfo *) * LANGUAGE_PACK_COUNT);
-  s_test_language_generation = 0;
+  g_font_language_generation = 0;
   text_resources_reset_cache(&s_font_cache);
 
   resource_init();
@@ -109,13 +108,13 @@ void test_text_resources__extra_pack_change_invalidates_missing_glyph_cache(void
   FontInfo chinese = {};
   cl_assert(text_resources_init_font(SYSTEM_APP, extra_resource, 0, &chinese));
   s_test_language_fonts[1] = &chinese;
-  ++s_test_language_generation;
+  ++g_font_language_generation;
   cl_assert(text_resources_get_glyph(&s_font_cache, 0x4E50, &s_font_info, &location));
   cl_assert_equal_i(location.font_res->resource_id, extra_resource);
 
   cl_assert_equal_i(pfs_remove("lang1"), S_SUCCESS);
   s_test_language_fonts[1] = NULL;
-  ++s_test_language_generation;
+  ++g_font_language_generation;
   cl_assert(text_resources_get_glyph(&s_font_cache, 0x4E50, &s_font_info, &location));
   cl_assert_equal_i(location.font_res->resource_id, RESOURCE_ID_GOTHIC_18);
 }
@@ -138,7 +137,7 @@ void test_text_resources__extra_pack_fonts_are_fetched_once(void) {
   cl_assert(text_resources_get_glyph(&s_font_cache, 0x0E01, &s_font_info, NULL));
   cl_assert_equal_i(s_test_language_font_calls, LANGUAGE_PACK_COUNT);
 
-  ++s_test_language_generation;
+  ++g_font_language_generation;
   cl_assert(text_resources_get_glyph(&s_font_cache, 0x4E50, &s_font_info, NULL));
   cl_assert(s_test_language_font_calls > LANGUAGE_PACK_COUNT);
 }

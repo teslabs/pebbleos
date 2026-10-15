@@ -53,6 +53,7 @@ bool system_resource_is_valid(void) {
 
 // Total number of fonts = NUM_SYSTEM_FONTS + 1 for the fallback font
 FontInfo s_system_fonts_info_table[NUM_SYSTEM_FONTS + 1] KERNEL_READONLY_DATA;
+uint32_t g_font_language_generation KERNEL_READONLY_DATA;
 
 #ifndef CONFIG_RECOVERY_FW
 #define NUM_LANGUAGE_FONTS \
@@ -76,7 +77,6 @@ static LanguageFonts *s_language_fonts[LANGUAGE_PACK_COUNT];
 static LanguagePackState s_language_pack_state[LANGUAGE_PACK_COUNT];
 // Bumped when a pack file changes, so a font loaded outside the lock can't be stored stale
 static uint32_t s_language_pack_changes[LANGUAGE_PACK_COUNT];
-static uint32_t s_language_generation;
 
 static uint8_t prv_primary_font_slot(void) {
   return shell_prefs_get_language_english() ? 0
@@ -84,12 +84,14 @@ static uint8_t prv_primary_font_slot(void) {
 }
 
 static void prv_invalidate_system_fonts(void) {
+  // Shared fonts reload lazily. A concurrent render may miss a glyph for one frame;
+  // the next lookup retries after initialization completes.
   for (size_t i = 0; i < ARRAY_LENGTH(s_system_fonts_info_table); ++i) {
     s_system_fonts_info_table[i].loaded = false;
   }
   // Publish last: a renderer that sees the new generation must find the fonts unloaded, or it
   // would refill its cache from the old ones under the new generation.
-  __atomic_store_n(&s_language_generation, s_language_generation + 1, __ATOMIC_RELEASE);
+  __atomic_store_n(&g_font_language_generation, g_font_language_generation + 1, __ATOMIC_RELEASE);
 }
 
 static void prv_language_changed(void *data) {
@@ -160,14 +162,6 @@ static void prv_watch_language_packs(void) {
     pfs_watch_file(language_pack_filename(slot), prv_language_pack_file_changed,
                    FILE_CHANGED_EVENT_ALL, (void *)(uintptr_t)slot);
   }
-#endif
-}
-
-PBL_SYSCALL(uint32_t, sys_font_get_language_generation) {
-#ifndef CONFIG_RECOVERY_FW
-  return __atomic_load_n(&s_language_generation, __ATOMIC_ACQUIRE);
-#else
-  return 0;
 #endif
 }
 

@@ -17,6 +17,7 @@
 #include <applib/fonts/fonts.h>
 #include <applib/fonts/fonts_private.h>
 #include <resource/resource_ids.auto.h>
+#include <resource/system_resource.h>
 #include <syscall/syscall.h>
 #include <system/profiler.h>
 
@@ -686,7 +687,8 @@ static const GlyphData *prv_get_glyph(FontCache *font_cache, Codepoint codepoint
     *location_out = (GlyphLocation){};
   }
 
-  if (font_cache->language_generation != sys_font_get_language_generation()) {
+  if (font_cache->language_generation !=
+      __atomic_load_n(&g_font_language_generation, __ATOMIC_ACQUIRE)) {
     text_resources_reset_cache(font_cache);
   }
 
@@ -800,5 +802,5 @@ void text_resources_reset_cache(FontCache *font_cache) {
   font_cache->offset_table_id = -1;
   font_cache->cached_font = NULL;
   font_cache->language_fetched = 0;
-  font_cache->language_generation = sys_font_get_language_generation();
+  font_cache->language_generation = __atomic_load_n(&g_font_language_generation, __ATOMIC_ACQUIRE);
 }

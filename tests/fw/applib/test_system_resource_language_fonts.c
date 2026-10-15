@@ -112,11 +112,11 @@ void test_system_resource_language_fonts__pack_changes_invalidate(void) {
   cl_assert(!sys_font_get_language_font(RESOURCE_ID_GOTHIC_18, 1, &font));
   GFont system_font = system_resource_get_font(FONT_KEY_GOTHIC_18);
   cl_assert(system_font && system_font->loaded);
-  const uint32_t generation = sys_font_get_language_generation();
+  const uint32_t generation = g_font_language_generation;
 
   // The absent pack was cached; installing it must be noticed.
   load_resource_fixture_on_pfs(RESOURCES_FIXTURE_PATH, CHINESE_FIXTURE_NAME, "lang1");
-  cl_assert(sys_font_get_language_generation() != generation);
+  cl_assert(g_font_language_generation != generation);
   cl_assert(!system_font->loaded);
   cl_assert(sys_font_get_language_font(RESOURCE_ID_GOTHIC_18, 1, &font));
 
@@ -135,9 +135,9 @@ void test_system_resource_language_fonts__pack_changes_drop_cached_resources(voi
 }
 
 void test_system_resource_language_fonts__generation_is_a_plain_read(void) {
-  const uint32_t generation = sys_font_get_language_generation();
+  const uint32_t generation = g_font_language_generation;
   s_language = ShellLanguagePack1;
-  cl_assert_equal_i(sys_font_get_language_generation(), generation);
+  cl_assert_equal_i(g_font_language_generation, generation);
   system_resource_language_changed();
-  cl_assert(sys_font_get_language_generation() != generation);
+  cl_assert(g_font_language_generation != generation);
 }

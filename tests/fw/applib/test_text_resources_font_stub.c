@@ -18,7 +18,6 @@ FontInfo *s_test_fallback_font;
 // own FontInfo.
 FontInfo *s_test_emoji_font;
 FontInfo *s_test_language_fonts[LANGUAGE_PACK_COUNT];
-uint32_t s_test_language_generation;
 
 int s_test_language_font_calls;
 
@@ -30,10 +29,6 @@ bool sys_font_get_language_font(uint32_t base_resource_id, uint8_t slot, FontInf
   }
   *font_out = *s_test_language_fonts[slot];
   return true;
-}
-
-uint32_t sys_font_get_language_generation(void) {
-  return s_test_language_generation;
 }
 
 GFont sys_font_get_system_font(const char *key) {
