@@ -15,6 +15,7 @@
 #include <pbl/util/uuid.h>
 
 #include <kernel/pbl_malloc.h>
+#include <kernel/pebble_tasks.h>
 #include <process_management/pebble_process_info.h>
 #include <system/passert.h>
 

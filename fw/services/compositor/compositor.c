@@ -15,6 +15,7 @@
 #include <applib/ui/animation_private.h>
 #include <kernel/event_loop.h>
 #include <kernel/kernel_applib_state.h>
+#include <kernel/pebble_tasks.h>
 #include <kernel/ui/kernel_ui.h>
 #include <kernel/ui/modals/modal_manager.h>
 #include <popups/timeline/peek.h>

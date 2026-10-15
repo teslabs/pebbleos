@@ -14,6 +14,7 @@
 
 #include <applib/accel_service_private.h>
 #include <kernel/event_loop.h>
+#include <kernel/pebble_tasks.h>
 #include <kernel/ui/modals/modal_manager.h>
 #include <resource/resource_ids.auto.h>
 #include <shell/prefs.h>

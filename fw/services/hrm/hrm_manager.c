@@ -1051,6 +1051,8 @@ void hrm_manager_process_cleanup(PebbleTask task, AppInstallId app_id) {
 
 #include <pbl/shell/shell.h>
 
+#include <kernel/pebble_tasks.h>
+
 static const struct pbl_shell *s_console_sh;
 static HRMSessionRef s_console_session = HRM_INVALID_SESSION_REF;
 static PebbleHRMEvent s_console_event;

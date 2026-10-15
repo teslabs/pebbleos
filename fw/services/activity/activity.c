@@ -32,6 +32,7 @@
 #include <applib/health_service.h>
 #include <kernel/events.h>
 #include <kernel/pbl_malloc.h>
+#include <kernel/pebble_tasks.h>
 #include <syscall/syscall.h>
 #include <syscall/syscall_define.h>
 #include <system/passert.h>

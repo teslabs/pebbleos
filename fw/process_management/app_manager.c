@@ -43,6 +43,7 @@
 #include <pbl/logging/logging.h>
 #include <pbl/util/math.h>
 
+#include <kernel/pebble_tasks.h>
 #include <shell/normal/app_idle_timeout.h>
 #include <shell/normal/watchface.h>
 #include <shell/system_app_state_machine.h>

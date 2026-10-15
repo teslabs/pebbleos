@@ -19,27 +19,6 @@
 #include <syscall/syscall.h>
 #include <system/reboot_reason.h>
 
-void passert_check_task(PebbleTask expected_task) {
-  uintptr_t saved_lr = (uintptr_t)PBL_RETURN_ADDRESS(0);
-
-  if (pebble_task_get_current() != expected_task) {
-    PBL_LOG_ALWAYS("LR: %p. Incorrect task! Expected <%s> got <%s>", (void *)saved_lr,
-                   pebble_task_get_name(expected_task),
-                   pebble_task_get_name(pebble_task_get_current()));
-    pbl_fatal_error_handler(saved_lr);
-  }
-}
-
-void passert_check_not_task(PebbleTask unexpected_task) {
-  uintptr_t saved_lr = (uintptr_t)PBL_RETURN_ADDRESS(0);
-
-  if (pebble_task_get_current() == unexpected_task) {
-    PBL_LOG_ALWAYS("LR: %p. Incorrect task! Can't be <%s>", (void *)saved_lr,
-                   pebble_task_get_name(unexpected_task));
-    pbl_fatal_error_handler(saved_lr);
-  }
-}
-
 void assert_failed(uint8_t *file, uint32_t line) {
   pbl_panic_bare_at((const char *)file, line);
 }

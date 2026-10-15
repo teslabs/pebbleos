@@ -3,7 +3,9 @@
 
 #include "pebble_tasks.h"
 
+#include <pbl/kernel/compiler.h>
 #include <pbl/kernel/debug.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/analytics/analytics.h>
 #include <pbl/util/size.h>
@@ -336,5 +338,26 @@ void pbl_thread_stack_overflow(struct pbl_thread *thread, const char *name) {
     reboot_reason_set(&reason);
 
     reset_due_to_software_failure();
+  }
+}
+
+void pebble_task_assert_current(PebbleTask expected_task) {
+  uintptr_t saved_lr = (uintptr_t)PBL_RETURN_ADDRESS(0);
+
+  if (pebble_task_get_current() != expected_task) {
+    PBL_LOG_ALWAYS("LR: %p. Incorrect task! Expected <%s> got <%s>", (void *)saved_lr,
+                   pebble_task_get_name(expected_task),
+                   pebble_task_get_name(pebble_task_get_current()));
+    pbl_fatal_error_handler(saved_lr);
+  }
+}
+
+void pebble_task_assert_not_current(PebbleTask unexpected_task) {
+  uintptr_t saved_lr = (uintptr_t)PBL_RETURN_ADDRESS(0);
+
+  if (pebble_task_get_current() == unexpected_task) {
+    PBL_LOG_ALWAYS("LR: %p. Incorrect task! Can't be <%s>", (void *)saved_lr,
+                   pebble_task_get_name(unexpected_task));
+    pbl_fatal_error_handler(saved_lr);
   }
 }

@@ -24,6 +24,7 @@
 #include <comm/bluetooth_analytics.h>
 #include <kernel/events.h>
 #include <kernel/pbl_malloc.h>
+#include <kernel/pebble_tasks.h>
 #include <kernel/system_message.h>
 #include <resource/resource_storage_file.h>
 #include <system/bootbits.h>
