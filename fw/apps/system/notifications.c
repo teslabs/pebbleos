@@ -798,7 +798,7 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIn
     // no subtitle, but yes title
     subtitle = body;
   } else {
-    WTF;
+    pbl_panic();
   }
 
   if (notifications_history_row_is_collapsed_group(row)) {

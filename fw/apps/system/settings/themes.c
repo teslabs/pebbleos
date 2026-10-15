@@ -134,7 +134,7 @@ static Window *prv_create_color_menu(void) {
   OptionMenu *option_menu = prv_push_color_menu();
   return option_menu ? &option_menu->window : nullptr;
 #else
-  WTF;
+  pbl_panic();
   return nullptr;
 #endif
 }

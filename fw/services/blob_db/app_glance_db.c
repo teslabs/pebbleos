@@ -553,7 +553,7 @@ status_t app_glance_db_read_glance(const Uuid *uuid, AppGlance *glance_out) {
   if (!serialized_glance_size) {
     return E_DOES_NOT_EXIST;
   } else if (serialized_glance_size < 0) {
-    WTF;
+    pbl_panic();
   }
 
   uint8_t *serialized_glance = kernel_zalloc((size_t)serialized_glance_size);

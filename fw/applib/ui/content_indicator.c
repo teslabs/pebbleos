@@ -276,7 +276,7 @@ void content_indicator_draw_arrow(GContext *ctx, const GRect *frame,
       arrow_path_info = &arrow_down_path_info;
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 
   // Draw the arrow

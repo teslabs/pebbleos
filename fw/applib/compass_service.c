@@ -36,7 +36,7 @@ static CompassServiceConfig **prv_get_config(PebbleTask task) {
   } else if (task == PebbleTask_KernelMain) {
     config = kernel_applib_get_compass_config();
   } else {
-    WTF;
+    pbl_panic();
   }
 
   if (*config == nullptr) {

@@ -122,7 +122,7 @@ struct pbl_msgq *event_get_to_kernel_queue(PebbleTask task) {
   } else if ((task == PebbleTask_NewTimers) || (task == PebbleTask_KernelBackground)) {
     return &s_kernel_event_queue;
   } else {
-    WTF;
+    pbl_panic();
     return nullptr;
   }
 }
@@ -390,7 +390,7 @@ void event_reset_from_process_queue(PebbleTask task) {
   } else if (task == PebbleTask_Worker) {
     reset_queue = &s_from_worker_event_queue;
   } else {
-    WTF;
+    pbl_panic();
   }
   event_queue_cleanup_and_reset(reset_queue);
 }

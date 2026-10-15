@@ -118,7 +118,7 @@ static bool prv_can_transition_state(TimelineAppData *data, TimelineAppState nex
     case TimelineAppStateExit:
       return false;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

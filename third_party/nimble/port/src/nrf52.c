@@ -48,6 +48,6 @@ void ble_npl_hw_set_isr(int irqn, void (*addr)(void)) {
       break;
 #endif
     default:
-      WTF;
+      pbl_panic();
   }
 }

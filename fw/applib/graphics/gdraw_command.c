@@ -111,7 +111,7 @@ void gdraw_command_draw(GContext *ctx, GDrawCommand *command) {
       prv_draw_circle(ctx, command);
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

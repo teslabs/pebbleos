@@ -62,7 +62,7 @@ static void prv_launch_timeline(ClickRecognizerRef recognizer, void *data) {
       s_timeline_args.direction = TimelineIterDirectionPast;
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 
   prv_launch_app_via_button(

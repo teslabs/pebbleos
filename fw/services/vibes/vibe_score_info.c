@@ -88,7 +88,7 @@ VibeScoreId vibe_score_info_cycle_next(VibeClient client, VibeScoreId curr_id) {
       break;
     }
     default: {
-      WTF;
+      pbl_panic();
     }
   }
 

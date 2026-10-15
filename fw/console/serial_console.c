@@ -104,7 +104,7 @@ void serial_console_set_state(SerialConsoleState new_state) {
       dbgserial_set_rx_dma_enabled(true);
       break;
     default:
-      WTF; // Don't know this state
+      pbl_panic(); // Don't know this state
   }
 
   pbl_irq_unlock();

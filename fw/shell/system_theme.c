@@ -27,7 +27,7 @@ static const char *prv_get_font_for_size(bool from_user, PreferredContentSize co
   }
   return system_theme_get_style_for_size(content_size)->fonts[font];
 fail:
-  from_user ? syscall_failed() : WTF;
+  from_user ? syscall_failed() : pbl_panic();
 }
 
 ////////////////////

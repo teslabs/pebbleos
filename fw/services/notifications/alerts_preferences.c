@@ -561,7 +561,7 @@ VibeScoreId alerts_preferences_get_vibe_score_for_client(VibeClient client) {
     case VibeClient_OnDisconnect:
       return s_vibe_score_on_disconnect;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -594,7 +594,7 @@ void alerts_preferences_set_vibe_score_for_client(VibeClient client, VibeScoreId
       break;
     }
     default: {
-      WTF;
+      pbl_panic();
     }
   }
   SET_PREF(key, id);

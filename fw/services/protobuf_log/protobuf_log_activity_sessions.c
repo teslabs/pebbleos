@@ -30,7 +30,7 @@ static ActivitySessionType prv_proto_type_to_activity_type(ProtobufLogActivityTy
     case ProtobufLogActivityType_Open:
       return ActivitySessionType_Open;
   }
-  WTF;
+  pbl_panic();
 }
 
 // -----------------------------------------------------------------------------------------
@@ -57,7 +57,7 @@ static ProtobufLogActivityType prv_activity_type_to_proto_type(ActivitySessionTy
     case ActivitySessionTypeCount:
       break;
   }
-  WTF;
+  pbl_panic();
 }
 */
 

@@ -31,7 +31,7 @@ static TickTimerServiceState *prv_get_state(PebbleTask task) {
   } else if (task == PebbleTask_KernelMain) {
     return kernel_applib_get_tick_timer_service_state();
   } else {
-    WTF;
+    pbl_panic();
   }
 }
 

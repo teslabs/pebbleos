@@ -1730,7 +1730,7 @@ void test_kraepelin_algorithm__activity_tests(void) {
           desc = "run";
           break;
         case KAlgActivityTypeCount:
-          WTF;
+          pbl_panic();
           break;
       }
 

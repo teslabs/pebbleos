@@ -237,7 +237,7 @@ void app_db_init(void) {
   // is then one greater than the largest found.
   status_t rv = prv_lock_mutex_and_open_file();
   if (rv != S_SUCCESS) {
-    WTF;
+    pbl_panic();
   }
 
   struct AppDBInitData data = {};

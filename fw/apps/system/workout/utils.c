@@ -107,7 +107,7 @@ const char *workout_utils_get_name_for_activity(ActivitySessionType type) {
       break;
   }
 
-  WTF;
+  pbl_panic();
 }
 
 const char *workout_utils_get_detection_text_for_activity(ActivitySessionType type) {
@@ -131,7 +131,7 @@ const char *workout_utils_get_detection_text_for_activity(ActivitySessionType ty
       break;
   }
 
-  WTF;
+  pbl_panic();
 }
 
 bool workout_utils_find_ongoing_activity_session(ActivitySession *session_out) {

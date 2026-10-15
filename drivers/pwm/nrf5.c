@@ -29,7 +29,7 @@ void pwm_init(const PwmConfig *pwm, uint32_t resolution, uint32_t frequency) {
   else if (frequency >= 125000)
     config.base_clock = NRF_PWM_CLK_125kHz;
   else
-    WTF;
+    pbl_panic();
   config.count_mode = NRF_PWM_MODE_UP;
   config.top_value = resolution;
   config.load_mode = NRF_PWM_LOAD_COMMON;

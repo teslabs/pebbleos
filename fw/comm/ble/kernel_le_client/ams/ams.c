@@ -351,7 +351,7 @@ static bool prv_handle_player_playback_info_value(const char *value, uint32_t va
       break;
 
     default:
-      WTF;
+      pbl_panic();
   }
   return true /* should_continue */;
 }
@@ -605,7 +605,7 @@ void ams_handle_subscribe(pbl_bt_characteristic_t subscribed_characteristic,
   AMSCharacteristic characteristic_id = prv_get_id_for_characteristic(subscribed_characteristic);
   if (characteristic_id != AMSCharacteristicEntityUpdate) {
     // Only Entity Update characteristic is expected to be subscribed to
-    WTF;
+    pbl_panic();
   }
 
   if (error != PBL_BT_GATT_ERROR_SUCCESS) {

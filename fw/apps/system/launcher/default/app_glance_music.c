@@ -101,7 +101,7 @@ static bool prv_should_display_music_state(MusicPlayState play_state,
     case MusicPlayStateInvalid:
       return false;
   }
-  WTF;
+  pbl_panic();
 }
 
 static void prv_update_glance_for_music_state(LauncherAppGlanceStructured *structured_glance) {
@@ -163,7 +163,7 @@ static void prv_music_event_handler(PebbleEvent *event, void *context) {
     case PebbleMediaEventTypeAlbumArtUpdated:
       return;
   }
-  WTF;
+  pbl_panic();
 }
 
 static const LauncherAppGlanceStructuredImpl s_music_structured_glance_impl = {

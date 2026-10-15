@@ -8,8 +8,6 @@
 #include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 
-#define WTF pbl_panic()
-
 #if UNITTEST
 
 #define PBL_ASSERT_TASK(task)

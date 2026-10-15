@@ -229,7 +229,7 @@ static void prv_appear(struct Window *window) {
       app_window_stack_pop_all(false);
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

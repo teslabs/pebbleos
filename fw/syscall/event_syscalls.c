@@ -181,7 +181,7 @@ PBL_SYSCALL(void, sys_event_service_client_subscribe,
     // The event service always runs from KernelMain
     event_queue = event_kernel_to_kernel_event_queue();
   } else {
-    WTF;
+    pbl_panic();
   }
 
   // Subscribe to the service!
@@ -246,7 +246,7 @@ PBL_SYSCALL(void, sys_event_service_client_unsubscribe, (VAL, EventServiceInfo *
     } else if (task == PebbleTask_Worker) {
       state = worker_state_get_event_service_state();
     } else {
-      WTF;
+      pbl_panic();
     }
   }
 

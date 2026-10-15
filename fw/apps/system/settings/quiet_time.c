@@ -272,7 +272,7 @@ static void prv_schedule_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       }
       break;
     default:
-      WTF;
+      pbl_panic();
   }
   menu_cell_basic_draw(ctx, cell_layer, title, subtitle, nullptr);
   app_free(subtitle);
@@ -292,7 +292,7 @@ static void prv_schedule_select_click_cb(SettingsCallbacks *context, uint16_t ro
       prv_scheduled_dnd_menu_push(WeekendSchedule, data);
       break;
     default:
-      WTF;
+      pbl_panic();
   }
   settings_menu_reload_data(SettingsMenuItemQuietTime);
 }
@@ -370,7 +370,7 @@ static void prv_backlight_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
           alerts_preferences_dnd_get_notification_backlight() ? i18n_noop("On") : i18n_noop("Off");
       break;
     default:
-      WTF;
+      pbl_panic();
   }
   menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data), i18n_get(subtitle, data), nullptr);
 }
@@ -390,7 +390,7 @@ static void prv_backlight_select_click_cb(SettingsCallbacks *context, uint16_t r
           !alerts_preferences_dnd_get_notification_backlight());
       break;
     default:
-      WTF;
+      pbl_panic();
   }
   settings_menu_reload_data(SettingsMenuItemQuietTime);
 }
@@ -458,7 +458,7 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Lay
       break;
 #endif
     default:
-      WTF;
+      pbl_panic();
   }
   menu_cell_basic_draw(ctx, cell_layer, title, subtitle, nullptr);
 }
@@ -486,7 +486,7 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       break;
 #endif
     default:
-      WTF;
+      pbl_panic();
   }
   settings_menu_reload_data(SettingsMenuItemQuietTime);
 }

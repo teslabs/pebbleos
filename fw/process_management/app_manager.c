@@ -210,7 +210,7 @@ static size_t prv_get_app_segment_size(const PebbleProcessMd *app_md) {
       return MAX(CONFIG_APP_RAM_2X_SEGMENT_SIZE,
                  MAX(CONFIG_APP_RAM_3X_SEGMENT_SIZE, CONFIG_APP_RAM_4X_SEGMENT_SIZE));
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -752,7 +752,7 @@ static AppInstallId prv_get_app_exit_reason_destination_install_id_override(void
     case NUM_EXIT_REASONS:
       break;
   }
-  WTF;
+  pbl_panic();
 }
 #endif
 
@@ -877,7 +877,7 @@ void app_manager_get_framebuffer_size(GSize *size) {
       *size = GSize(DISP_COLS, DISP_ROWS);
       return;
   }
-  WTF;
+  pbl_panic();
 }
 
 bool app_manager_is_app_supported(const PebbleProcessMd *md) {

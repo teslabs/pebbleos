@@ -97,7 +97,7 @@ ble_npl_error_t npl_pebble_mutex_pend(struct ble_npl_mutex *mu, ble_npl_time_t t
   }
 
   if (mcu_state_is_isr()) {
-    WTF;
+    pbl_panic();
   }
 
   return (pbl_mutex_lock(&mu->handle, PBL_TICKS(timeout)) == 0) ? BLE_NPL_OK : BLE_NPL_TIMEOUT;

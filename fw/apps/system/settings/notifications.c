@@ -393,7 +393,7 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Lay
       break;
     }
     default:
-      WTF;
+      pbl_panic();
   }
 
   menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data), i18n_get(subtitle, data), nullptr);
@@ -438,7 +438,7 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       prv_status_bar_style_menu_push(data);
       break;
     default:
-      WTF;
+      pbl_panic();
   }
   settings_menu_reload_data(SettingsMenuItemNotifications);
 }

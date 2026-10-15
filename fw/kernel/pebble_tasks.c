@@ -57,7 +57,7 @@ const char *pebble_task_get_name(PebbleTask task) {
     if (task == PebbleTask_Unknown) {
       return "Unknown";
     }
-    WTF;
+    pbl_panic();
   }
 
   struct pbl_thread *thread = g_task_threads[task];
@@ -222,7 +222,7 @@ struct pbl_msgq *pebble_task_get_to_queue(PebbleTask task) {
       queue = nullptr;
       break;
     default:
-      WTF;
+      pbl_panic();
   }
   return queue;
 }
@@ -257,7 +257,7 @@ struct pbl_thread *pebble_task_create(PebbleTask pebble_task, struct pbl_thread_
                                   false /* allow_user_access */);
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 
   const MpuRegion *stack_guard_region = nullptr;
@@ -289,7 +289,7 @@ struct pbl_thread *pebble_task_create(PebbleTask pebble_task, struct pbl_thread_
     case PebbleTask_PULSE:
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 #endif
 

@@ -29,7 +29,7 @@ PBL_T_STATIC uint32_t prv_hr_quality_int(HRMQuality quality) {
     case HRMQuality_Excellent:
       return pebble_pipeline_MeasurementSet_HeartRateQuality_Excellent;
   }
-  WTF; // Should never get here
+  pbl_panic(); // Should never get here
   return 0;
 }
 

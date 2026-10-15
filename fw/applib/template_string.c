@@ -163,7 +163,7 @@ PBL_T_STATIC bool prv_template_predicate_match(TemplateStringState *state, Predi
   } else if (*state->position == '>') {
     *cond = PredicateCondition_G;
   } else {
-    WTF;
+    pbl_panic();
   }
   state->position++;
 
@@ -190,7 +190,7 @@ PBL_T_STATIC bool prv_template_predicate_match(TemplateStringState *state, Predi
     case PredicateCondition_LE:
       return (state->filter_state <= *value);
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -571,7 +571,7 @@ static bool prv_format_predicate(TemplateStringState *state, bool previously_mat
   }
   // Predicate matcher will only leave on :,) or error, so this should never trip.
   if (!prv_predicate_valid_splitter(*state->position)) {
-    WTF;
+    pbl_panic();
   }
 
   int wait_time;

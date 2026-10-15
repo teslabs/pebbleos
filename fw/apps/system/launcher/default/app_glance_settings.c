@@ -338,7 +338,7 @@ static uint32_t prv_get_resource_id_for_connectivity_status(
   } else if (settings_glance->glance_state.is_pebble_app_connected) {
     return RESOURCE_ID_CONNECTIVITY_BLUETOOTH_CONNECTED;
   } else {
-    WTF;
+    pbl_panic();
   }
 }
 
@@ -394,7 +394,7 @@ static void prv_event_handler(PebbleEvent *event, void *context) {
     }
 #endif
     default:
-      WTF;
+      pbl_panic();
   }
 
   // Refresh the content in the glance

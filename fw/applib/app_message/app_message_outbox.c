@@ -37,7 +37,7 @@ static void prv_handle_nack_or_ack_timeout(AppMessageCtxOutbox *outbox, AppMessa
   } else if (outbox->phase == OUT_AWAITING_REPLY_AND_OUTBOX_CALLBACK) {
     outbox->phase = OUT_AWAITING_OUTBOX_CALLBACK;
   } else {
-    WTF;
+    pbl_panic();
   }
 }
 

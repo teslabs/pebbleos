@@ -633,7 +633,7 @@ bool ble_ad_set_service_uuids(struct pbl_bt_ad_data *ad, const Uuid uuids[], uin
       element->header.type = BLEAdTypeService16BitUUIDComplete;
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 
   element->header.length = buffer_size - 1 /* -1 Length byte */;
@@ -651,7 +651,7 @@ bool ble_ad_set_service_uuids(struct pbl_bt_ad_data *ad, const Uuid uuids[], uin
         element->uuid_16[i] = prv_convert_to_16bit_uuid(&uuids[i]);
         break;
       default:
-        WTF;
+        pbl_panic();
     }
   }
 

@@ -60,7 +60,7 @@ GetBytesStorageType prv_get_storage_type_for_object(GetBytesObjectType object_ty
     case GetBytesObjectFlash:
       return GetBytesStorageTypeFlash;
     default:
-      WTF;
+      pbl_panic();
       return GetBytesStorageTypeUnknown;
   }
 }

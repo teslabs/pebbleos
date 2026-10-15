@@ -1445,7 +1445,7 @@ void grect_polar_calc_values(const GRect *r, GOvalScaleMode scale_mode, GPointPr
         side = grect_longest_side(rect);
         break;
       default:
-        WTF;
+        pbl_panic();
     }
     const int16_t radius_value = ((side + 1) * FIXED_ONE) / 2 - FIXED_ONE;
     *radius = Fixed_S16_3(MAX(0, radius_value));

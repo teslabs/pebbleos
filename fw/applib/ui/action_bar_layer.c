@@ -191,7 +191,7 @@ void action_bar_update_proc(ActionBarLayer *action_bar, GContext *ctx) {
           rect.origin.y = action_bar->layer.bounds.size.h - vertical_icon_margin - rect.size.h;
           break;
         default:
-          WTF;
+          pbl_panic();
       }
 
       // In order to avoid creating relatively heavy animations, we instead just base our drawing

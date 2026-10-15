@@ -88,7 +88,7 @@ static bool prv_lock(void) {
     PBL_LOG_ERR("Trying to use the activity algorithm but it hasn't been initialized");
     return false;
 #else
-    WTF;
+    pbl_panic();
 #endif
   }
   pbl_mutex_lock(&s_alg_state->mutex, PBL_FOREVER);
@@ -149,7 +149,7 @@ static void prv_create_activity_session_cb(void *context, KAlgActivityType kalg_
       activity = ActivitySessionType_Sleep;
       break;
     case KAlgActivityTypeCount:
-      WTF;
+      pbl_panic();
       break;
   }
   PBL_ASSERTN(activity != ActivitySessionTypeCount);

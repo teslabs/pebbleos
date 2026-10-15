@@ -53,7 +53,7 @@ AccelServiceState *accel_service_private_get_session(PebbleTask task) {
   } else if (task == PebbleTask_Worker) {
     return worker_state_get_accel_state();
   } else {
-    WTF;
+    pbl_panic();
   }
 }
 
