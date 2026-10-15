@@ -15,6 +15,8 @@ little-endian:
 3. offset tables
 4. glyph table
 
+(installed-language-packs)=
+
 ## Installed language packs
 
 System fonts consult their selected pack's extension, then the other installed

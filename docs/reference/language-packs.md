@@ -2,7 +2,7 @@
 
 The watch stores up to four language packs. One of them, or built-in English,
 provides the UI translation; every installed pack contributes font glyphs (see
-[Installed language packs](formats/font.md#installed-language-packs)). Watches
+{ref}`Installed language packs <installed-language-packs>`). Watches
 advertise everything on this page with protocol capability bit 28
 (`multiple_language_packs_support`). Older watches, and phone apps that don't
 know the bit, keep using the single-pack flow. All multi-byte fields are
