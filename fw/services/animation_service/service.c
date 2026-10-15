@@ -7,6 +7,7 @@
 #include <applib/ui/animation_private.h>
 #include <kernel/events.h>
 #include <kernel/kernel_applib_state.h>
+#include <kernel/pebble_tasks.h>
 #include <process_management/process_manager.h>
 #include <process_state/app_state/app_state.h>
 #include <syscall/syscall_define.h>

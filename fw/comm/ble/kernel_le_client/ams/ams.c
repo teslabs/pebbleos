@@ -22,6 +22,7 @@
 #include <comm/bt_lock.h>
 #include <kernel/event_loop.h>
 #include <kernel/pbl_malloc.h>
+#include <kernel/pebble_tasks.h>
 #include <system/hexdump.h>
 #include <system/passert.h>
 

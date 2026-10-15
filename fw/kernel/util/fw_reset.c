@@ -10,6 +10,7 @@
 #include <console/pulse_internal.h>
 #include <kernel/core_dump.h>
 #include <kernel/event_loop.h>
+#include <kernel/pebble_tasks.h>
 #include <kernel/ui/modals/modal_manager.h>
 #include <kernel/util/factory_reset.h>
 #include <kernel/util/fw_reset.h>

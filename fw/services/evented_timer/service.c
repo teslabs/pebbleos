@@ -8,6 +8,7 @@
 
 #include <kernel/events.h>
 #include <kernel/pbl_malloc.h>
+#include <kernel/pebble_tasks.h>
 #include <process_management/app_manager.h>
 #include <syscall/syscall.h>
 #include <syscall/syscall_define.h>

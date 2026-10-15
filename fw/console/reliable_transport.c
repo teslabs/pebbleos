@@ -338,6 +338,7 @@ static void prv_on_this_layer_down(PPPControlProtocol *this) {
 #define ON_PACKET(...)
 #define ON_TRANSPORT_STATE_CHANGE(UP_HANDLER, DOWN_HANDLER) DOWN_HANDLER();
 #include <console/pulse2_reliable_protocol_registry.def>
+#include <kernel/pebble_tasks.h>
 #undef ON_PACKET
 #undef ON_TRANSPORT_STATE_CHANGE
 }

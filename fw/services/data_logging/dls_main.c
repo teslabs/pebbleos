@@ -23,6 +23,7 @@
 #include <applib/data_logging.h>
 #include <comm/bt_lock.h>
 #include <kernel/pbl_malloc.h>
+#include <kernel/pebble_tasks.h>
 #include <process_management/pebble_process_md.h>
 #include <process_management/process_manager.h>
 #include <syscall/syscall.h>
