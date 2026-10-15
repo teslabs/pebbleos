@@ -486,7 +486,7 @@ bool process_manager_make_process_safe_to_kill(PebbleTask task, bool gracefully)
     } else if (task == PebbleTask_Worker) {
       heap = worker_state_get_heap();
     } else {
-      WTF;
+      pbl_panic();
     }
 
     // FIXME: We cast heap_size's size_t result to int because for some reason our printf doesn't
@@ -599,7 +599,7 @@ void process_manager_close_process(PebbleTask task, bool gracefully) {
     worker_manager_close_current_worker(gracefully);
 
   } else {
-    WTF;
+    pbl_panic();
   }
 }
 
@@ -676,7 +676,7 @@ static uintptr_t prv_get_region_end(PebbleTask task, const void *lower_bound) {
     ram_start = __WORKER_RAM__;
     ram_end = __WORKER_RAM_end__;
   } else {
-    WTF;
+    pbl_panic();
   }
 
   if (lower_bound < ram_start) {

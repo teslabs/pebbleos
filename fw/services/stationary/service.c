@@ -258,7 +258,7 @@ static void prv_handle_awake_action(StationaryAction action) {
       prv_enter_disabled_state();
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -276,7 +276,7 @@ static void prv_handle_stationary_action(StationaryAction action) {
       prv_enter_disabled_state();
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -294,7 +294,7 @@ static void prv_handle_peeking_action(StationaryAction action) {
       prv_enter_disabled_state();
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -313,7 +313,7 @@ static void prv_handle_disabled_action(StationaryAction action) {
     case StationaryActionDisableStationary:
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

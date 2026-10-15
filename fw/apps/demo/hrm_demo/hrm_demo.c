@@ -73,7 +73,7 @@ static char *prv_get_quality_string(HRMQuality quality) {
     case HRMQuality_Excellent:
       return "Excellent";
   }
-  WTF;
+  pbl_panic();
 }
 
 static char *prv_translate_error(AppMessageResult result) {

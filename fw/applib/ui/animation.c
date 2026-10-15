@@ -41,7 +41,7 @@ static AnimationState *prv_animation_state_get(PebbleTask task) {
   } else if (task == PebbleTask_KernelMain) {
     return kernel_applib_get_animation_state();
   } else {
-    WTF;
+    pbl_panic();
   }
 }
 

@@ -13,7 +13,7 @@
 static AppTimer *s_timer = nullptr;
 
 static void shouldnt_happen(void *context) {
-  WTF;
+  pbl_panic();
 }
 
 static void stupid_cancel(void *context) {

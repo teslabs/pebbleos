@@ -124,7 +124,7 @@ static void prv_notification_event_handler(PebbleEvent *event, void *context) {
     case NotificationActionResult:
       return;
   }
-  WTF;
+  pbl_panic();
 }
 
 static const LauncherAppGlanceStructuredImpl s_notifications_structured_glance_impl = {

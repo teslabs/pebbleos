@@ -139,7 +139,7 @@ void activity_metrics_prv_get_metric_info(ActivityMetric metric, ActivityMetricI
       info->has_history = false;
       break;
     case ActivityMetricNumMetrics:
-      WTF;
+      pbl_panic();
       break;
   }
 }

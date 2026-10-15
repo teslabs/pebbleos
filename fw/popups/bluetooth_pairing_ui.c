@@ -242,7 +242,7 @@ static uint32_t prv_resource_id_for_state(BTPairingUIState state) {
     case BTPairingUIStateFailed:
       return RESOURCE_ID_BT_PAIR_FAILURE;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -293,7 +293,7 @@ static void prv_adjust_background_frame_for_state(BTPairingUIData *data) {
       width = window_width;
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 
   GRect kino_area;
@@ -615,7 +615,7 @@ void bluetooth_pairing_ui_handle_event(PebbleBluetoothPairEvent *event) {
       break;
 
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

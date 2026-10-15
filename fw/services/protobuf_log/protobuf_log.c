@@ -190,7 +190,7 @@ static size_t prv_session_extra_space_needed(const ProtobufLogConfig *config) {
     case ProtobufLogType_Events:
       return 0;
   }
-  WTF;
+  pbl_panic();
   return 0;
 }
 
@@ -249,7 +249,7 @@ static bool prv_session_encode_start(PLogSession *session) {
     case ProtobufLogType_Events:
       return true;
   }
-  WTF;
+  pbl_panic();
 }
 
 // ---------------------------------------------------------------------------------------

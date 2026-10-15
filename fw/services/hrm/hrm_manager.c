@@ -614,7 +614,7 @@ static void prv_populate_hrm_event(PebbleHRMEvent *event, HRMFeature feature, co
     }
 #endif
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

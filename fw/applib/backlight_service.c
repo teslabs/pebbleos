@@ -20,7 +20,7 @@ static BacklightServiceState *prv_get_state(void) {
     return worker_state_get_backlight_service_state();
   }
 
-  WTF;
+  pbl_panic();
 }
 
 static void prv_do_handle(PebbleEvent *e, void *context) {

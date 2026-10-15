@@ -552,7 +552,7 @@ static size_t prv_expected_minimum_length_by_command(const PutBytesCommand comma
     case PutBytesInstall:
       return sizeof(InstallRequest);
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -983,7 +983,7 @@ static void prv_process_msg_system_task_callback(void *unused) {
       prv_do_init();
       break;
     case PutBytesPut:
-      WTF; // Put Requests have their own handler
+      pbl_panic(); // Put Requests have their own handler
       break;
     case PutBytesCommit:
       prv_do_commit();

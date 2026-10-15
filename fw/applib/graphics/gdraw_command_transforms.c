@@ -399,7 +399,7 @@ Fixed_S16_3 prv_stroke_width_transform(Fixed_S16_3 native, Fixed_S16_3 op_value,
     case GStrokeWidthOpAdd:
       return Fixed_S16_3_add(native, op_value);
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

@@ -31,7 +31,7 @@ static TouchServiceState *prv_get_state(void) {
       // Touch is not available to background workers — they have no UI.
       return nullptr;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

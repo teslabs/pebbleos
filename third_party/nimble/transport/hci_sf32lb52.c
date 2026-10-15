@@ -258,7 +258,7 @@ static int prv_hci_frame_cb(uint8_t pkt_type, void *data) {
 
       return ble_transport_to_hs_acl(data);
     default:
-      WTF;
+      pbl_panic();
       break;
   }
 

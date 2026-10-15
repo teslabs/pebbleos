@@ -688,7 +688,7 @@ GColor8 gcolor_blend(GColor8 src_color, GColor8 dest_color, uint8_t blending_fac
       return src_color;
     default:
       // Something went utterly wrong - proceed to throw up
-      WTF;
+      pbl_panic();
   }
 }
 

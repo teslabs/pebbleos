@@ -231,7 +231,7 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
     case TimelinePeekMenuIndexCount:
       break;
   }
-  WTF;
+  pbl_panic();
 done:
   settings_menu_reload_data(SettingsMenuItemTimeline);
 }

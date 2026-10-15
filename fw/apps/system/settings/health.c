@@ -198,7 +198,7 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Lay
     }
 #endif
     default:
-      WTF;
+      pbl_panic();
   }
   menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data), i18n_get(subtitle, data), nullptr);
 }
@@ -249,7 +249,7 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       break;
 #endif
     default:
-      WTF;
+      pbl_panic();
   }
   settings_menu_reload_data(SettingsMenuItemHealth);
   settings_menu_mark_dirty(SettingsMenuItemHealth);

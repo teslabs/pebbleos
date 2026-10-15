@@ -45,7 +45,7 @@ static void prv_set_state(Recognizer *recognizer, RecognizerState new_state) {
       break;
 
     default:
-      WTF;
+      pbl_panic();
   }
   recognizer->state = new_state;
 }
@@ -81,7 +81,7 @@ static void prv_send_subscriber_event(Recognizer *recognizer) {
       break;
 
     default:
-      WTF;
+      pbl_panic();
   }
   recognizer->subscriber.event(recognizer, event);
 }

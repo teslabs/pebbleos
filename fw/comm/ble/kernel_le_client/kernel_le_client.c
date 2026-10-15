@@ -267,7 +267,7 @@ static void prv_handle_gatt_service_discovery_event(const PebbleBLEGATTClientSer
       prv_handle_services_added(&event_info->services_added_data, &event_info->device);
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

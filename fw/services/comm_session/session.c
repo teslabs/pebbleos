@@ -141,7 +141,7 @@ static const char *prv_string_for_destination(TransportDestination destination) 
     case TransportDestinationHybrid:
       return "H";
     default:
-      WTF;
+      pbl_panic();
       return nullptr;
   }
 }

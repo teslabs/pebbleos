@@ -19,7 +19,7 @@ static Heap *get_task_heap(void) {
   } else if (task == PebbleTask_Worker) {
     heap = worker_state_get_heap();
   } else {
-    WTF;
+    pbl_panic();
   }
 
   return heap;

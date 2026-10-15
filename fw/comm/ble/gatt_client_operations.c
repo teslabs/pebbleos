@@ -145,7 +145,7 @@ void pbl_bt_cb_gatt_client_operations_handle_response(
           break;
         }
         default:
-          WTF;
+          pbl_panic();
       }
     }
 

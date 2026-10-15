@@ -113,7 +113,7 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Lay
       break;
     }
     default: {
-      WTF;
+      pbl_panic();
     }
   }
 
@@ -166,7 +166,7 @@ static void prv_selection_changed_cb(SettingsCallbacks *context, uint16_t new_ro
       return;
     }
     default:
-      WTF;
+      pbl_panic();
   }
   if (!score) {
     PBL_LOG_ERR("Null VibeScore!");
@@ -230,7 +230,7 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       return;
     }
     default:
-      WTF;
+      pbl_panic();
   }
 
   VibeScoreId current_vibe_score = alerts_preferences_get_vibe_score_for_client(client);

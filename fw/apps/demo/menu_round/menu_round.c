@@ -115,7 +115,7 @@ static MenuDetailInfo prv_get_row_details_for_style(MenuLayerStyle style) {
         .highlight_background_color = GColorIslamicGreen,
       };
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -173,7 +173,7 @@ static void prv_menu_detail_draw_row(GContext *ctx, const Layer *cell_layer,
       break;
     }
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

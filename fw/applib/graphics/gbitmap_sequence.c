@@ -181,7 +181,7 @@ static void prv_set_pixel_in_row(uint8_t *row_data, GBitmapFormat bitmap_format,
     GColor8 *const destination_pixel = (GColor8 *)(row_data + x);
     *destination_pixel = color;
   } else {
-    WTF; // Unsupported destination type
+    pbl_panic(); // Unsupported destination type
   }
 }
 

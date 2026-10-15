@@ -151,7 +151,7 @@ static bool prv_can_transition_state(ANCSClientState new_state) {
       return (new_state == ANCSClientStateRequestedNotification ||
               new_state == ANCSClientStateIdle);
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -696,7 +696,7 @@ static void prv_reassembly_handle_complete_response(const uint8_t *data, const s
       prv_handle_notification_attributes_response(data, length);
       return;
     default:
-      // WTF;
+      // pbl_panic();
       prv_reset_and_next();
       return;
   }
@@ -959,7 +959,7 @@ void ancs_handle_subscribe(pbl_bt_characteristic_t subscribed_characteristic,
   if (characteristic_id != ANCSCharacteristicNotification &&
       characteristic_id != ANCSCharacteristicData) {
     // Only Notification and Data characteristics are expected to be subscribed to
-    WTF;
+    pbl_panic();
   }
 
   if (error == PBL_BT_GATT_ERROR_SUCCESS) {
@@ -1138,7 +1138,7 @@ void ancs_handle_read_or_notification(pbl_bt_characteristic_t characteristic, co
       handler = prv_handle_ds_notification;
       break;
     default:
-      WTF;
+      pbl_panic();
   }
   handler(value_length, value);
 }

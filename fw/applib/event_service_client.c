@@ -22,7 +22,7 @@ static EventServiceInfo *prv_get_state(void) {
   } else if (task == PebbleTask_KernelMain) {
     return kernel_applib_get_event_service_state();
   } else {
-    WTF;
+    pbl_panic();
   }
 }
 

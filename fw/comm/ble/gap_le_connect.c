@@ -892,7 +892,7 @@ void gap_le_connect_handle_bonding_change(pbl_bt_bonding_id_t bonding_id, BtPers
   if (op == BtPersistBondingOpDidChange) {
     if (!bt_persistent_storage_get_ble_pairing_by_id(bonding_id, &updated_bonding.irk,
                                                      &updated_bonding.device, nullptr)) {
-      WTF;
+      pbl_panic();
     }
     updated_bonding.id = bonding_id;
   }
@@ -914,7 +914,7 @@ void gap_le_connect_handle_bonding_change(pbl_bt_bonding_id_t bonding_id, BtPers
                             GAPLEConnectHCIReasonExtensionUserRemovedBonding);
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 unlock:
   bt_unlock();

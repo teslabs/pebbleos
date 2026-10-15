@@ -595,7 +595,7 @@ static ActionResultData *prv_invoke_remote_action(ActionMenu *action_menu,
     }
     case TimelineItemActionTypeOpenPin:
     case TimelineItemActionTypeOpenWatchApp:
-      WTF;
+      pbl_panic();
     case TimelineItemActionTypeAncsNegative:
     case TimelineItemActionTypeAncsDelete:
     case TimelineItemActionTypeAncsPositive:

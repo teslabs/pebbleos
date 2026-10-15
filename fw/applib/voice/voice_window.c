@@ -327,7 +327,7 @@ static void prv_handle_ready_event(VoiceUiData *data, PebbleVoiceServiceEvent *e
       prv_handle_ready_error(data);
       break;
     default:
-      WTF;
+      pbl_panic();
   }
   if (event->status != VoiceStatusSuccess) {
     data->last_session_successful = false;
@@ -458,7 +458,7 @@ static void prv_handle_dictation_result(VoiceUiData *data, PebbleVoiceServiceEve
       break;
 
     default:
-      WTF;
+      pbl_panic();
   }
   data->last_session_successful = success;
 }
@@ -531,7 +531,7 @@ static void prv_voice_event_handler(PebbleEvent *e, void *context) {
       PBL_LOG_DBG("Ignoring event");
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -992,7 +992,7 @@ static void prv_handle_stop_transition(VoiceUiData *data) {
       break;
     }
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -1093,7 +1093,7 @@ static VoiceUiState prv_get_next_state(VoiceUiState current_state, VoiceUiState 
       break;
 
     default:
-      WTF;
+      pbl_panic();
   }
 
   // No valid transition found!
@@ -1175,7 +1175,7 @@ static void prv_do_transition(VoiceUiData *data, VoiceUiState state) {
       break;
 
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

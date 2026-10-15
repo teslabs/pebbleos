@@ -92,7 +92,7 @@ bool activity_sessions_prv_is_sleep_activity(ActivitySessionType activity_type) 
     case ActivitySessionTypeCount:
       break;
   }
-  WTF;
+  pbl_panic();
 }
 
 // ------------------------------------------------------------------------------------
@@ -536,7 +536,7 @@ static void prv_log_activities(time_t now_utc) {
         break;
       case ActivitySessionType_None:
       case ActivitySessionTypeCount:
-        WTF;
+        pbl_panic();
         break;
     }
     PBL_ASSERTN(params);
@@ -627,7 +627,7 @@ void activity_sessions_prv_init(SettingsFile *file, time_t utc_now) {
       memset(state->activity_sessions, 0, sizeof(state->activity_sessions));
       settings_file_set(file, &key, sizeof(key), state->activity_sessions,
                         sizeof(state->activity_sessions));
-      WTF;
+      pbl_panic();
     }
     state->activity_sessions_count++;
   }

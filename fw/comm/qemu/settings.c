@@ -54,6 +54,6 @@ uint32_t qemu_setting_get(QemuSetting setting) {
       break;
 
     default:
-      WTF;
+      pbl_panic();
   }
 }

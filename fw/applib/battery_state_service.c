@@ -24,7 +24,7 @@ static BatteryStateServiceState *prv_get_state(PebbleTask task) {
   } else if (task == PebbleTask_Worker) {
     return worker_state_get_battery_state_service_state();
   } else {
-    WTF;
+    pbl_panic();
   }
 }
 

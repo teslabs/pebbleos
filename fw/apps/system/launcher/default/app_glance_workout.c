@@ -104,7 +104,7 @@ static uint32_t prv_get_workout_icon_resource_id_for_type(ActivitySessionType ty
       break;
   }
 
-  WTF;
+  pbl_panic();
 }
 
 static void prv_timer_callback(void *data) {

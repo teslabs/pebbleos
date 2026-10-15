@@ -268,7 +268,7 @@ static bool prv_call_data_callback(AccelManagerState *state) {
     case PebbleTask_NewTimers:
       return new_timer_add_work_callback(state->data_cb_handler, state->data_cb_context);
     default:
-      WTF; // Unsupported task for the accel manager
+      pbl_panic(); // Unsupported task for the accel manager
   }
 }
 
