@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/irq.h>
 #include <pbl/kernel/sched.h>
 #include <pbl/kernel/thread.h>
@@ -146,6 +147,10 @@ extern void sys_app_fault(uint32_t lr);
   } else {
     sys_app_fault(lr);
   }
+}
+
+[[noreturn]] void pbl_fatal_error_handler(uintptr_t lr) {
+  trigger_fault(RebootReasonCode_Assert, lr);
 }
 
 [[noreturn]] void trigger_oom_fault(size_t bytes, uint32_t lr, Heap *heap_ptr) {

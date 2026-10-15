@@ -7,11 +7,12 @@
 #include <stdio.h>
 
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
 
 #include <clar_asserts.h>
 
-PBL_WEAK [[noreturn]] void passert_failed(const char *filename, int line_number,
-                                          const char *message, ...) {
+PBL_WEAK [[noreturn]] void pbl_panic_at(const char *filename, int line_number, const char *message,
+                                        ...) {
   if (clar_expecting_passert) {
     clar_passert_occurred = true;
     longjmp(clar_passert_jmp_buf, 1);
@@ -32,34 +33,17 @@ PBL_WEAK [[noreturn]] void passert_failed(const char *filename, int line_number,
 }
 
 PBL_WEAK [[noreturn]] void util_assertion_failed(const char *filename, int line) {
-  passert_failed(filename, line, nullptr);
+  pbl_panic_at(filename, line, nullptr);
 }
 
-PBL_WEAK [[noreturn]] void passert_failed_no_message(const char *filename, int line_number) {
-  passert_failed(filename, line_number, nullptr);
-}
-
-PBL_WEAK [[noreturn]] void passert_failed_no_message_with_lr(const char *filename, int line_number,
-                                                             uint32_t lr) {
-  passert_failed(filename, line_number, nullptr);
-}
-
-PBL_WEAK void croak(const char *filename, int line_number, const char *fmt, ...) {
-  cl_fail(fmt);
-  while (1)
-    ;
+PBL_WEAK [[noreturn]] void pbl_panic_bare_at(const char *filename, int line_number) {
+  pbl_panic_at(filename, line_number, nullptr);
 }
 
 typedef struct Heap Heap;
 
 PBL_WEAK [[noreturn]] void croak_oom(size_t bytes, int saved_lr, Heap *heap_ptr) {
   cl_fail("CROAK OOM");
-  while (1)
-    ;
-}
-
-PBL_WEAK [[noreturn]] void wtf(void) {
-  cl_fail("WTF");
   while (1)
     ;
 }
