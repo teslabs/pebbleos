@@ -63,9 +63,13 @@ void backlight_set_brightness(uint8_t brightness) {
   const uint8_t pulse_count = backlight_get_level(brightness);
 
   if (pulse_count == 0U) {
-    // The chip shuts itself down after EN has been low for 2.5ms; no need to
-    // block here, as the turn-on path below always waits that out itself.
+    // The LED keeps driving until EN has been low for 2.5ms. Wait that out so
+    // the backlight is dark on return; the light service resumes the ALS right
+    // after this and would otherwise integrate the LED tail.
     pbl_gpio_set(&AW9364E.gpio, false);
+    if (s_pulse_count != 0U) {
+      delay_us(AW9364E_OFF_TIME_US);
+    }
     s_pulse_count = 0U;
     return;
   }
