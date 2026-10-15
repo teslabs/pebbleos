@@ -149,6 +149,30 @@ void test_language_pack_protocol__rejects_stale_metadata(void) {
   cl_assert_equal_i(s_removed, -1);
 }
 
+void test_language_pack_protocol__removes_with_future_trailing_fields(void) {
+  const uint8_t request[] = {
+    0, SysMsgLanguagePackRemove, 9, 0, 0x34, 0x12, 'f', 'r', '_', 'F', 'R', 0, 0xab, 0xcd
+  };
+  language_pack_protocol_handle_remove(NULL, request, sizeof(request));
+  cl_assert_equal_i(s_length, 5);
+  cl_assert_equal_i(s_response[1], SysMsgLanguagePackRemoveResponse);
+  cl_assert_equal_i(s_response[2], 9);
+  cl_assert_equal_i(s_response[4], 1);
+  cl_assert_equal_i(s_removed, 0);
+}
+
+void test_language_pack_protocol__selects_with_future_trailing_fields(void) {
+  const uint8_t request[] = {
+    0, SysMsgLanguageSelect, 10, 0, 0x34, 0x12, 'f', 'r', '_', 'F', 'R', 0, 0xab, 0xcd
+  };
+  language_pack_protocol_handle_select(NULL, request, sizeof(request));
+  cl_assert_equal_i(s_length, 5);
+  cl_assert_equal_i(s_response[1], SysMsgLanguageSelectResponse);
+  cl_assert_equal_i(s_response[2], 10);
+  cl_assert_equal_i(s_response[4], 1);
+  cl_assert_equal_i(s_language, ShellLanguageInstalledPack);
+}
+
 void test_language_pack_protocol__removes_invalid_pack(void) {
   const uint8_t request[] = {0, SysMsgLanguagePackRemove, 9, 2, 0, 0, 0, 0, 0, 0, 0, 0};
   language_pack_protocol_handle_remove(NULL, request, sizeof(request));

@@ -75,7 +75,7 @@ void language_pack_protocol_handle_list(CommSession *session, const uint8_t *dat
 // Parses a remove or select request, answering malformed ones with a failure.
 static const SysMsgLanguagePackPayload *prv_parse(CommSession *session, const uint8_t *data,
                                                   size_t length, SystemMessageType response_type) {
-  if (length == sizeof(SysMsgLanguagePackPayload)) {
+  if (length >= sizeof(SysMsgLanguagePackPayload)) {
     return (const SysMsgLanguagePackPayload *)data;
   }
   const SysMsgLanguagePackResultPayload response = {

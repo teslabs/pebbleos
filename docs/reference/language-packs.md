@@ -72,5 +72,6 @@ Selecting requires a pack with a translation and keeps every installed pack.
 Removing the selected pack selects English, even while English is toggled on.
 Removing a pack that a file transfer is still writing fails.
 
-Both responses hold the token, the slot and a success byte. Requests with a
-bad length or slot are answered with a failure.
+Both responses hold the token, the slot and a success byte. Requests with
+too-short payloads or invalid slots are answered with a failure. Additional
+trailing fields are ignored for compatibility with future phone apps.
