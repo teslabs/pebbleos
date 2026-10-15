@@ -676,7 +676,7 @@ void
     _duma_exit(void);
 #endif
 
-// Avoid pulling in stubs_passert.h here, causes too many issues
+// Avoid pulling in the fatal stubs here, causes too many issues
 // define a weak fallback for code that doesn't pull in clar
 __attribute__((__weak__)) void pbl_panic_at(const char *filename, int line_number,
                                             const char *message, ...) {

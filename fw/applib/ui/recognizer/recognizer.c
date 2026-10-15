@@ -9,11 +9,13 @@
 #include "recognizer_private.h"
 
 #include <stddef.h>
+#include <string.h>
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/util/list.h>
 
 #include <applib/applib_malloc.auto.h>
-#include <system/passert.h>
 
 static_assert(RECOGNIZER_INSTANCE_SIZE >= sizeof(Recognizer),
               "RECOGNIZER_INSTANCE_SIZE too small for Recognizer");

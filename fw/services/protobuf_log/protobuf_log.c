@@ -4,6 +4,8 @@
 #include <string.h>
 
 #include <pbl/drivers/rtc.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/data_logging/data_logging_service.h>
@@ -19,7 +21,6 @@
 #include <mfg/mfg_serials.h>
 #include <pb.h>
 #include <pb_encode.h>
-#include <system/passert.h>
 #include <system/version.h>
 
 // These headers auto-generated from the measurements.proto

@@ -5,6 +5,8 @@
 
 #include <pbl/drivers/accel.h>
 #include <pbl/drivers/vibe.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/logging/logging.h>
 #include <pbl/mcu/interrupts.h>
@@ -21,7 +23,6 @@
 #include <kernel/pbl_malloc.h>
 #include <syscall/syscall.h>
 #include <syscall/syscall_define.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DEFINE(service_accel_manager, CONFIG_SERVICE_ACCEL_MANAGER_LOG_LEVEL);
 

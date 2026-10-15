@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include <pbl/drivers/als.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/services/light.h>
 #include <pbl/util/size.h>
@@ -20,7 +21,6 @@
 #include <process_state/app_state/app_state.h>
 #include <shell/prefs.h>
 #include <shell/system_theme.h>
-#include <system/passert.h>
 
 // Forward decl so the parent menu can push the Backlight submenu.
 static void prv_backlight_submenu_push(void);

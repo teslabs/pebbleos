@@ -10,7 +10,9 @@
 
 #include <string.h>
 
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/evented_timer.h>
 #include <pbl/services/notifications/ancs/ancs_notifications.h>
@@ -25,7 +27,6 @@
 #include <kernel/event_loop.h>
 #include <kernel/pbl_malloc.h>
 #include <system/hexdump.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DECLARE(bt, CONFIG_BT_LOG_LEVEL);
 

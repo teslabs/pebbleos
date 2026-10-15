@@ -13,6 +13,8 @@
 #include <string.h>
 
 #include <pbl/drivers/als.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/services/blob_db/api.h>
 #include <pbl/services/bluetooth/local_id.h>
 #include <pbl/services/i18n/i18n.h>
@@ -45,7 +47,6 @@
 #include <shell/system_app_ids.auto.h>
 #include <syscall/syscall.h>
 #include <system/bootbits.h>
-#include <system/passert.h>
 #include <system/version.h>
 
 enum {

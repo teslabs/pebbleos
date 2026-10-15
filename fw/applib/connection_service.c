@@ -5,12 +5,13 @@
 
 #include "connection_service_private.h"
 
+#include <pbl/kernel/fatal.h>
+
 #include <applib/event_service_client.h>
 #include <kernel/events.h>
 #include <process_state/app_state/app_state.h>
 #include <process_state/worker_state/worker_state.h>
 #include <syscall/syscall.h>
-#include <system/passert.h>
 
 static ConnectionServiceState *prv_get_state(void) {
   PebbleTask task = pebble_task_get_current();

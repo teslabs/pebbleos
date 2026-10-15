@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include <pbl/drivers/rtc.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/services/notifications/alerts_preferences.h>
 #include <pbl/services/notifications/alerts_preferences_private.h>
@@ -13,7 +14,6 @@
 #include <pbl/util/math.h>
 
 #include <shell/prefs_private.h>
-#include <system/passert.h>
 
 #define FILE_NAME "notifpref"
 #define FILE_LEN  (1024)

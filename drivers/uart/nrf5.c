@@ -3,10 +3,11 @@
 
 #include <pbl/drivers/uart.h>
 #include <pbl/drivers/uart/nrf5.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 
 #include <nrfx_uarte.h>
-#include <system/passert.h>
 #ifdef NRF_PPI_BASE
 #include <nrfx_ppi.h>
 #else

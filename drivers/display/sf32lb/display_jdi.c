@@ -5,8 +5,10 @@
 #include <pbl/drivers/display/sf32lb/display_jdi.h>
 #include <pbl/drivers/gpio.h>
 #include <pbl/drivers/rtc.h>
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
 #include <pbl/kernel/delay.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/irq.h>
 #include <pbl/kernel/sem.h>
 #include <pbl/logging/logging.h>
@@ -19,7 +21,6 @@
 #include <bf0_hal_rtc.h>
 #include <board/board.h>
 #include <kernel/events.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DEFINE(driver_display_jdi, CONFIG_DRIVER_DISPLAY_LOG_LEVEL);
 

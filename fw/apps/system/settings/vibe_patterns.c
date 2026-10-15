@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/services/notifications/alerts_preferences.h>
@@ -22,7 +23,6 @@
 
 #include <applib/ui/ui.h>
 #include <kernel/pbl_malloc.h>
-#include <system/passert.h>
 
 typedef enum VibeSettingsRow {
 #ifdef CONFIG_SPEAKER

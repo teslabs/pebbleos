@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/util/math.h>
 
@@ -13,7 +14,6 @@
 #include <applib/ui/window.h>
 #include <kernel/pbl_malloc.h>
 #include <process_state/app_state/app_state.h>
-#include <system/passert.h>
 
 #define TEXT_BUFFER_SIZE 64
 

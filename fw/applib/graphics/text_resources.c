@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
 #include <pbl/logging/logging.h>
 #include <pbl/util/math.h>
@@ -17,7 +18,6 @@
 #include <applib/fonts/fonts_private.h>
 #include <resource/resource_ids.auto.h>
 #include <syscall/syscall.h>
-#include <system/passert.h>
 #include <system/profiler.h>
 
 #define RLE4_UNITS_BIT_WIDTH (4)

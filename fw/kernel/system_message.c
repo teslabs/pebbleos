@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/comm_session/protocol.h>
@@ -15,7 +16,6 @@
 #include <kernel/events.h>
 #include <kernel/pebble_tasks.h>
 #include <kernel/system_message.h>
-#include <system/passert.h>
 #include <system/reboot_reason.h>
 #include <system/reset.h>
 

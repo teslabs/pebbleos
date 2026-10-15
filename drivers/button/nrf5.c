@@ -1,8 +1,8 @@
 #include <pbl/drivers/button.h>
+#include <pbl/kernel/fatal.h>
 
 #include <board/board.h>
 #include <kernel/events.h>
-#include <system/passert.h>
 
 // watch rotation
 static bool s_rotated_180 = false;

@@ -4,6 +4,7 @@
 #include <pbl/btutil/sm_util.h>
 #include <pbl/crc/crc.h>
 #include <pbl/drivers/flash.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/shared_prf_storage/shared_prf_storage.h>
@@ -11,7 +12,6 @@
 
 #include <flash_region/flash_region.h>
 #include <kernel/pbl_malloc.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DEFINE(service_shared_prf_storage, CONFIG_SERVICE_SHARED_PRF_STORAGE_LOG_LEVEL);
 

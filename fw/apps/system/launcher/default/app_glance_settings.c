@@ -8,7 +8,9 @@
 
 #include <stdio.h>
 
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/services/battery/battery_state.h>
 #include <pbl/services/bluetooth/ble_hrm.h>
 #include <pbl/services/comm_session/session.h>
@@ -25,7 +27,6 @@
 #include <process_management/app_install_manager.h>
 #include <resource/resource_ids.auto.h>
 #include <shell/system_theme.h>
-#include <system/passert.h>
 
 //! Horizontal span of one row of the charging bolt, top to bottom
 typedef struct ChargingIconRow {

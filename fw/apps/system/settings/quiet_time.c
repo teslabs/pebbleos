@@ -6,6 +6,7 @@
 #include "menu.h"
 #include "window.h"
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/services/clock.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/services/notifications/alerts_preferences.h>
@@ -20,7 +21,6 @@
 #include <applib/ui/time_range_selection_window.h>
 #include <kernel/pbl_malloc.h>
 #include <shell/prefs.h>
-#include <system/passert.h>
 
 typedef struct {
   SettingsCallbacks callbacks;

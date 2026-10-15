@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/services/hrm/hrm_manager.h>
 #include <pbl/services/protobuf_log/protobuf_log.h>
 #include <pbl/services/protobuf_log/protobuf_log_hr.h>
@@ -10,7 +11,6 @@
 #include <pbl/util/testing.h>
 
 #include <measurements.pb.h>
-#include <system/passert.h>
 
 // -----------------------------------------------------------------------------------------
 // Convert HRMQuality to the internal protobuf representation.

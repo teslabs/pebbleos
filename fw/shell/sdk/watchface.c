@@ -3,6 +3,7 @@
 
 #include "watchface.h"
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/analytics/analytics.h>
 #include <pbl/services/compositor/compositor_transitions.h>
@@ -18,7 +19,6 @@
 #include <process_management/pebble_process_md.h>
 #include <shell/sdk/shell_sdk.h>
 #include <shell/system_app_state_machine.h>
-#include <system/passert.h>
 
 typedef struct WatchfaceData {
   ClickManager click_manager;

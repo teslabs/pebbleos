@@ -3,11 +3,11 @@
 
 #include <pbl/drivers/display/display.h>
 #include <pbl/drivers/pmic.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 
 #include <kernel/util/standby.h>
 #include <system/bootbits.h>
-#include <system/passert.h>
 #include <system/reset.h>
 
 #ifdef CONFIG_PMIC

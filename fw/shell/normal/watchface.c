@@ -3,6 +3,7 @@
 
 #include "watchface.h"
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/compositor/compositor_transitions.h>
 #include <pbl/services/notifications/do_not_disturb.h>
@@ -19,7 +20,6 @@
 #include <popups/timeline/peek.h>
 #include <process_management/app_manager.h>
 #include <process_management/pebble_process_md.h>
-#include <system/passert.h>
 
 #define QUICK_LAUNCH_HOLD_MS (400)
 #define BIT_SET              (1)

@@ -11,6 +11,7 @@
 #include <pbl/bluetooth/pebble_pairing_service.h>
 #include <pbl/btutil/bt_device.h>
 #include <pbl/btutil/sm_util.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/bluetooth/ble_hrm.h>
 #include <pbl/services/bluetooth/bluetooth_persistent_storage.h>
@@ -20,7 +21,6 @@
 #include <comm/bt_lock.h>
 #include <kernel/events.h>
 #include <kernel/pbl_malloc.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DECLARE(bt, CONFIG_BT_LOG_LEVEL);
 

@@ -6,6 +6,9 @@
 #include "accel_service_private.h"
 #include "event_service_client.h"
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
+#include <pbl/logging/logging.h>
 #include <pbl/services/accel_manager.h>
 
 #include <applib/applib_malloc.auto.h>
@@ -13,7 +16,6 @@
 #include <process_state/app_state/app_state.h>
 #include <process_state/worker_state/worker_state.h>
 #include <syscall/syscall.h>
-#include <system/passert.h>
 
 static bool prv_is_session_task(void) {
   PebbleTask task = pebble_task_get_current();

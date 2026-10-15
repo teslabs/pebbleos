@@ -5,6 +5,7 @@
 
 #include <pbl/cron/cron.h>
 #include <pbl/drivers/rtc.h>
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/logging/logging.h>
@@ -26,7 +27,6 @@
 #include <kernel/events.h>
 #include <kernel/pbl_malloc.h>
 #include <process_management/app_install_manager.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DEFINE(service_alarms, CONFIG_SERVICE_ALARMS_LOG_LEVEL);
 

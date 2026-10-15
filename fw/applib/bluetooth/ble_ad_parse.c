@@ -3,14 +3,16 @@
 
 #include "ble_ad_parse.h"
 
+#include <string.h>
+
 #include <pbl/btutil/bt_uuid.h>
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/util/byteorder.h>
 #include <pbl/util/math.h>
 
 #include <applib/applib_malloc.auto.h>
 #include <comm/ble/gap_le_advert.h>
-#include <system/passert.h>
 
 // -----------------------------------------------------------------------------
 //! Internal parsed advertisement data structures.

@@ -6,6 +6,8 @@
 #include "process_loader.h"
 
 // Pebble stuff
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/mcu/privilege.h>
 #include <pbl/services/analytics/analytics.h>
@@ -50,7 +52,6 @@
 #include <shell/system_shell.h>
 #include <syscall/syscall.h>
 #include <syscall/syscall_define.h>
-#include <system/passert.h>
 
 // FreeRTOS stuff
 

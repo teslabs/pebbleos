@@ -6,6 +6,7 @@
 #include "option_menu.h"
 #include "window.h"
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/services/activity/activity.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/util/size.h>
@@ -14,7 +15,6 @@
 #include <kernel/pbl_malloc.h>
 #include <process_state/app_state/app_state.h>
 #include <shell/prefs.h>
-#include <system/passert.h>
 
 typedef struct SettingsHealthData {
   SettingsCallbacks callbacks;

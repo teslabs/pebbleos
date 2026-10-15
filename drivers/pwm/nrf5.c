@@ -3,9 +3,10 @@
 
 #include <pbl/drivers/gpio/nrf5.h>
 #include <pbl/drivers/pwm.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 
 #include <nrfx.h>
-#include <system/passert.h>
 
 void pwm_init(const PwmConfig *pwm, uint32_t resolution, uint32_t frequency) {
   nrfx_pwm_config_t config =

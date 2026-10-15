@@ -5,6 +5,7 @@
 
 #include "gbitmap_png.h"
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/util/bitops.h>
 #include <pbl/util/math.h>
 #include <pbl/util/units.h>
@@ -13,7 +14,6 @@
 #include <applib/applib_malloc.auto.h>
 #include <applib/graphics/raw_image.h>
 #include <syscall/syscall.h>
-#include <system/passert.h>
 
 #define APNG_DECODE_ERROR    "APNG decoding failed"
 #define APNG_MEMORY_ERROR    "APNG memory allocation failed"

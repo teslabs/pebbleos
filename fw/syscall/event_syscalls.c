@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/event_service.h>
 
@@ -12,7 +14,6 @@
 #include <process_state/worker_state/worker_state.h>
 #include <syscall/syscall.h>
 #include <syscall/syscall_define.h>
-#include <system/passert.h>
 
 static void prv_put_event_from_process(PebbleTask task, PebbleEvent *event) {
   if (!event_try_put_from_process(task, event)) {

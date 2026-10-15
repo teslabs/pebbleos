@@ -16,7 +16,6 @@
 #include <kernel/util/fw_reset.h>
 #include <process_management/app_manager.h>
 #include <system/bootbits.h>
-#include <system/passert.h>
 #include <system/reset.h>
 
 static void prv_reset_into_prf(void) {

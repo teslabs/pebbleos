@@ -16,7 +16,9 @@
 #include <comm/ble/kernel_le_client/test/test_definition.h>
 #endif
 
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 
 #include <comm/ble/gap_le_connect.h>
@@ -28,7 +30,6 @@
 #include <kernel/event_loop.h>
 #include <kernel/events.h>
 #include <kernel/pbl_malloc.h>
-#include <system/passert.h>
 
 #define MAX_SERVICE_INSTANCES (8)
 
