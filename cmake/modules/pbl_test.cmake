@@ -237,6 +237,9 @@ function(_pbl_test_object out source key flags)
   )
 endfunction()
 
+# Sources clar.py stitches into every generated harness.
+file(GLOB _PBL_CLAR_TEMPLATES CONFIGURE_DEPENDS ${PBL_BASE}/tools/clar/*.c ${PBL_BASE}/tools/clar/clar.h)
+
 # The default stubs, archived once per set of compile flags so that they
 # see the same headers as the test. Every symbol in them must be weak, so
 # that a test defining its own copy takes precedence. The assert stubs are
@@ -378,6 +381,7 @@ function(_pbl_test_add id)
     COMMAND ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/clar/clar.py
             --file=${SOURCE} --clar-path=${PBL_BASE}/tools/clar ${test_dir}
     DEPENDS ${SOURCE} ${PBL_BASE}/tools/clar/clar.py ${PBL_BASE}/tools/clar/_clar.py
+            ${_PBL_CLAR_TEMPLATES}
     COMMENT "Generating clar harness for ${id}"
     VERBATIM
   )
