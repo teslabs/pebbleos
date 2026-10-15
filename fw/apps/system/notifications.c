@@ -222,15 +222,33 @@ static void prv_notifications_history_init(NotificationsData *data) {
   notifications_history_init(&data->history, range != NotificationGroupingRange_Never, cutoff);
 }
 
-static bool prv_push_single_notification_window(const Uuid *id) {
+// The presented list prepends, so add oldest first to keep it newest-first
+static void prv_add_row_notifications(const NotificationHistoryRow *row) {
+  if (!row->is_group) {
+    notification_window_add_notification_by_id((Uuid *)&row->notification.id);
+    return;
+  }
+
+  NotificationHistoryMember *member =
+      (NotificationHistoryMember *)list_get_tail(&row->group.members->node);
+  while (member) {
+    notification_window_add_notification_by_id(&member->entry.id);
+    member = (NotificationHistoryMember *)list_get_prev(&member->node);
+  }
+}
+
+static bool prv_push_group_notification_window(const NotificationGroupWindow *group_window,
+                                               uint16_t index) {
   notification_window_init_history(false);
   if (notification_window_is_modal()) {
     return false;
   }
 
-  notification_window_add_notification_by_id((Uuid *)id);
+  for (int i = group_window->count - 1; i >= 0; i--) {
+    notification_window_add_notification_by_id(&group_window->notification_ids[i]);
+  }
   notification_window_show();
-  notification_window_focus_notification((Uuid *)id, false);
+  notification_window_focus_notification(&group_window->notification_ids[index], false);
   return true;
 }
 
@@ -283,7 +301,7 @@ static void prv_group_window_draw_row(GContext *ctx, const Layer *cell_layer, Me
 static void prv_group_window_select(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   NotificationGroupWindow *group_window = context;
   if (cell_index->row < group_window->count) {
-    prv_push_single_notification_window(&group_window->notification_ids[cell_index->row]);
+    prv_push_group_notification_window(group_window, cell_index->row);
   }
 }
 
@@ -355,8 +373,7 @@ static void prv_push_group_window(NotificationsData *data, const NotificationHis
 }
 
 // Return true if successful
-static bool prv_push_notification_window(NotificationsData *data,
-                                         NotificationHistoryRow *selected_row) {
+static bool prv_push_notification_window(NotificationsData *data) {
   const bool has_collapsed_groups = notifications_history_has_collapsed_groups(&data->history);
   notification_window_init_history(!has_collapsed_groups);
 
@@ -366,17 +383,10 @@ static bool prv_push_notification_window(NotificationsData *data,
     return false;
   }
 
-  if (has_collapsed_groups) {
-    notification_window_add_notification_by_id(
-        (Uuid *)notifications_history_row_get_latest_id(selected_row));
-  } else {
-    NotificationHistoryRow *row =
-        (NotificationHistoryRow *)list_get_tail(&data->history.rows->node);
-    while (row) {
-      notification_window_add_notification_by_id(
-          (Uuid *)notifications_history_row_get_latest_id(row));
-      row = (NotificationHistoryRow *)list_get_prev(&row->node);
-    }
+  NotificationHistoryRow *row = (NotificationHistoryRow *)list_get_tail(&data->history.rows->node);
+  while (row) {
+    prv_add_row_notifications(row);
+    row = (NotificationHistoryRow *)list_get_prev(&row->node);
   }
 
   notification_window_show();
@@ -636,7 +646,7 @@ static void prv_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, vo
     return;
   }
 
-  bool success = prv_push_notification_window(notifications_data, row);
+  bool success = prv_push_notification_window(notifications_data);
   if (!success) {
     // Bail if a notification came in ahead of us and created a modal window
     // before we had a chance to react to the select button event.
