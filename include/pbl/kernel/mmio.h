@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/irq.h>
 
 #include <pbl_arch_mmio.h>
 
@@ -28,6 +29,12 @@
  * pbl_rmb();
  * reply = buf[1];
  * @endcode
+ *
+ * Registers shared between drivers, such as clock gates or system control bits, are updated
+ * with pbl_modifyl() and friends, which read, modify and write under pbl_irq_lock(). Registers
+ * owned by a single driver, and writes that are atomic in hardware (set/clear registers,
+ * write-1-to-clear flags), can use the plain accessors. Interrupts flagged
+ * @ref PBL_IRQ_ZERO_LATENCY are not masked by the lock and must not touch shared registers.
  * @{
  */
 
@@ -89,6 +96,45 @@ static PBL_ALWAYS_INLINE void pbl_writew(uint16_t val, uintptr_t addr) {
  */
 static PBL_ALWAYS_INLINE void pbl_writel(uint32_t val, uintptr_t addr) {
   arch_writel(val, addr);
+}
+
+/**
+ * @brief Atomically clear and set bits of a shared 8-bit register.
+ *
+ * @param clear Bits to clear.
+ * @param set Bits to set, applied after @p clear.
+ * @param addr Register address.
+ */
+static PBL_ALWAYS_INLINE void pbl_modifyb(uint8_t clear, uint8_t set, uintptr_t addr) {
+  pbl_irq_lock();
+  arch_writeb((uint8_t)((arch_readb(addr) & ~clear) | set), addr);
+  pbl_irq_unlock();
+}
+
+/**
+ * @brief Atomically clear and set bits of a shared 16-bit register.
+ *
+ * @param clear Bits to clear.
+ * @param set Bits to set, applied after @p clear.
+ * @param addr Register address, 2-byte aligned.
+ */
+static PBL_ALWAYS_INLINE void pbl_modifyw(uint16_t clear, uint16_t set, uintptr_t addr) {
+  pbl_irq_lock();
+  arch_writew((uint16_t)((arch_readw(addr) & ~clear) | set), addr);
+  pbl_irq_unlock();
+}
+
+/**
+ * @brief Atomically clear and set bits of a shared 32-bit register.
+ *
+ * @param clear Bits to clear.
+ * @param set Bits to set, applied after @p clear.
+ * @param addr Register address, 4-byte aligned.
+ */
+static PBL_ALWAYS_INLINE void pbl_modifyl(uint32_t clear, uint32_t set, uintptr_t addr) {
+  pbl_irq_lock();
+  arch_writel((arch_readl(addr) & ~clear) | set, addr);
+  pbl_irq_unlock();
 }
 
 /** @} */
