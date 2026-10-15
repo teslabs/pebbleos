@@ -1,9 +1,8 @@
 /* SPDX-FileCopyrightText: 2025 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/irq.h>
-
-#include <system/passert.h>
 
 #undef UNUSED
 #include <nrfx.h>

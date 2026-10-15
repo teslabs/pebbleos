@@ -4,6 +4,8 @@
 #include <stdlib.h>
 
 #include <pbl/drivers/battery.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/accel_manager.h>
 #include <pbl/services/analytics/analytics.h>
@@ -18,7 +20,6 @@
 #include <kernel/ui/modals/modal_manager.h>
 #include <resource/resource_ids.auto.h>
 #include <shell/prefs.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DEFINE(service_stationary, CONFIG_SERVICE_STATIONARY_LOG_LEVEL);
 

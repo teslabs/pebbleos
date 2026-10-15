@@ -16,7 +16,6 @@
 #include <process_management/app_manager.h>
 #include <process_state/app_state/app_state.h>
 #include <process_state/worker_state/worker_state.h>
-#include <system/passert.h>
 
 [[noreturn]] void pbl_malloc_oom(size_t bytes, uintptr_t lr, Heap *heap_ptr) {
   unsigned int used = 0, free_bytes = 0, max_free = 0;

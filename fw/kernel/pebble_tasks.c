@@ -3,6 +3,7 @@
 
 #include "pebble_tasks.h"
 
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
 #include <pbl/kernel/debug.h>
 #include <pbl/kernel/fatal.h>
@@ -15,7 +16,6 @@
 #include <process_management/worker_manager.h>
 #include <syscall/syscall_internal.h>
 #include <system/die.h>
-#include <system/passert.h>
 #include <system/reboot_reason.h>
 
 static struct pbl_thread s_threads[NumPebbleTask];

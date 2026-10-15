@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+#include <pbl/kernel/fatal.h>
+#include <pbl/logging/logging.h>
 #include <pbl/services/hrm/hrm_manager.h>
 #include <pbl/util/units.h>
 
@@ -16,7 +18,6 @@
 #include <mfg/mfg_info.h>
 #include <mfg/mfg_serials.h>
 #include <process_state/app_state/app_state.h>
-#include <system/passert.h>
 
 #define BPM_STRING_LEN 10
 

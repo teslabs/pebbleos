@@ -7,11 +7,12 @@
 
 #include <stddef.h>
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/util/math.h>
 
 #include <process_management/process_manager.h>
 #include <process_state/app_state/app_state.h>
-#include <system/passert.h>
 
 bool gpoint_equal(const GPoint *const point_a, const GPoint *const point_b) {
   return (point_a->x == point_b->x && point_a->y == point_b->y);

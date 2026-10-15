@@ -3,6 +3,8 @@
 
 #include "modal_manager.h"
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/sem.h>
 #include <pbl/services/compositor/compositor_transitions.h>
 
@@ -24,7 +26,6 @@
 #include <process_state/app_state/app_state.h>
 #include <shell/normal/app_idle_timeout.h>
 #include <shell/normal/watchface.h>
-#include <system/passert.h>
 #include <system/profiler.h>
 
 #ifdef CONFIG_SHELL

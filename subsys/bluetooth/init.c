@@ -6,6 +6,8 @@
 
 #include <pbl/bluetooth/id_addr.h>
 #include <pbl/bluetooth/init.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/sem.h>
 #include <pbl/kernel/thread.h>
 #include <pbl/kernel/types.h>
@@ -22,7 +24,6 @@
 #include <services/dis/ble_svc_dis.h>
 #include <services/gap/ble_svc_gap.h>
 #include <services/gatt/ble_svc_gatt.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DEFINE(bt, CONFIG_BT_LOG_LEVEL);
 

@@ -6,6 +6,8 @@
 #include "event_service_client.h"
 #include "health_service_private.h"
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/activity/activity.h>
 #include <pbl/services/hrm/hrm_manager.h>
@@ -25,7 +27,6 @@
 #include <process_state/worker_state/worker_state.h>
 #include <shell/prefs_syscalls.h>
 #include <syscall/syscall.h>
-#include <system/passert.h>
 
 // Fetching minute history can take a while, so we limit the amount of data we will ever access
 // in one call to this

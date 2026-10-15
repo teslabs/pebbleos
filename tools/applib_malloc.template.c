@@ -10,7 +10,6 @@
 #include <pbl/mcu/privilege.h>
 #include <process_management/app_manager.h>
 #include <process_management/process_manager.h>
-#include <system/passert.h>
 
 
 ${includes}

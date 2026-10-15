@@ -6,7 +6,9 @@
 #include <string.h>
 
 #include <pbl/bluetooth/pairing_confirm.h>
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/sem.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/i18n/i18n.h>
@@ -28,7 +30,6 @@
 #include <kernel/ui/modals/modal_manager.h>
 #include <kernel/ui/system_icons.h>
 #include <resource/resource_ids.auto.h>
-#include <system/passert.h>
 
 #ifdef CONFIG_SHELL
 #include <pbl/shell/shell.h>

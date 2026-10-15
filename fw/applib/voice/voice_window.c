@@ -35,6 +35,8 @@
 #endif
 #include <string.h>
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/event_service.h>
 #include <pbl/services/voice/voice.h>
@@ -46,7 +48,6 @@
 #include <resource/resource_ids.auto.h>
 #include <syscall/syscall.h>
 #include <syscall/syscall_define.h>
-#include <system/passert.h>
 
 // TODO:
 // mic hot before showing screen - needs robust beginning-of-speech detection -

@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/irq.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/new_timer/new_timer.h>
@@ -13,7 +15,6 @@
 #include <process_management/pebble_process_md.h>
 #include <process_state/app_state/app_state.h>
 #include <syscall/syscall.h>
-#include <system/passert.h>
 
 #define NUM_MENU_ITEMS 13
 

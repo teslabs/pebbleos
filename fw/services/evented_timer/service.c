@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/evented_timer.h>
@@ -12,7 +14,6 @@
 #include <process_management/app_manager.h>
 #include <syscall/syscall.h>
 #include <syscall/syscall_define.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DEFINE(service_evented_timer, CONFIG_SERVICE_EVENTED_TIMER_LOG_LEVEL);
 

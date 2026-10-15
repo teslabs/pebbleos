@@ -7,11 +7,12 @@
 #include "graphics.h"
 #include "gtypes.h"
 
+#include <string.h>
+
+#include <pbl/kernel/fatal.h>
 #include <pbl/util/bitops.h>
 #include <pbl/util/math.h>
 #include <pbl/util/testing.h>
-
-#include <system/passert.h>
 
 // ## Point setting/blending functions
 

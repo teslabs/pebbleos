@@ -6,6 +6,8 @@
 #include "animation.h"
 #include "animation_timing.h"
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/util/trig.h>
 
 #include <applib/app_timer.h>
@@ -14,7 +16,6 @@
 #include <applib/pbl_std/pbl_std.h>
 #include <applib/ui/window_private.h>
 #include <process_management/process_manager.h>
-#include <system/passert.h>
 
 #ifdef CONFIG_TOUCH
 #include <syscall/syscall.h>

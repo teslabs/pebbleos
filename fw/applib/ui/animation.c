@@ -7,7 +7,10 @@
 
 #include <string.h>
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/irq.h>
+#include <pbl/logging/logging.h>
 #include <pbl/services/animation_service.h>
 #include <pbl/util/math.h>
 
@@ -18,7 +21,6 @@
 #include <kernel/kernel_applib_state.h>
 #include <kernel/memory_layout.h>
 #include <process_state/app_state/app_state.h>
-#include <system/passert.h>
 
 #ifdef CONFIG_SHELL
 #include <pbl/shell/shell.h>

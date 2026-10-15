@@ -4,7 +4,9 @@
 #include <string.h>
 
 #include <pbl/bluetooth/conn_event_stats.h>
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/irq.h>
 #include <pbl/kernel/sem.h>
 #include <pbl/kernel/types.h>
@@ -29,7 +31,6 @@
 #include <resource/resource_storage_file.h>
 #include <system/bootbits.h>
 #include <system/firmware_storage.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DEFINE(service_put_bytes, CONFIG_SERVICE_PUT_BYTES_LOG_LEVEL);
 

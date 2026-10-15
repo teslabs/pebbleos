@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include <pbl/kernel/delay.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/irq.h>
 #include <pbl/kernel/time.h>
 #include <pbl/services/new_timer/new_timer.h>
@@ -19,7 +20,6 @@
 #include <kernel/util/factory_reset.h>
 #include <process_management/worker_manager.h>
 #include <system/bootbits.h>
-#include <system/passert.h>
 #include <system/reboot_reason.h>
 #include <system/reset.h>
 

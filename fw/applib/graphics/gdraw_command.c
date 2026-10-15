@@ -5,12 +5,12 @@
 
 #include "gdraw_command_private.h"
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/util/byteorder.h>
 
 #include <applib/applib_resource_private.h>
 #include <applib/graphics/gpath.h>
 #include <syscall/syscall.h>
-#include <system/passert.h>
 
 bool gdraw_command_resource_is_valid(ResAppNum app_num, uint32_t resource_id,
                                      uint32_t expected_signature, uint32_t *data_size) {

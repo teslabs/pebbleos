@@ -11,7 +11,8 @@
 
 #include <bf0_hal_dma.h>
 #include <bf0_hal_uart.h>
-#include <system/passert.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 // clang-format on
 
 static void prv_init(UARTDevice *dev, uint32_t mode) {

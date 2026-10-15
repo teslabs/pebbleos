@@ -7,11 +7,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
 
 #include <kernel/pebble_tasks.h>
 #include <syscall/syscall_define.h>
-#include <system/passert.h>
 
 PBL_WEAK bool s_syscall_did_fail;
 

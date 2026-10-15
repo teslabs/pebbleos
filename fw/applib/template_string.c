@@ -14,6 +14,7 @@
 #include <time.h>
 
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/util/math.h>
 #include <pbl/util/size.h>
@@ -21,7 +22,6 @@
 #include <pbl/util/units.h>
 
 #include <syscall/syscall.h>
-#include <system/passert.h>
 
 #define MAX_FILTER_NAME_LENGTH 16
 

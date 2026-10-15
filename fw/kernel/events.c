@@ -6,7 +6,9 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/msgq.h>
 #include <pbl/kernel/poll.h>
 #include <pbl/logging/logging.h>
@@ -14,7 +16,6 @@
 
 #include <kernel/pbl_malloc.h>
 #include <syscall/syscall.h>
-#include <system/passert.h>
 
 #define MAX_KERNEL_EVENTS           32
 #define MAX_FROM_APP_EVENTS         10

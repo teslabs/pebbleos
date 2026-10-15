@@ -9,7 +9,9 @@
 #include <string.h>
 
 #include <pbl/btutil/bt_device.h>
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/music_internal.h>
 #include <pbl/util/units.h>
@@ -24,7 +26,6 @@
 #include <kernel/pbl_malloc.h>
 #include <kernel/pebble_tasks.h>
 #include <system/hexdump.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DECLARE(bt, CONFIG_BT_LOG_LEVEL);
 

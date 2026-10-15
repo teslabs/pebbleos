@@ -5,6 +5,7 @@
 
 #include "workout.h"
 
+#include <pbl/kernel/fatal.h>
 #include <pbl/services/activity/activity.h>
 #include <pbl/services/activity/workout_service.h>
 #include <pbl/services/i18n/i18n.h>
@@ -12,7 +13,6 @@
 
 #include <kernel/pbl_malloc.h>
 #include <resource/timeline_resource_ids.auto.h>
-#include <system/passert.h>
 
 static TimelineItem *prv_create_abandoned_workout_notification(void) {
   const char *msg = i18n_noop(

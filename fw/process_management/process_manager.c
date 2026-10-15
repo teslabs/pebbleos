@@ -8,7 +8,9 @@
 #include "pebble_process_md.h"
 #include "worker_manager.h"
 
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/debug.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/types.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/analytics/analytics.h>
@@ -39,7 +41,6 @@
 #include <shell/normal/watchface.h>
 #include <syscall/syscall.h>
 #include <syscall/syscall_define.h>
-#include <system/passert.h>
 
 static TimerID s_deinit_timer_id = TIMER_INVALID_ID;
 

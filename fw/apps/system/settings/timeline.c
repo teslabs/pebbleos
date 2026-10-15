@@ -6,6 +6,8 @@
 #include "option_menu.h"
 #include "window.h"
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/util/size.h>
 
@@ -13,7 +15,6 @@
 #include <applib/ui/menu_layer.h>
 #include <kernel/pbl_malloc.h>
 #include <shell/prefs.h>
-#include <system/passert.h>
 
 typedef enum TimelineSettingsVersion {
   //! Initial version or never opened

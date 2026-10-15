@@ -10,8 +10,10 @@
 #include <pbl/crc/crc.h>
 #include <pbl/drivers/flash.h>
 #include <pbl/drivers/rtc.h>
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
 #include <pbl/kernel/delay.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/analytics/analytics.h>
@@ -24,7 +26,6 @@
 #include <kernel/pbl_malloc.h>
 #include <kernel/pebble_tasks.h>
 #include <system/hexdump.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DEFINE(service_filesystem, CONFIG_SERVICE_FILESYSTEM_LOG_LEVEL);
 

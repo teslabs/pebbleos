@@ -12,12 +12,13 @@
 #include "pbl/kernel/types.h"
 #include "pbl/mcu/interrupts.h"
 #include "pbl/services/new_timer/new_timer.h"
-#include "system/passert.h"
 
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
 
 struct ble_npl_event *npl_pebble_eventq_get(struct ble_npl_eventq *evq, ble_npl_time_t tmo) {

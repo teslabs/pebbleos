@@ -10,8 +10,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
 #include <pbl/kernel/sem.h>
+#include <pbl/logging/logging.h>
 #include <pbl/services/system_task.h>
 #include <pbl/util/byteorder.h>
 
@@ -22,7 +24,6 @@
 #include <console/pulse_control_message_protocol.h>
 #include <kernel/events.h>
 #include <kernel/pbl_malloc.h>
-#include <system/passert.h>
 
 //! Modulus for sequence numbers
 #define MODULUS               (128u)

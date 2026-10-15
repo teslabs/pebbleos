@@ -7,7 +7,6 @@
 #include <pbl/services/bluetooth/pp_ble_control.h>
 
 #include <kernel/pebble_tasks.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DECLARE(service_bluetooth, CONFIG_SERVICE_BLUETOOTH_LOG_LEVEL);
 

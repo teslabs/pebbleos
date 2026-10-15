@@ -2,6 +2,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include <pbl/drivers/rtc.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/app_cache.h>
@@ -17,7 +19,6 @@
 #include <kernel/pbl_malloc.h>
 #include <process_management/app_install_manager.h>
 #include <resource/resource_ids.auto.h>
-#include <system/passert.h>
 
 PBL_LOG_MODULE_DECLARE(service_blob_db, CONFIG_SERVICE_BLOB_DB_LOG_LEVEL);
 

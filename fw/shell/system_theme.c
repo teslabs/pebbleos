@@ -5,13 +5,15 @@
 
 #include "system_theme_style.h"
 
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
+#include <pbl/logging/logging.h>
 #include <pbl/util/size.h>
 #include <pbl/util/testing.h>
 
 #include <applib/fonts/fonts.h>
 #include <process_management/process_manager.h>
 #include <syscall/syscall_define.h>
-#include <system/passert.h>
 
 ////////////////////
 // Helpers
