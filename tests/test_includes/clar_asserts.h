@@ -142,8 +142,8 @@ void cl_fixture_cleanup(const char *fixture_name);
         expr;                                                                                    \
       } while (0);                                                                               \
     }                                                                                            \
-    clar__assert(clar_passert_occurred, __FILE__, __LINE__, "Expected passert_failed(): " #expr, \
-                 nullptr, 0);                                                                    \
+    clar__assert(clar_passert_occurred, __FILE__, __LINE__, "Expected a panic: " #expr, nullptr, \
+                 0);                                                                             \
     clar_passert_occurred = false;                                                               \
     clar_expecting_passert = false;                                                              \
   }

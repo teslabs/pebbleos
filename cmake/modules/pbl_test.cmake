@@ -249,7 +249,7 @@ function(_pbl_test_stubs out key flags)
   endif()
 
   file(GLOB sources CONFIGURE_DEPENDS ${PBL_BASE}/tests/stubs/default/*.c)
-  list(REMOVE_ITEM sources ${PBL_BASE}/tests/stubs/default/passert.c)
+  list(REMOVE_ITEM sources ${PBL_BASE}/tests/stubs/default/fatal.c)
   set(objects "")
   foreach(source ${sources})
     _pbl_test_object(object ${source} ${key} "${flags}")
@@ -369,7 +369,7 @@ function(_pbl_test_add id)
   endforeach()
   # libutil calls util_assertion_failed() and has a weak copy of its own,
   # which a single-pass linker would pick over an archive already scanned.
-  _pbl_test_object(object ${PBL_BASE}/tests/stubs/default/passert.c ${key} "${flags}")
+  _pbl_test_object(object ${PBL_BASE}/tests/stubs/default/fatal.c ${key} "${flags}")
   list(APPEND objects ${object})
 
   # clar turns the test's suite functions into a main().
