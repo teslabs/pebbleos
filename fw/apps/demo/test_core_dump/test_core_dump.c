@@ -73,8 +73,7 @@ static void menu_select_callback(int index, void *ctx) {
   // ---------------------------------------------------------------------------
   // Run the appropriate test
   if (index == 0) {
-    // CROAK
-    pbl_panic("CROAK");
+    pbl_panic("test");
 
   } else if (index == 1) {
     // stuck timer callback
@@ -182,7 +181,7 @@ static void prv_window_load(Window *window) {
 
   int i = 0;
   data->menu_items[i++] = (SimpleMenuItem){
-    .title = "croak",
+    .title = "panic",
     .callback = menu_select_callback,
   };
   data->menu_items[i++] = (SimpleMenuItem){

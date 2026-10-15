@@ -384,7 +384,7 @@ void process_manager_launch_process(const ProcessLaunchConfig *config) {
 //! If however, the task is in privilege mode, we tell the syscall machinery to set the safe to kill
 //! boolean as soon as the current syscall returns and set another timer. Once that timer expires,
 //! if the task is no longer in privilege mode we post another KILL event (graceful = false). If the
-//! task is still in privilege mode then, we croak.
+//! task is still in privilege mode then, we panic.
 bool process_manager_make_process_safe_to_kill(PebbleTask task, bool gracefully) {
   PBL_ASSERT_TASK(PebbleTask_KernelMain);
   ProcessContext *context = prv_get_context_for_task(task);
