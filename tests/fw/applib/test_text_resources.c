@@ -142,6 +142,40 @@ void test_text_resources__extra_pack_fonts_are_fetched_once(void) {
   cl_assert(s_test_language_font_calls > LANGUAGE_PACK_COUNT);
 }
 
+void test_text_resources__same_baseline_for_active_and_secondary_pack(void) {
+  load_resource_fixture_on_pfs(RESOURCES_FIXTURE_PATH, CHINESE_FIXTURE_NAME, "lang1");
+  const uint32_t extension =
+      language_pack_resource_id(1, RESOURCE_ID_GOTHIC_18_EXTENDED, RESOURCE_ID_STRINGS);
+  cl_assert(text_resources_init_font(SYSTEM_APP, RESOURCE_ID_GOTHIC_36, extension, &s_font_info));
+  cl_assert(s_font_info.extended);
+  cl_assert(s_font_info.extension.md.max_height < s_font_info.base.md.max_height);
+
+  GlyphLocation active;
+  const GlyphData *glyph = text_resources_get_glyph(&s_font_cache, 0x4E50, &s_font_info, &active);
+  cl_assert(glyph);
+  cl_assert_equal_i(active.font_res->resource_id, extension);
+  cl_assert_equal_i(active.baseline_adjust, 0);
+  const GlyphHeaderData active_header = glyph->header;
+  const size_t bitmap_size = glyph_get_size_bytes(glyph);
+  uint8_t bitmap[CACHE_GLYPH_SIZE];
+  cl_assert(bitmap_size <= sizeof(bitmap));
+  memcpy(bitmap, glyph->data, bitmap_size);
+
+  FontInfo chinese = {};
+  cl_assert(text_resources_init_font(SYSTEM_APP, extension, 0, &chinese));
+  s_test_language_fonts[1] = &chinese;
+  cl_assert(text_resources_init_font(SYSTEM_APP, RESOURCE_ID_GOTHIC_36, 0, &s_font_info));
+  ++g_font_language_generation;
+
+  GlyphLocation secondary;
+  glyph = text_resources_get_glyph(&s_font_cache, 0x4E50, &s_font_info, &secondary);
+  cl_assert(glyph);
+  cl_assert_equal_i(secondary.font_res->resource_id, extension);
+  cl_assert_equal_m(&active_header, &glyph->header, sizeof(active_header));
+  cl_assert_equal_m(bitmap, glyph->data, bitmap_size);
+  cl_assert_equal_i(secondary.baseline_adjust, active.baseline_adjust);
+}
+
 void test_text_resources__horiz_advance(void) {
   uint32_t gothic_18_handle = RESOURCE_ID_GOTHIC_18;
   cl_assert(text_resources_init_font(0, gothic_18_handle, 0, &s_font_info));

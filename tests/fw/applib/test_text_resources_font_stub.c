@@ -23,8 +23,8 @@ int s_test_language_font_calls;
 
 bool sys_font_get_language_font(uint32_t base_resource_id, uint8_t slot, FontInfo *font_out) {
   ++s_test_language_font_calls;
-  if (base_resource_id != RESOURCE_ID_GOTHIC_18 || slot >= LANGUAGE_PACK_COUNT ||
-      !s_test_language_fonts[slot]) {
+  if ((base_resource_id != RESOURCE_ID_GOTHIC_18 && base_resource_id != RESOURCE_ID_GOTHIC_36) ||
+      slot >= LANGUAGE_PACK_COUNT || !s_test_language_fonts[slot]) {
     return false;
   }
   *font_out = *s_test_language_fonts[slot];

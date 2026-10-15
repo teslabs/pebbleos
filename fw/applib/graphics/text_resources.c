@@ -715,7 +715,9 @@ static const GlyphData *prv_get_glyph(FontCache *font_cache, Codepoint codepoint
       }
       data = prv_get_glyph_in_font(font_cache, codepoint, extra, need_bitmap, &owner, &font_res);
       if (data) {
-        prv_set_location(location_out, font_cache, font_info, owner, font_res);
+        // Pack extensions already use the primary font's baseline, even when loaded as a base.
+        prv_set_location(location_out, font_cache, font_info, owner == extra ? font_info : owner,
+                         font_res);
         return data;
       }
     }
