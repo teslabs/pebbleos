@@ -8,6 +8,7 @@
 #include <kernel/pbl_malloc.h>
 #include <kernel/pebble_tasks.h>
 #include <pbl/mcu/privilege.h>
+#include <process_management/app_manager.h>
 #include <process_management/process_manager.h>
 #include <system/passert.h>
 
@@ -45,6 +46,19 @@ static size_t prv_find_size(int index) {
   return type->size_3x;
 }
 
+// Alloy apps run privileged, but their allocations must fail like any other 3rd party app's.
+static bool prv_is_moddable_app(void) {
+#ifdef CONFIG_MODDABLE_XS
+  if (pebble_task_get_current() != PebbleTask_App) {
+    return false;
+  }
+  const PebbleProcessMd *md = app_manager_get_current_app_md();
+  return md && md->is_moddable_app;
+#else
+  return false;
+#endif
+}
+
 static void* prv_malloc(size_t size, uintptr_t client_pc) {
   if (!size) {
     return NULL;
@@ -56,7 +70,7 @@ static void* prv_malloc(size_t size, uintptr_t client_pc) {
   void *result = task_malloc(size);
 #endif
 
-  if (!result && mcu_state_is_thread_privileged()) {
+  if (!result && mcu_state_is_thread_privileged() && !prv_is_moddable_app()) {
     // We want to trip an assert if our malloc failed and we're not running a 3rd party app.
     PBL_CROAK_OOM(size, client_pc, task_heap_get_for_current_task());
   }
