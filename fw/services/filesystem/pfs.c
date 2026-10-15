@@ -1382,7 +1382,7 @@ status_t pfs_close(int fd) {
   File *f = &PFS_FD(fd).file;
   if (f->is_tmp) {
     // If the original file is still open, force-evict it before removing.
-    // This prevents pfs_remove() from CROAKing on the in-use original fd.
+    // This prevents pfs_remove() from panicking on the in-use original fd.
     // Callers should close the original before the temp, but if they don't,
     // we handle it gracefully here rather than crashing.
     int orig_fd;

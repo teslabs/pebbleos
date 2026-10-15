@@ -342,7 +342,7 @@ void reg_timer_delete_then_add_from_cb_menu_cb(int index, void *ctx) {
 }
 
 // =================================================================================
-void croak_menu_cb(int index, void *ctx) {
+void panic_menu_cb(int index, void *ctx) {
   menu_callback_prefix(index, ctx);
   pbl_panic("DIE!");
 }
@@ -365,7 +365,7 @@ static void prv_window_load(Window *window) {
     {.title = "RT: sch 1 min from cb", .callback = reg_timer_schedule_1min_from_cb_menu_cb},
     {.title = "RT: delete from cb", .callback = reg_timer_delete_from_cb_menu_cb},
     {.title = "RT: delete+add from cb", .callback = reg_timer_delete_then_add_from_cb_menu_cb},
-    {.title = "croak", .callback = croak_menu_cb}
+    {.title = "panic", .callback = panic_menu_cb}
   };
   static const SimpleMenuSection sections[] = {
     {.items = menu_items, .num_items = ARRAY_LENGTH(menu_items)}

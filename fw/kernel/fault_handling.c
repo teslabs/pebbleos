@@ -212,7 +212,7 @@ static void prv_kill_user_process(uint32_t stashed_lr) {
 }
 
 PBL_SYSCALL_NORETURN(sys_app_fault, (VAL, uint32_t, stashed_lr)) {
-  // This is the privileged side of handling a failed assert/croak from unprivileged code.
+  // This is the privileged side of handling a failed assert/panic from unprivileged code.
   // Always run on the current task.
 
   CrashInfo crash_info = make_crash_info_pc(stashed_lr);
