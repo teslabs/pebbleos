@@ -109,4 +109,11 @@ config PERFORMANCE_TESTS
     bool "Performance test instrumentation"
     select PROFILER
 
+config SYSCALL_FUZZ
+    bool "Syscall fuzzer"
+    depends on CPU_CORTEX_M
+    help
+      Describe every PBL_SYSCALL and the kinds of its arguments in the
+      firmware image, for a fuzzer to call. For tests only.
+
 endmenu
