@@ -67,3 +67,11 @@ void test_bitops__bitrev8(void) {
     cl_assert_equal_i(pbl_bitrev8(pbl_bitrev8((uint8_t)v)), v);
   }
 }
+
+void test_bitops__bitrev32(void) {
+  cl_assert_equal_i(pbl_bitrev32(0x00000000U), 0x00000000U);
+  cl_assert_equal_i(pbl_bitrev32(0x00000001U), 0x80000000U);
+  cl_assert_equal_i(pbl_bitrev32(0x80000000U), 0x00000001U);
+  cl_assert_equal_i(pbl_bitrev32(0x12345678U), 0x1E6A2C48U);
+  cl_assert_equal_i(pbl_bitrev32(0xFFFFFFFFU), 0xFFFFFFFFU);
+}
