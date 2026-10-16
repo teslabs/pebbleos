@@ -10,6 +10,7 @@
 #include <pbl/util/misc.h>
 
 #include <hardware/sf32lb52_gpio.h>
+#include <hardware/sf32lb52_hpsys_aon.h>
 #include <hardware/sf32lb52_pinmux.h>
 #include <hardware/sf32lb52_rtc.h>
 
@@ -20,9 +21,15 @@
 #define AON_PULL_PAWK_BASE 28U
 #define PBR_PULL_FIRST_PIN 24U
 #define PBR_PULL_LAST_PIN  27U
+#define WAKEUP_FIRST_PIN   24U
+#define WAKEUP_LAST_PIN    44U
 
 static const struct pbl_gpio_sf32lb *prv_port(const struct pbl_gpio_port *port) {
   return container_of(port, const struct pbl_gpio_sf32lb, port);
+}
+
+static const struct pbl_gpio_sf32lb *prv_intc_port(const struct pbl_intc *intc) {
+  return container_of(intc, const struct pbl_gpio_sf32lb, intc);
 }
 
 static inline uint32_t prv_getreg(const struct pbl_gpio_sf32lb *gpio, uint32_t pin,
@@ -93,6 +100,12 @@ static int prv_configure(const struct pbl_gpio_port *port, uint8_t pin, uint32_t
 
   pbl_irq_lock();
 
+  // The trigger registers emulate open drain
+  if (open_drain && gpio->intc.lines[pin].handler != nullptr) {
+    pbl_irq_unlock();
+    return -EBUSY;
+  }
+
   prv_pad_set_pull(pin, flags);
   prv_pad_select_gpio(pin);
   prv_set_open_drain(gpio, pin, open_drain);
@@ -152,6 +165,72 @@ static const struct pbl_gpio_port_ops s_port_ops = {
   .set = prv_set,
 };
 
+static int prv_intc_configure(const struct pbl_intc *intc, uint32_t hwirq, uint32_t type) {
+  const struct pbl_gpio_sf32lb *gpio = prv_intc_port(intc);
+  bool high = (type & (PBL_IRQ_TYPE_EDGE_RISING | PBL_IRQ_TYPE_LEVEL_HIGH)) != 0U;
+  bool low = (type & (PBL_IRQ_TYPE_EDGE_FALLING | PBL_IRQ_TYPE_LEVEL_LOW)) != 0U;
+
+  if (prv_is_open_drain(gpio, hwirq)) {
+    return -EBUSY;
+  }
+
+  prv_pad_select_gpio(hwirq);
+  prv_putreg(gpio, hwirq, SF32LB52_GPIO_DOECR_OFFSET);
+
+  prv_putreg(
+      gpio, hwirq,
+      (type & PBL_IRQ_TYPE_EDGE_BOTH) ? SF32LB52_GPIO_ITSR_OFFSET : SF32LB52_GPIO_ITCR_OFFSET);
+  prv_putreg(gpio, hwirq, high ? SF32LB52_GPIO_IPHSR_OFFSET : SF32LB52_GPIO_IPHCR_OFFSET);
+  prv_putreg(gpio, hwirq, low ? SF32LB52_GPIO_IPLSR_OFFSET : SF32LB52_GPIO_IPLCR_OFFSET);
+  prv_putreg(gpio, hwirq, SF32LB52_GPIO_ISR_OFFSET);
+
+  return 0;
+}
+
+static int prv_intc_enable(const struct pbl_intc *intc, uint32_t hwirq) {
+  prv_putreg(prv_intc_port(intc), hwirq, SF32LB52_GPIO_IESR_OFFSET);
+
+  return 0;
+}
+
+static int prv_intc_disable(const struct pbl_intc *intc, uint32_t hwirq) {
+  const struct pbl_gpio_sf32lb *gpio = prv_intc_port(intc);
+
+  prv_putreg(gpio, hwirq, SF32LB52_GPIO_IECR_OFFSET);
+  prv_putreg(gpio, hwirq, SF32LB52_GPIO_ISR_OFFSET);
+
+  return 0;
+}
+
+static const struct pbl_intc_ops s_intc_ops = {
+  .configure = prv_intc_configure,
+  .enable = prv_intc_enable,
+  .disable = prv_intc_disable,
+};
+
+static void prv_irq_handler(const struct pbl_gpio_sf32lb *gpio) {
+  for (uint32_t bank = 0U; bank * 32U < GPIO1_NUM_PINS; bank++) {
+    uint32_t pin0 = bank * 32U;
+    uint32_t pending = prv_getreg(gpio, pin0, SF32LB52_GPIO_ISR_OFFSET) &
+                       prv_getreg(gpio, pin0, SF32LB52_GPIO_IER_OFFSET);
+
+    while (pending != 0U) {
+      uint32_t pin = pin0 + (uint32_t)__builtin_ctz(pending);
+
+      pending &= pending - 1U;
+      prv_putreg(gpio, pin, SF32LB52_GPIO_ISR_OFFSET);
+
+      // Wakeup pins latch their edges in the HPAON block, even while awake
+      if (pin >= WAKEUP_FIRST_PIN && pin <= WAKEUP_LAST_PIN) {
+        pbl_writel(HPSYS_AON_WCR_PIN(pin - WAKEUP_FIRST_PIN) | HPSYS_AON_WCR_AON,
+                   SF32LB52_HPSYS_AON_BASE + SF32LB52_HPSYS_AON_WCR_OFFSET);
+      }
+
+      pbl_intc_dispatch(&gpio->intc, pin);
+    }
+  }
+}
+
 static int prv_init(const struct pbl_device *dev) {
   const struct pbl_gpio_sf32lb *gpio = prv_port(container_of(dev, const struct pbl_gpio_port, dev));
   int ret;
@@ -161,17 +240,30 @@ static int prv_init(const struct pbl_device *dev) {
     return ret;
   }
 
-  return pbl_clk_enable(&gpio->clk);
+  ret = pbl_clk_enable(&gpio->clk);
+  if (ret != 0) {
+    return ret;
+  }
+
+  pbl_irq_enable(PBL_IRQN(GPIO1));
+
+  return 0;
 }
 
 static struct pbl_gpio_sf32lb_state s_gpio1_state;
 
 PBL_DEVICE_STATE_DEFINE(pbl_gpio_sf32lb_gpio1);
+PBL_INTC_STATE_DEFINE(pbl_gpio_sf32lb_gpio1_intc, GPIO1_NUM_PINS);
 const struct pbl_gpio_sf32lb pbl_gpio_sf32lb_gpio1 = {
   .port = PBL_GPIO_PORT_INIT(pbl_gpio_sf32lb_gpio1, "gpio1", prv_init, nullptr, &s_port_ops,
-                             GPIO1_NUM_PINS, nullptr),
+                             GPIO1_NUM_PINS, &pbl_gpio_sf32lb_gpio1.intc),
+  .intc = PBL_INTC_INIT(pbl_gpio_sf32lb_gpio1_intc, "gpio1_intc", nullptr,
+                        &pbl_gpio_sf32lb_gpio1.port.dev, &s_intc_ops),
   .base = SF32LB52_GPIO1_BASE,
   .clk = PBL_CLK(SF32LB_HPSYS_RCC, SF32LB52_HPSYS_CLK_GPIO1),
   .state = &s_gpio1_state,
 };
 PBL_DEVICE_REGISTER(pbl_gpio_sf32lb_gpio1, &pbl_gpio_sf32lb_gpio1.port.dev);
+PBL_DEVICE_REGISTER(pbl_gpio_sf32lb_gpio1_intc, &pbl_gpio_sf32lb_gpio1.intc.dev);
+
+PBL_IRQ_CONNECT(GPIO1, 6, prv_irq_handler, &pbl_gpio_sf32lb_gpio1, 0);
