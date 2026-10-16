@@ -16,13 +16,13 @@ static inline uintptr_t prv_reg(uint32_t offset, uint32_t id) {
 }
 
 static int prv_clk_enable(const struct pbl_clk_controller *ctrl, uint32_t id) {
-  pbl_modifyl(0U, PBL_BIT(id & 31U), prv_reg(SF32LB52_HPSYS_RCC_ENR1_OFFSET, id));
+  pbl_writel(PBL_BIT(id & 31U), prv_reg(SF32LB52_HPSYS_RCC_ESR1_OFFSET, id));
 
   return 0;
 }
 
 static int prv_clk_disable(const struct pbl_clk_controller *ctrl, uint32_t id) {
-  pbl_modifyl(PBL_BIT(id & 31U), 0U, prv_reg(SF32LB52_HPSYS_RCC_ENR1_OFFSET, id));
+  pbl_writel(PBL_BIT(id & 31U), prv_reg(SF32LB52_HPSYS_RCC_ECR1_OFFSET, id));
 
   return 0;
 }
