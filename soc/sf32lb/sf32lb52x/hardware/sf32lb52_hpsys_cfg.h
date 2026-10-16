@@ -9,8 +9,11 @@
 
 /* Register offsets */
 
-#define SF32LB52_HPSYS_CFG_SYSCR_OFFSET 0x0010
+#define SF32LB52_HPSYS_CFG_SYSCR_OFFSET   0x0010
+#define SF32LB52_HPSYS_CFG_ANAU_CR_OFFSET 0x0088
 
 /* Register bit definitions */
 
 #define HPSYS_CFG_SYSCR_WDT1_REBOOT PBL_BIT(0)
+
+#define HPSYS_CFG_ANAU_CR_EN_BG PBL_BIT(0)
