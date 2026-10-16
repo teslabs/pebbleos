@@ -7,6 +7,7 @@ import mkbundle
 from pebble_package import LibraryPackage
 from process_elf import generate_bin_file
 from resources.types.resource_ball import ResourceBall
+from sdk_helpers import bundled_file_paths
 from waflib import Task
 from waflib.TaskGen import feature
 
@@ -103,6 +104,9 @@ class app_bundle(Task.Task):
             binaries=binaries,
             js=[js_file.abspath() for js_file in js_files],
             outfile=outfile,
+            named_files={
+                arcname: node.abspath() for arcname, node in self.named_files.items()
+            },
         )
 
 
@@ -220,8 +224,17 @@ def make_pbl_bundle(task_gen):
         )
     task_gen.bld.env = cached_env
 
+    named_files = {
+        path: task_gen.bld.path.find_node(path)
+        for path in bundled_file_paths(task_gen.bld.env.PROJECT_INFO)
+    }
+    bundle_sources.extend(named_files.values())
+
+    # appinfo.json is an input so that a change to it alone (say, the plugin block) rebuilds the pbw
+    appinfo_json = task_gen.bld.path.get_bld().make_node("appinfo.json")
     bundle_output = task_gen.bld.path.get_bld().make_node(task_gen.bld.env.BUNDLE_NAME)
-    task = task_gen.create_task("app_bundle", [], bundle_output)
+    task = task_gen.create_task("app_bundle", [appinfo_json], bundle_output)
     task.bin_files = bin_files
     task.js_files = js_files
+    task.named_files = named_files
     task.dep_nodes = bundle_sources
