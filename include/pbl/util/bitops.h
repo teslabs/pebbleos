@@ -146,4 +146,24 @@ static inline uint8_t pbl_bitrev8(uint8_t v) {
 #endif
 }
 
+/**
+ * @brief Reverse the bit order of a word.
+ *
+ * @param v Word to reverse.
+ * @return @p v with bit 0 swapped with bit 31, bit 1 with bit 30, and so on.
+ */
+static inline uint32_t pbl_bitrev32(uint32_t v) {
+#if defined(__thumb2__)
+  uint32_t r;
+  __asm__("rbit %0, %1" : "=r"(r) : "r"(v));
+  return r;
+#else
+  v = ((v & 0xFFFF0000U) >> 16) | ((v & 0x0000FFFFU) << 16);
+  v = ((v & 0xFF00FF00U) >> 8) | ((v & 0x00FF00FFU) << 8);
+  v = ((v & 0xF0F0F0F0U) >> 4) | ((v & 0x0F0F0F0FU) << 4);
+  v = ((v & 0xCCCCCCCCU) >> 2) | ((v & 0x33333333U) << 2);
+  return ((v & 0xAAAAAAAAU) >> 1) | ((v & 0x55555555U) << 1);
+#endif
+}
+
 /** @} */
