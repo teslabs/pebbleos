@@ -1,2 +1,0 @@
-# Syscalls still defined with DEFINE_SYSCALL, whose arguments each handler
-# checks by hand. New syscalls use PBL_SYSCALL; drop names as they convert.
