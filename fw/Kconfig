@@ -115,8 +115,8 @@ config SYSCALL_FUZZ
     depends on USERSPACE
     select SYSCALL_DESC
     help
-      Let a thread recover from the syscalls it passes bad arguments,
-      instead of being killed, so that it can call every syscall in the
-      image with bad arguments in turn. For tests only.
+      Add the Syscall Fuzz app, which calls every syscall in the image
+      unprivileged with arguments that must be rejected. A syscall that
+      fails returns to the app instead of killing it. For tests only.
 
 endmenu
