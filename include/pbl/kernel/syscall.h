@@ -139,6 +139,8 @@ void pbl_user_mode_enter(void);
  *
  * For untrusted callbacks: memory or peripheral access the thread is not allowed inside @p fn
  * faults the MPU instead of silently succeeding. The caller is privileged again when this returns.
+ * Calling it again before it returns, from a syscall made by @p fn, fails that syscall with
+ * pbl_syscall_fail().
  *
  * @param fn Function to call.
  * @param ctx Argument passed to @p fn.
