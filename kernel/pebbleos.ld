@@ -9,6 +9,9 @@
  * app RAM segments, are derived from the Kconfig memory layout symbols in
  * memory.ld.
  *
+ * The architecture provides regions.ld (MPU region sizing), vectors.ld and
+ * exidx.ld from its linker include directory.
+ *
  * SoC- and library-specific fragments are pulled in through the generated
  * snippets-<location>.ld files. The 'memory' hook takes top-level commands
  * ahead of the main SECTIONS block, e.g. extra MEMORY regions and their
@@ -19,11 +22,11 @@
  * main SECTIONS block.
  */
 
-#include "memory.ld"
+#include <memory.ld>
 
 #include <snippets-memory.ld>
 
-#include "regions.ld"
+#include <regions.ld>
 
 /* Section concepts!
 
@@ -53,7 +56,7 @@ We take that image and load part of it into RAM. That lay out looks like...
 */
 
 SECTIONS {
-#include <sections/vectors.ld>
+#include <vectors.ld>
 
 #include <snippets-rom-start.ld>
 
@@ -62,6 +65,8 @@ SECTIONS {
 #endif
 
 #include <snippets-ram-sections.ld>
+
+#include <exidx.ld>
 
 #include <sections/text.ld>
 

@@ -96,14 +96,20 @@ pbl_library_sources_ifdef(CONFIG_ACCEL_LSM6DSO lsm6dso/lsm6dso.c)
 
 ## Linker script
 
-The master script, `fw/linker/pebbleos.ld`, goes through the C
-preprocessor with `autoconf.h`, so it can use Kconfig symbols, `#include`
-and `#if`. Libraries add to it at fixed hook points:
+The master script, `kernel/pebbleos.ld`, includes the common sections in
+`kernel/linker/` and the fragments the architecture provides, such as the
+vector table. It goes through the C preprocessor with `autoconf.h`, so it
+can use Kconfig symbols, `#include` and `#if`. Libraries add to it at fixed
+hook points:
 
 ```cmake
 pbl_linker_sources(rom-start shell.ld)
 pbl_library_ramfunc(${ramfunc_sources})
 ```
+
+`pbl_linker_include_directories(dir...)`
+: Add directories to the master script's include path. The architecture
+  uses it for the fragments the master script includes by name.
 
 `pbl_linker_sources(location file... [SORT_KEY key])`
 : Include linker script fragments at a hook point: `memory`, `rom-start`,
