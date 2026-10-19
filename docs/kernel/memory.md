@@ -17,8 +17,8 @@ Without `CONFIG_RAMFUNC` all three are no-ops and the code stays in flash.
 
 ## Layout
 
-The linker scripts in `fw/linker/` document the memory map.
-`pebbleos.ld` explains the sections, their load and run addresses, and the
-kernel's data, stack and heap; `memory.ld` how SRAM is divided between the
-kernel, the app and the worker; and `regions.ld` the alignment the MPU
-imposes on those regions.
+The linker scripts document the memory map. `kernel/pebbleos.ld` explains
+the sections, their load and run addresses, and the kernel's data, stack and
+heap; `kernel/linker/memory.ld` how SRAM is divided between the kernel, the
+app and the worker; and, on ARM, `kernel/arch/arm/linker/regions.ld` the
+alignment the MPU imposes on those regions.
