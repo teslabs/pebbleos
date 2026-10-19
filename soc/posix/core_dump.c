@@ -53,5 +53,7 @@ void core_dump_test_force_assert(void) {
   abort();
 }
 
+#ifndef CONFIG_SAMSA
 // Third-party apps are ARM binaries, which a native build cannot load.
 const void *const g_pbl_system_tbl[] = {0};
+#endif

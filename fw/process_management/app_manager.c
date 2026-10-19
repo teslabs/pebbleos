@@ -194,6 +194,13 @@ void prv_dump_start_app_info(const PebbleProcessMd *app_md) {
 #define APP_STACK_SYSTEM_SIZE (4 * 1024)
 
 static size_t prv_get_app_segment_size(const PebbleProcessMd *app_md) {
+#ifdef CONFIG_SAMSA
+  // The firmware objects an app allocates hold host pointers, twice the size
+  // they are on a watch, so every app gets the largest heap there is.
+  if (app_md->process_storage != ProcessStorageBuiltin) {
+    return CONFIG_APP_RAM_4X_SEGMENT_SIZE;
+  }
+#endif
   switch (process_metadata_get_app_sdk_type(app_md)) {
     case ProcessAppSDKType_Legacy2x:
       return CONFIG_APP_RAM_2X_SEGMENT_SIZE;

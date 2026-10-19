@@ -25,9 +25,8 @@ The platform
 Not the architecture
 : The firmware is compiled for the host CPU, with the host compiler and C
   library, and the kernel runs its threads on host threads. That is what
-  makes it fast and debuggable, but third-party apps cannot run: their
-  `.pbw` binaries are ARM code. Use the {doc}`emulator <emulator>` to run
-  them.
+  makes it fast and debuggable. Third-party apps are ARM code, which an
+  {ref}`interpreter <native-third-party-apps>` runs.
 
 Below the platform, each driver has a host implementation:
 
@@ -100,6 +99,40 @@ quits.
   `tcp-server` transport) or a serial device, such as an nRF52840 dongle
   running `hci_uart`, as described for the {doc}`emulator <emulator>`.
 - `-S FILE`: save the last frame to a BMP file on quitting.
+
+(native-third-party-apps)=
+
+## Third-party apps
+
+The simulator interprets the ARM code of `.pbw` apps and their workers with
+[Samsa](https://github.com/coredevices/samsa), a Thumb-2 interpreter, so they
+install and run as on a watch. Install them over the QEMU serial protocol:
+
+```shell
+build/pebbleos -p 12344
+pebble install --qemu localhost:12344 app.pbw
+```
+
+Apps call the firmware through the SDK's jump table, using the 32-bit ARM
+calling convention, while the firmware is a 64-bit host program. A thunk
+per SDK function, generated from the SDK's `pebble.h` by
+`tools/samsa/generate_thunks.py`, converts each call: pointers into the
+app's RAM are mapped to the host, firmware objects outside it are handed to
+the app as handles, structures whose layout differs are converted field by
+field, and function pointers become host trampolines that call back into
+the app. Variadic functions are converted by hand in `subsys/samsa`. The
+firmware asks the process runtime (`process_management/process_runtime.h`)
+for a process's addresses, its SDK table and how to run it, and Samsa
+provides one in which processes not built into the firmware are
+interpreted.
+
+Some apps read firmware structures the SDK keeps opaque, through copies of
+the watch firmware's definitions. Samsa shows them `GBitmap` and the SDK 2
+animations as a watch lays them out; other such structures, such as
+`Layer`, they see as the host lays them out, and misbehave.
+
+An app that faults, passes a bad pointer or calls an SDK function there is
+no thunk for is killed, as on a watch.
 
 ## Debugging
 

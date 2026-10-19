@@ -57,11 +57,6 @@ endif()
 
 project(pebbleos VERSION 1.0 LANGUAGES C ASM)
 
-# Build steps that call the toolchain by name -- the native SDK generator
-# asks for arm-none-eabi-gcc -- find it next to the compiler CMake chose.
-get_filename_component(toolchain_bin ${CMAKE_C_COMPILER} DIRECTORY)
-set(PBL_TOOLCHAIN_ENV ${CMAKE_COMMAND} -E env "PATH=${toolchain_bin}:$ENV{PATH}")
-
 # Kconfig symbols given on the command line (-DCONFIG_FOO=y) are passed
 # through to Kconfig as overrides.
 set(CONFIG_OVERRIDES "")
@@ -73,6 +68,21 @@ foreach(var ${cache_variables})
 endforeach()
 
 include(kconfig)
+
+# Build steps that call the toolchain by name -- the native SDK generator
+# asks for arm-none-eabi-gcc -- find it next to the compiler CMake chose, or
+# in the SDK when that compiler is another one.
+get_filename_component(toolchain_bin ${CMAKE_C_COMPILER} DIRECTORY)
+if(CONFIG_REQUIRES_ARM_TOOLCHAIN)
+  find_program(PBL_ARM_GCC arm-none-eabi-gcc HINTS ${PEBBLEOS_SDK_HINTS})
+  if(NOT PBL_ARM_GCC)
+    message(FATAL_ERROR "The build needs the ARM toolchain of the PebbleOS SDK "
+                        "(CONFIG_REQUIRES_ARM_TOOLCHAIN): install the SDK")
+  endif()
+  get_filename_component(arm_bin ${PBL_ARM_GCC} DIRECTORY)
+  set(toolchain_bin ${toolchain_bin}:${arm_bin})
+endif()
+set(PBL_TOOLCHAIN_ENV ${CMAKE_COMMAND} -E env "PATH=${toolchain_bin}:$ENV{PATH}")
 include(extensions)
 include(platform)
 include(compiler)
@@ -116,14 +126,16 @@ add_custom_command(
 add_custom_target(pbl_version DEPENDS ${version_h})
 add_dependencies(pbl_generated_headers pbl_version)
 
-# The recovery firmware has no third-party apps, so it needs neither the
-# SDK shims nor the stored apps. Neither does a native build, which cannot
-# load ARM app binaries.
-if(NOT CONFIG_RECOVERY_FW AND NOT CONFIG_SOC_POSIX)
+# Third-party apps call the firmware through the SDK shims. The recovery
+# firmware runs none, and a firmware for a CPU other than a watch's only runs
+# them with Samsa interpreting them. The shippable SDK is for the watch's.
+if(NOT CONFIG_RECOVERY_FW AND (CONFIG_CPU_CORTEX_M OR CONFIG_SAMSA))
   pbl_native_sdk()
-  pbl_sdk()
   add_dependencies(pbl_generated_headers pbl_native_sdk)
   set(PBL_FIRMWARE_SOURCES ${PBL_PEBBLE_AUTO_C})
+endif()
+if(NOT CONFIG_RECOVERY_FW AND CONFIG_CPU_CORTEX_M)
+  pbl_sdk()
 endif()
 
 add_subdirectory(third_party)
@@ -133,6 +145,8 @@ add_subdirectory(soc)
 add_subdirectory(subsys)
 add_subdirectory(drivers)
 add_subdirectory(fw)
+# The stored apps are built for the watch, which the recovery firmware runs
+# none on.
 if(NOT CONFIG_RECOVERY_FW AND NOT CONFIG_SOC_POSIX)
   add_subdirectory(apps/stored)
 endif()
