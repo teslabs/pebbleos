@@ -171,6 +171,7 @@ pbl_clar_test(test_app_manager
     fw/process_management/pebble_process_info.c
     fw/process_management/app_manager.c
     fw/process_management/pebble_process_md.c
+    fw/process_management/process_runtime.c
     fw/kernel/memory_layout.c
     fw/kernel/util/segment.c
     tests/fakes/fake_rtc.c

@@ -4,6 +4,7 @@
 #include "app_manager.h"
 
 #include "process_loader.h"
+#include "process_runtime.h"
 
 // Pebble stuff
 #include <pbl/kernel/assert.h>
@@ -85,6 +86,7 @@ void *volatile g_app_load_address;
 static PBL_MSGQ_DEFINE(s_to_app_event_queue, sizeof(PebbleEvent), MAX_TO_APP_EVENTS);
 static bool s_initialized;
 static ProcessContext s_app_task_context;
+static void *s_app_stack_top;
 static ProcessAppRunLevel s_minimum_run_level;
 
 typedef struct NextApp {
@@ -137,8 +139,7 @@ static void prv_app_task_main(void *entry_point) {
   }
 #endif
 
-  const PebbleMain main_func = entry_point;
-  main_func();
+  process_runtime_run(s_app_task_context.app_md, PebbleTask_App, entry_point, s_app_stack_top);
 
   // Clean up after the app.  Remember to put only non-critical cleanup here,
   // as the app may crash or otherwise misbehave. If something really needs to
@@ -300,6 +301,7 @@ static bool prv_app_start(const PebbleProcessMd *app_md, const void *args,
   // failing when the app hasn't done anything wrong.
   void *stack = memory_segment_split(&app_segment, nullptr, stack_size);
   PBL_ASSERTN(stack);
+  s_app_stack_top = (char *)stack + stack_size;
   s_app_task_context.load_start = app_segment.start;
   g_app_load_address = app_segment.start;
   void *entry_point = process_loader_load(app_md, PebbleTask_App, &app_segment);

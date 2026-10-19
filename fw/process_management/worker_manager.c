@@ -5,6 +5,7 @@
 
 #include "process_loader.h"
 #include "process_manager.h"
+#include "process_runtime.h"
 
 // Pebble stuff
 #include <pbl/kernel/assert.h>
@@ -39,6 +40,7 @@
 
 #define MAX_TO_WORKER_EVENTS 8
 static ProcessContext s_worker_task_context;
+static void *s_worker_stack_top;
 static PBL_MSGQ_DEFINE(s_to_worker_event_queue, sizeof(PebbleEvent), MAX_TO_WORKER_EVENTS);
 
 extern char __WORKER_RAM__[];
@@ -83,8 +85,8 @@ static void prv_worker_task_main(void *entry_point) {
   }
 #endif
 
-  const PebbleMain main_func = entry_point;
-  main_func();
+  process_runtime_run(s_worker_task_context.app_md, PebbleTask_Worker, entry_point,
+                      s_worker_stack_top);
 
   // Clean up after the worker.  Remember to put only non-critical cleanup here,
   // as the worker may crash or otherwise misbehave. If something really needs to
@@ -180,6 +182,7 @@ bool worker_manager_launch_new_worker_with_args(const PebbleProcessMd *app_md, c
   // sometimes failing when the worker hasn't done anything wrong.
   void *stack = memory_segment_split(&worker_segment, nullptr, stack_size);
   PBL_ASSERTN(stack);
+  s_worker_stack_top = (char *)stack + stack_size;
   s_worker_task_context.load_start = worker_segment.start;
   g_worker_load_address = worker_segment.start;
   void *entry_point = process_loader_load(app_md, PebbleTask_Worker, &worker_segment);

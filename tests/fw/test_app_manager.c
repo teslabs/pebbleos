@@ -120,6 +120,8 @@ char __APP_RAM_end__;
 char __WORKER_RAM__[1024 * 12];
 char __WORKER_RAM_end__;
 
+const void *const g_pbl_system_tbl[] = {nullptr};
+
 MemorySegment prv_get_app_ram_segment(void) {
   return (MemorySegment){__APP_RAM__, &__APP_RAM__[1024 * 128]};
 }
