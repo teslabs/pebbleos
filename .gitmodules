@@ -46,3 +46,6 @@
 [submodule "third_party/fff/fff"]
 	path = third_party/fff/fff
 	url = https://github.com/meekrosoft/fff
+[submodule "third_party/samsa/samsa"]
+	path = third_party/samsa/samsa
+	url = https://github.com/coredevices/samsa.git

@@ -150,6 +150,15 @@ components:
     purl: pkg:github/pebble-dev/iconography@99e2660ccd8c0c98e596612bb1c21700e28156b3
     url: https://github.com/pebble-dev/iconography
 
+  - name: samsa
+    path: samsa/samsa
+    supplier: Joshua Jun
+    description: Thumb-2 interpreter running third-party apps in native builds
+    commit: 80f246c809f60ab14e21528095b1873e9684d092
+    license: Apache-2.0
+    purl: pkg:github/coredevices/samsa@80f246c809f60ab14e21528095b1873e9684d092
+    url: https://github.com/coredevices/samsa
+
   - name: speex
     path: speex/speex
     supplier: Xiph.Org Foundation
