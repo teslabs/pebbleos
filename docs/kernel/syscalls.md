@@ -49,6 +49,11 @@ With `CONFIG_SYSCALL_DESC`, a hidden option for test tools to select, every
 with arguments read from an array (`include/pbl/kernel/syscall_desc.h`). A
 tool can then call every syscall in the image without a list of them.
 
+Such a tool also needs to survive the calls it expects to be rejected.
+`pbl_syscall_abort_to()`, called while a syscall fails, for example from
+`pbl_kernel_syscall_fault()`, abandons the syscall and resumes the caller
+unprivileged at a given function, on the stack it made the syscall from.
+
 ## Without `CONFIG_USERSPACE`
 
 Every thread runs privileged, syscalls are plain calls with `from_user`

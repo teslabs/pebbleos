@@ -146,6 +146,17 @@ void pbl_user_mode_enter(void);
  * @param ctx Argument passed to @p fn.
  */
 void pbl_user_call(void (*fn)(void *), void *ctx);
+
+/**
+ * @brief Abandon the syscall in progress and resume its caller at @p fn.
+ *
+ * @p fn runs unprivileged, on the stack the syscall was made from, and must not return. For test
+ * tools that pass syscalls bad arguments on purpose and recover from the rejections. Must be
+ * called from a syscall made from unprivileged code.
+ *
+ * @param fn Function to resume the caller at.
+ */
+[[noreturn]] void pbl_syscall_abort_to(void (*fn)(void));
 #endif
 
 /**
