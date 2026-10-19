@@ -110,4 +110,13 @@ config PERFORMANCE_TESTS
     bool "Performance test instrumentation"
     select PROFILER
 
+config SYSCALL_FUZZ
+    bool "Syscall fuzzer"
+    depends on USERSPACE
+    select SYSCALL_DESC
+    help
+      Let a thread recover from the syscalls it passes bad arguments,
+      instead of being killed, so that it can call every syscall in the
+      image with bad arguments in turn. For tests only.
+
 endmenu
