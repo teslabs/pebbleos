@@ -146,6 +146,15 @@ void pbl_user_mode_enter(void);
  * @param ctx Argument passed to @p fn.
  */
 void pbl_user_call(void (*fn)(void *), void *ctx);
+
+/**
+ * @brief Discard a pbl_user_call() that will never return.
+ *
+ * For a privileged caller that regained control through a longjmp out of a syscall made by the
+ * callee: the call's return path was skipped, so its state has to be dropped before the next call.
+ * Must be called from privileged thread mode; does nothing if no call is active.
+ */
+void pbl_user_call_unwind(void);
 #endif
 
 /**

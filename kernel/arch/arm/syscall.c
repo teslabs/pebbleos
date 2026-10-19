@@ -98,6 +98,20 @@ bool arch_user_call_return(uint32_t *frame) {
   return true;
 }
 
+void pbl_user_call_unwind(void) {
+  PBL_ASSERTN(!arch_is_user_context());
+
+  struct pbl_arch_thread *arch = &pbl_cur->backend.arch;
+  struct arch_user_call *call = &arch->user_call;
+  if (!call->active) {
+    return;
+  }
+
+  call->active = false;
+  arch->syscall_lr = call->outer_syscall_lr;
+  arch->syscall_sp = call->outer_syscall_sp;
+}
+
 // The re-entry SVC is deliberately outside .syscall_text. It is only accepted
 // while this call is active for the current thread, and the SVC handler
 // resumes through saved kernel state instead of the callback's stack.
