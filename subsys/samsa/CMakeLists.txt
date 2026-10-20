@@ -20,10 +20,14 @@ add_custom_command(
 pbl_library()
 pbl_library_sources(
   samsa_manual.c
+  samsa_pbw.c
   samsa_runtime.c
   samsa_types.c
   ${thunks}
 )
 pbl_library_include_directories(.)
+
+pbl_host_include_directories(.)
+pbl_host_sources(samsa_pbw_bottom.c)
 set_property(SOURCE ${thunks} TARGET_DIRECTORY ${PBL_CURRENT_LIBRARY}
   APPEND PROPERTY INCLUDE_DIRECTORIES ${PROJECT_BINARY_DIR})
