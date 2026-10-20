@@ -80,6 +80,9 @@ void timeline_layer_move_data(TimelineLayer *layer, int delta);
 
 uint16_t timeline_layer_get_fat_pin_height(void);
 
+//! Vertical offset of a pin's resting icon frame relative to the pin's frame
+int16_t timeline_layer_get_icon_offset_y(void);
+
 uint16_t timeline_layer_get_ideal_sidebar_width(void);
 
 //! Width of the sidebar's arrow, which points into the pin area

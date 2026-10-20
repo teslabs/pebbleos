@@ -702,11 +702,12 @@ static void prv_get_pin_view_bounds(TimelineLayout *layout, GRect *box_out) {
         fonts_get_font_height(
             system_theme_get_font_for_default_size(TextStyleFont_TimeHeaderNumbers));
     box_out->size.h += MAX(time_growth_h, 0);
-    // The title's glyph center is anchored to the icon, including during scrolling.
-    GRect icon_frame, layout_frame;
-    layer_get_global_frame(&layout->icon_layer.layer, &icon_frame);
-    layer_get_global_frame(&layout->layout_layer.layer, &layout_frame);
-    box_out->origin.y = icon_frame.origin.y + icon_frame.size.h / 2 - layout_frame.origin.y;
+    // The title's glyph center is anchored to the icon's resting position within the pin, so
+    // the title scrolls with the pin while the icon animates separately.
+    const GRect pin_frame = {{0, timeline_layer_get_icon_offset_y()}, box_out->size};
+    GRect icon_frame;
+    timeline_layout_get_icon_frame(&pin_frame, layout->info->scroll_direction, &icon_frame);
+    box_out->origin.y = icon_frame.origin.y + icon_frame.size.h / 2;
 #endif
   }
 }

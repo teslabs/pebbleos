@@ -125,6 +125,10 @@ uint16_t timeline_layer_get_fat_pin_height(void) {
   return prv_get_style()->fat_pin_height;
 }
 
+int16_t timeline_layer_get_icon_offset_y(void) {
+  return prv_get_style()->icon_offset_y;
+}
+
 uint16_t timeline_layer_get_ideal_sidebar_width(void) {
   return prv_get_style()->sidebar_width;
 }

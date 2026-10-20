@@ -12,3 +12,7 @@ uint16_t PBL_WEAK timeline_layer_get_ideal_sidebar_width(void) {
 uint16_t PBL_WEAK timeline_layer_get_sidebar_arrow_width(void) {
   return 0;
 }
+
+int16_t PBL_WEAK timeline_layer_get_icon_offset_y(void) {
+  return 0;
+}
