@@ -98,6 +98,10 @@
   button.text { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px;
                 background: var(--panel); color: var(--fg); font: inherit; cursor: pointer; }
   button.text:hover { border-color: var(--dim); }
+  #apps[hidden] { display: none; }
+  #app-url { width: 240px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px;
+             background: var(--panel); color: var(--fg); font: inherit; }
+  body.drop #watch { outline: 2px dashed var(--accent); outline-offset: 8px; border-radius: 12px; }
 
   #log { width: min(720px, 100%); height: 28vh; margin: 0; padding: 8px 10px; overflow: auto;
          border: 1px solid var(--line); border-radius: 8px; background: #0c0d0f; color: #b9bdc2;
@@ -125,6 +129,12 @@
   <span class="group">
     <button class="text" id="reset">Reset</button>
     <button class="text" id="toggle-log" aria-expanded="false">Show log</button>
+  </span>
+  <span class="group" id="apps" hidden>
+    <input id="app-url" type="url" placeholder="URL of a .pbw" aria-label="URL of a .pbw">
+    <button class="text" id="app-install">Install</button>
+    <button class="text" id="app-open">Open .pbw…</button>
+    <input id="app-file" type="file" accept=".pbw" hidden>
   </span>
 </div>
 <pre id="log" hidden></pre>
@@ -367,8 +377,64 @@
       $('boot').classList.add('done');
       // Embedded, focus would scroll the documentation page to the frame.
       if (!embedded) canvas.focus();
+      enableApps();
     },
   };
+
+  // Apps: a .pbw from a file, dropped on the page or picked, or from a URL,
+  // also given as ?pbw= in the page's address.
+  function installBytes(bytes, name) {
+    print(`Installing ${name}`);
+    Module.pbw = bytes;
+    Module._samsa_pbw_install_from_page(bytes.length);
+    Module.pbw = null;
+  }
+
+  async function installUrl(url) {
+    try {
+      const res = await fetch(url.trim());
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      installBytes(new Uint8Array(await res.arrayBuffer()), url.trim());
+    } catch (e) {
+      // A host that does not allow other origins looks like a network error.
+      print(`Could not install ${url}: ${e.message}`);
+      showLog(true);
+    }
+  }
+
+  async function installFile(file) {
+    installBytes(new Uint8Array(await file.arrayBuffer()), file.name);
+  }
+
+  function enableApps() {
+    if (!Module._samsa_pbw_install_from_page) return;
+    $('apps').hidden = false;
+    const url = $('app-url');
+    // Typing a link must not press the watch's buttons.
+    for (const type of ['keydown', 'keyup', 'keypress']) {
+      url.addEventListener(type, (e) => {
+        e.stopPropagation();
+        if (type === 'keydown' && e.key === 'Enter') installUrl(url.value);
+      });
+    }
+    $('app-install').addEventListener('click', () => installUrl(url.value));
+    $('app-open').addEventListener('click', () => $('app-file').click());
+    $('app-file').addEventListener('change', (e) => {
+      for (const file of e.target.files) installFile(file);
+      e.target.value = '';
+    });
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      document.body.classList.add('drop');
+    });
+    document.addEventListener('dragleave', () => document.body.classList.remove('drop'));
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      document.body.classList.remove('drop');
+      for (const file of e.dataTransfer.files) installFile(file);
+    });
+    if (params.get('pbw')) installUrl(params.get('pbw'));
+  }
 
   if (embedded) {
     window.addEventListener('message', (e) => {

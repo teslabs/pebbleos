@@ -99,6 +99,7 @@ quits.
   `tcp-server` transport) or a serial device, such as an nRF52840 dongle
   running `hci_uart`, as described for the {doc}`emulator <emulator>`.
 - `-S FILE`: save the last frame to a BMP file on quitting.
+- `-i FILE`: install a `.pbw` app and launch it; repeat for more.
 
 (native-third-party-apps)=
 
@@ -106,15 +107,21 @@ quits.
 
 The simulator interprets the ARM code of `.pbw` apps and their workers with
 [Samsa](https://github.com/coredevices/samsa), a Thumb-2 interpreter, so they
-install and run as on a watch. Install them over the QEMU serial protocol:
+install and run as on a watch. Install them from the command line, or over
+the QEMU serial protocol as a phone would:
 
 ```shell
+build/pebbleos -i app.pbw
 build/pebbleos -p 12344
 pebble install --qemu localhost:12344 app.pbw
 ```
 
+In a browser, the page installs a `.pbw` dropped on it, picked with **Open
+.pbw…**, or downloaded from a URL, also given as `?pbw=` in the page's
+address. The host of that URL has to allow other origins.
+
 Apps call the firmware through the SDK's jump table, using the 32-bit ARM
-calling convention, while the firmware is a 64-bit host program. A thunk
+calling convention, while the firmware is a host program, often a 64-bit one. A thunk
 per SDK function, generated from the SDK's `pebble.h` by
 `tools/samsa/generate_thunks.py`, converts each call: pointers into the
 app's RAM are mapped to the host, firmware objects outside it are handed to
