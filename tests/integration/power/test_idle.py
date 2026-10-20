@@ -28,6 +28,11 @@ IDLE_NOMINAL_UA = {
         "advertising_slow": 128,
         "airplane_mode": 93,
     },
+    "asterix": {
+        "advertising_fast": 655,
+        "advertising_slow": 84,
+        "airplane_mode": 64,
+    },
 }
 IDLE_TOLERANCE = 0.10
 
