@@ -14,6 +14,7 @@ build:
     - cmake
     - doxygen
     # The playground's firmware build
+    - clang
     - gettext
     - librsvg2-bin
   jobs:

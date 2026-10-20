@@ -14,16 +14,22 @@ EMSCRIPTEN_VERSION=6.0.12
 git submodule update --init --depth 1 -- \
   third_party/cmsis_core/CMSIS \
   third_party/mbedtls/mbedtls \
+  third_party/moddable/moddable \
   third_party/nanopb/nanopb \
   third_party/nimble/mynewt-nimble \
   third_party/qr_code_generator/QR-Code-generator \
   third_party/resources/iconography \
+  third_party/samsa/samsa \
   third_party/speex/speex \
   third_party/tinymt/TinyMT \
   third_party/upng/upng \
   third_party/uzlib/uzlib
 
 python -m pip install -r requirements.txt
+
+# The SDK's ARM toolchain, which the interpreter of third-party apps is
+# generated with.
+curl -LsSf https://github.com/coredevices/PebbleOS-SDK/releases/latest/download/pebbleos-sdk-installer.sh | sh -s -- --defaults
 
 git clone --depth 1 --branch "$EMSCRIPTEN_VERSION" \
   https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
