@@ -10,7 +10,17 @@
 
 #include <samsa/samsa.h>
 
+//! Where in a process's address space the SDK's functions are: a branch there
+//! stops the interpreter with the thunk to run.
+#define SAMSA_GUEST_HOOKS UINT32_C(0x0f000000)
+
 typedef void (*SamsaThunk)(SamsaCpu *cpu);
+
+//! The assembler symbol of a C function name, for declaring one under
+//! another name.
+#define SAMSA_STR(x)       #x
+#define SAMSA_XSTR(x)      SAMSA_STR(x)
+#define SAMSA_SYMBOL(name) SAMSA_XSTR(__USER_LABEL_PREFIX__) name
 
 //! A type the app and the host lay out differently.
 typedef struct {
@@ -100,6 +110,8 @@ extern const SamsaType g_samsa_animation_legacy2_type;
 extern const SamsaType g_samsa_property_animation_legacy2_type;
 
 extern const SamsaThunk g_samsa_thunks[];
+//! The SDK's function table as processes see it: the hook of each function.
+extern const uint32_t g_samsa_sdk_table[];
 extern const char *const g_samsa_thunk_names[];
 extern const unsigned g_samsa_num_thunks;
 extern SamsaCbPool *const g_samsa_cb_pools[];

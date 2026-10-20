@@ -24,7 +24,6 @@ extern char __WORKER_RAM_end__[];
 // hooks it points to are shared; the app and the worker each have a part of
 // their own for their RAM, scratch and handles, so an address tells whose
 // it is.
-#define GUEST_HOOKS   UINT32_C(0x0f000000)
 #define GUEST_TABLE   UINT32_C(0x10000000)
 #define HANDLE_STRIDE UINT32_C(0x10000)
 #define MAX_HANDLES   4096
@@ -75,6 +74,10 @@ typedef struct {
   // as animation handles, so they are accepted when the app hands them back.
   uint32_t opaque[MAX_OPAQUE];
   unsigned next_opaque;
+  // Values the process passed as pointers that are not addresses, such as an
+  // int as a callback's context, so it gets them back as they were.
+  uint32_t ints[MAX_OPAQUE];
+  unsigned next_int;
 
   uint32_t scratch_used;
   size_t arena_used;
@@ -119,8 +122,6 @@ static Process s_processes[] = {
   },
 };
 
-static uint32_t *s_table;
-
 static Process *prv_process_for_task(PebbleTask task) {
   return task == PebbleTask_Worker ? &s_processes[1] : &s_processes[0];
 }
@@ -140,7 +141,25 @@ static bool prv_in(const void *h, const void *start, size_t size) {
          (const uint8_t *)h < (const uint8_t *)start + size;
 }
 
-static void *prv_g2h(const Process *p, uint32_t g) {
+static bool prv_find(const uint32_t *values, uint32_t v) {
+  for (unsigned i = 0; i < MAX_OPAQUE; i++) {
+    if (values[i] == v) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void prv_remember(uint32_t *values, unsigned *next, uint32_t v) {
+  if (!prv_find(values, v)) {
+    values[(*next)++ % MAX_OPAQUE] = v;
+  }
+}
+
+//! Host pointer for an address of the process, and whether it was one: a
+//! value that is not passes through as it is.
+static void *prv_g2h_mapped(const Process *p, uint32_t g, bool *mapped) {
+  *mapped = true;
   if (g == 0) {
     return nullptr;
   }
@@ -156,17 +175,30 @@ static void *prv_g2h(const Process *p, uint32_t g) {
       return (void *)(p->handles[idx] + (g - p->handles_base) % HANDLE_STRIDE);
     }
   }
+  *mapped = false;
   return (void *)(uintptr_t)g;
 }
 
+static void *prv_g2h(const Process *p, uint32_t g) {
+  bool mapped;
+  return prv_g2h_mapped(p, g, &mapped);
+}
+
 void *samsa_g2h(uint32_t g) {
-  return prv_g2h(prv_current(), g);
+  Process *p = prv_current();
+  bool mapped;
+  void *h = prv_g2h_mapped(p, g, &mapped);
+  if (!mapped) {
+    prv_remember(p->ints, &p->next_int, g);
+  }
+  return h;
 }
 
 void *samsa_g2h_ptr(uint32_t g) {
   Process *p = prv_current();
-  void *h = prv_g2h(p, g);
-  if (g != 0 && (uintptr_t)h <= UINT32_MAX) {
+  bool mapped;
+  void *h = prv_g2h_mapped(p, g, &mapped);
+  if (!mapped) {
     p->cpu.fault_addr = g;
     prv_kill(p, "bad pointer passed to the SDK");
   }
@@ -175,13 +207,9 @@ void *samsa_g2h_ptr(uint32_t g) {
 
 void *samsa_g2h_handle(uint32_t g) {
   Process *p = prv_current();
-  void *h = prv_g2h(p, g);
-  if (g != 0 && (uintptr_t)h <= UINT32_MAX) {
-    for (unsigned i = 0; i < MAX_OPAQUE; i++) {
-      if (p->opaque[i] == g) {
-        return h;
-      }
-    }
+  bool mapped;
+  void *h = prv_g2h_mapped(p, g, &mapped);
+  if (!mapped && !prv_find(p->opaque, g)) {
     p->cpu.fault_addr = g;
     prv_kill(p, "bad pointer passed to the SDK");
   }
@@ -198,16 +226,17 @@ static uint32_t prv_h2g(Process *p, const void *h) {
       return r->guest_base + (uint32_t)((const uint8_t *)h - r->host);
     }
   }
-  if ((uintptr_t)h <= UINT32_MAX) {
-    const uint32_t v = (uint32_t)(uintptr_t)h;
-    bool known = false;
-    for (unsigned i = 0; i < MAX_OPAQUE && !known; i++) {
-      known = p->opaque[i] == v;
-    }
-    if (!known) {
-      p->opaque[p->next_opaque++ % MAX_OPAQUE] = v;
-    }
-    return v;
+  // A value the process passed in goes back as it was. On a 64-bit host,
+  // nothing else that fits 32 bits is an address either: it is a value the
+  // firmware made up, which the process may hand back. On a 32-bit host, any
+  // other value may be an address, and gets a handle.
+  const uintptr_t v = (uintptr_t)h;
+  if (v <= UINT32_MAX && prv_find(p->ints, (uint32_t)v)) {
+    return (uint32_t)v;
+  }
+  if (sizeof(void *) > sizeof(uint32_t) && v <= UINT32_MAX) {
+    prv_remember(p->opaque, &p->next_opaque, (uint32_t)v);
+    return (uint32_t)v;
   }
   const uint8_t *b = h;
   for (unsigned i = 0; i < p->num_handles; i++) {
@@ -372,8 +401,12 @@ void *samsa_obj_in_array(uint32_t g, uint32_t count, const SamsaType *type) {
 
 void *samsa_obj_in_array_soft(uint32_t g, uint32_t count, const SamsaType *type) {
   const Process *p = prv_current();
-  if ((uintptr_t)prv_g2h(p, g) <= UINT32_MAX ||
-      (count && (uintptr_t)prv_g2h(p, g + count * type->guest_size - 1) <= UINT32_MAX)) {
+  bool first, last = true;
+  prv_g2h_mapped(p, g, &first);
+  if (count) {
+    prv_g2h_mapped(p, g + count * type->guest_size - 1, &last);
+  }
+  if (g == 0 || !first || !last) {
     return nullptr;
   }
   return samsa_obj_in_array(g, count, type);
@@ -414,7 +447,9 @@ void *samsa_obj_in(uint32_t g, const SamsaType *type) {
 }
 
 void *samsa_obj_in_soft(uint32_t g, const SamsaType *type) {
-  if ((uintptr_t)prv_g2h(prv_current(), g) <= UINT32_MAX) {
+  bool mapped;
+  prv_g2h_mapped(prv_current(), g, &mapped);
+  if (g == 0 || !mapped) {
     return nullptr;
   }
   return samsa_obj_in_array(g, 1, type);
@@ -485,21 +520,32 @@ void *samsa_cb_get(SamsaCbPool *pool, uint32_t g) {
 
 // Callbacks whose signature is not known, from unions of callbacks such as
 // a property animation's setters. Each takes a pointer and one value of up
-// to 64 bits, which the host passes in a single register for all of them.
+// to 64 bits, which a 64-bit host passes in a single register for all of
+// them, and a getter returns its value in one. A WebAssembly host checks the
+// signature of each call: these are the setters', which take a pointer and a
+// 32-bit value and return nothing. It passes a pointer for the larger values
+// (a GPoint or a GRect), which an app's setter of those then cannot read.
 #define RAW_SLOTS 16
 static uint32_t s_raw_guest[RAW_SLOTS];
 
-static uint64_t prv_raw_call(unsigned k, void *a0, uint64_t a1) {
+static uint32_t prv_raw_call(unsigned k, void *a0, uint64_t a1) {
   const uint32_t w[3] = {samsa_h2g(a0), (uint32_t)a1, (uint32_t)(a1 >> 32)};
   uint32_t r = 0;
   samsa_call_guest(s_raw_guest[k], w, ARRAY_LENGTH(w), &r);
   return r;
 }
 
+#if UINTPTR_MAX > UINT32_MAX
 #define RAW(k)                                         \
   static uint64_t prv_raw_##k(void *a0, uint64_t a1) { \
     return prv_raw_call(k, a0, a1);                    \
   }
+#else
+#define RAW(k)                                     \
+  static void prv_raw_##k(void *a0, uint32_t a1) { \
+    prv_raw_call(k, a0, a1);                       \
+  }
+#endif
 // clang-format off
 RAW(0) RAW(1) RAW(2) RAW(3) RAW(4) RAW(5) RAW(6) RAW(7)
 RAW(8) RAW(9) RAW(10) RAW(11) RAW(12) RAW(13) RAW(14) RAW(15)
@@ -577,7 +623,7 @@ static SamsaStop prv_handler(SamsaCpu *cpu, SamsaStop why, void *ctx) {
     return why;
   }
   Process *p = cpu->user;
-  const uint32_t idx = (cpu->r[15] - GUEST_HOOKS) / 4;
+  const uint32_t idx = (cpu->r[15] - SAMSA_GUEST_HOOKS) / 4;
   if (idx >= g_samsa_num_thunks) {
     return SAMSA_STOP_USAGE;
   }
@@ -624,18 +670,13 @@ static void prv_reset(Process *p) {
   p->num_handles = 0;
   memset(p->opaque, 0, sizeof(p->opaque));
   p->next_opaque = 0;
+  memset(p->ints, 0, sizeof(p->ints));
+  p->next_int = 0;
   p->scratch_used = 0;
   p->arena_used = 0;
   p->num_objs = 0;
   p->retaining = false;
   p->last_call = 0;
-
-  if (!s_table) {
-    s_table = calloc(g_samsa_num_thunks, sizeof(uint32_t));
-    for (unsigned i = 0; i < g_samsa_num_thunks; i++) {
-      s_table[i] = (GUEST_HOOKS + i * 4) | 1;
-    }
-  }
 
   samsa_reset(&p->cpu);
   p->regions[0] = (SamsaRegion){
@@ -647,7 +688,7 @@ static void prv_reset(Process *p) {
   p->regions[1] = (SamsaRegion){
     .guest_base = GUEST_TABLE,
     .size = g_samsa_num_thunks * sizeof(uint32_t),
-    .host = (uint8_t *)s_table,
+    .host = (uint8_t *)g_samsa_sdk_table,
     .perms = SAMSA_R,
   };
   p->regions[2] = (SamsaRegion){
@@ -656,7 +697,7 @@ static void prv_reset(Process *p) {
     .host = p->scratch,
     .perms = SAMSA_R | SAMSA_W,
   };
-  p->hooks[0] = (SamsaHook){GUEST_HOOKS, GUEST_HOOKS + g_samsa_num_thunks * 4};
+  p->hooks[0] = (SamsaHook){SAMSA_GUEST_HOOKS, SAMSA_GUEST_HOOKS + g_samsa_num_thunks * 4};
   p->cpu.regions = p->regions;
   p->cpu.num_regions = ARRAY_LENGTH(p->regions);
   p->cpu.hooks = p->hooks;

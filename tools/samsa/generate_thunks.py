@@ -60,8 +60,11 @@ UNSIGNED_KINDS = {
     TK.ULONG,
     TK.ULONGLONG,
 }
-# Typedefs that are 32 bits for the app but pointer-sized on a 64-bit host.
+# Typedefs that are 32 bits for the app but may be wider on the host, which
+# host code declares by the same name. The SDK makes an app's time_t a long;
+# samsa_time_t keeps its name through that.
 HOST_WIDE_TYPEDEFS = {
+    "samsa_time_t",
     "size_t",
     "ssize_t",
     "ptrdiff_t",
@@ -283,6 +286,19 @@ def host_wide(t):
         else:
             break
     return t.get_canonical().kind in (TK.LONG, TK.ULONG)
+
+
+def host_wide_name(t):
+    """The typedef a wider host type is declared by, if any."""
+    while t.kind in (TK.ELABORATED, TK.TYPEDEF):
+        if t.kind == TK.ELABORATED:
+            t = t.get_named_type()
+            continue
+        name = t.get_declaration().spelling
+        if name in HOST_WIDE_TYPEDEFS:
+            return name
+        t = t.get_declaration().underlying_typedef_type
+    return None
 
 
 def int_signed(t):
@@ -646,7 +662,9 @@ class Gen:
             return "bool"
         if c.kind in INT_KINDS:
             if host_wide(t):
-                return "long" if int_signed(t) else "unsigned long"
+                return host_wide_name(t) or (
+                    "long" if int_signed(t) else "unsigned long"
+                )
             bits = c.get_size() * 8
             return f"{'' if int_signed(t) else 'u'}int{bits}_t"
         if c.kind == TK.FLOAT:
@@ -813,7 +831,7 @@ class Gen:
         )
 
     # -- thunks ---------------------------------------------------------
-    def thunk(self, idx, fn):
+    def thunk(self, idx, fn, impl):
         args = list(fn.type.argument_types())
         ret = fn.result_type
         rc = ret.get_canonical()
@@ -838,7 +856,11 @@ class Gen:
             )
         rt = self.host_type(ret)
         ptypes = ", ".join(self.host_type(a) for a in args) or "void"
-        call = f"(({rt} (*)({ptypes}))g_pbl_system_tbl[{idx}])({', '.join(names)})"
+        # The firmware's function, declared with the host types, under the
+        # symbol it is defined as. A call then matches its definition, which a
+        # WebAssembly host checks.
+        decl = f'{rt} samsa_impl_{idx}({ptypes}) __asm__(SAMSA_SYMBOL("{impl}"));\n'
+        call = f"samsa_impl_{idx}({', '.join(names)})"
         body = list(pre)
         if rc.kind == TK.VOID:
             body.append(call + ";")
@@ -870,7 +892,10 @@ class Gen:
             else:
                 raise Unsupported(f"result {ret.spelling}")
         return (
-            f"static void thunk_{idx}(SamsaCpu *c) {{\n  " + "\n  ".join(body) + "\n}\n"
+            decl
+            + f"static void thunk_{idx}(SamsaCpu *c) {{\n  "
+            + "\n  ".join(body)
+            + "\n}\n"
         )
 
 
@@ -897,6 +922,7 @@ def main():
     ap.add_argument("--platform", required=True)
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
+    args.sdk_include = os.path.abspath(args.sdk_include)
 
     parse_c_decl.load_library()
     defines = pebble_platforms[args.platform]["DEFINES"]
@@ -908,15 +934,21 @@ def main():
         "-mfloat-abi=soft",
         "-fshort-enums",
         "-D_TIME_H_",
-        "-Dtime_t=long",
+        "-Dtime_t=samsa_time_t",
+        "-include",
+        os.path.join(args.sdk_include, "samsa_prelude.h"),
         "-I",
         args.sdk_include,
     ]
     cflags += [f"-D{d}" for d in defines]
     for inc in toolchain_includes():
         cflags += ["-isystem", inc]
-    # Headers an app build generates.
+    # Headers an app build generates, and the app's time_t.
     unsaved = [
+        (
+            os.path.join(args.sdk_include, "samsa_prelude.h"),
+            "typedef long samsa_time_t;\n",
+        ),
         (os.path.join(args.sdk_include, "message_keys.auto.h"), ""),
         (os.path.join(args.sdk_include, "src", "resource_ids.auto.h"), ""),
     ]
@@ -969,7 +1001,7 @@ def main():
             dict(gen.asserts),
         )
         try:
-            thunks.append(f"// {name}\n" + gen.thunk(idx, fn))
+            thunks.append(f"// {name}\n" + gen.thunk(idx, fn, e["impl"]))
             entries.append((f"thunk_{idx}", f'"{name}"'))
             stats["generated"] += 1
         except Unsupported as ex:
@@ -998,10 +1030,11 @@ def main():
         '#include "all_sdk_headers.h"',
         '#include "samsa_runtime.h"',
         "",
+        "typedef time_t samsa_time_t;",
+        "",
         '#pragma GCC diagnostic ignored "-Wunused-variable"',
         '#pragma GCC diagnostic ignored "-Wunused-but-set-variable"',
         "",
-        "extern const void *const g_pbl_system_tbl[];",
         "",
     ]
     out += gen.asserts.values()
@@ -1021,6 +1054,9 @@ def main():
     out += [f"  {n}," for _, n in entries]
     out.append("};")
     out.append(f"const unsigned g_samsa_num_thunks = {len(entries)};")
+    out.append("const uint32_t g_samsa_sdk_table[] = {")
+    out += [f"  (SAMSA_GUEST_HOOKS + {i * 4}) | 1," for i in range(len(entries))]
+    out.append("};")
     out.append("SamsaCbPool *const g_samsa_cb_pools[] = {")
     out += [f"  &s_samsa_cb{i}_pool," for i in range(len(gen.pools))]
     out.append("  NULL,")
