@@ -18,6 +18,7 @@ from sdk_helpers import (
     configure_platform,
     get_target_platforms,
     truncate_to_32_bytes,
+    validate_manifest_version,
     validate_message_keys_object,
     validate_plugin,
 )
@@ -190,10 +191,9 @@ def configure(conf):
 
     project_info = _extract_project_info(conf, info_json, info_json_node.name)
 
+    validate_manifest_version(conf, project_info)
     validate_plugin(conf, project_info)
-    if "plugin" in project_info:
-        # The phone app only loads plugins from pbws built to the current appinfo rules.
-        project_info.setdefault("manifestVersion", 2)
+    project_info.setdefault("manifestVersion", 2)
 
     project_type = project_info.get("projectType", None)
     if project_type == "plugin":

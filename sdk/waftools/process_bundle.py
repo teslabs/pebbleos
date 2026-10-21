@@ -8,7 +8,7 @@ from pebble_package import LibraryPackage
 from process_elf import generate_bin_file
 from resources.types.resource_ball import ResourceBall
 from sdk_helpers import bundled_file_paths
-from waflib import Task
+from waflib import Logs, Task
 from waflib.TaskGen import feature
 
 
@@ -174,6 +174,14 @@ def make_pbl_bundle(task_gen):
     has_pkjs = bool(getattr(task_gen, "js", False))
     if has_pkjs:
         bundle_sources.extend(task_gen.to_nodes(task_gen.js))
+        project_info = task_gen.bld.env.PROJECT_INFO
+        declared = project_info.get("usesPermissions")
+        if project_info.get("manifestVersion", 2) >= 2 and not declared:
+            Logs.warn(
+                "package.json declares no usesPermissions: on the phone, this app's JavaScript can't "
+                "make network requests and has to ask for anything else it uses, such as location. "
+                "Declare them, or set '\"manifestVersion\": 1' to keep the old behaviour."
+            )
 
     cached_env = task_gen.bld.env
 

@@ -441,6 +441,31 @@ def bundled_file_paths(project_info):
     return paths
 
 
+# appinfo.json features the phone app only knows from a manifestVersion 2 pbw.
+MANIFEST_V2_KEYS = ("plugin", "usesPermissions", "configPage")
+
+
+def validate_manifest_version(ctx, project_info):
+    """
+    Check the project's manifestVersion, which defaults to 2. The phone app treats a version 1 pbw
+    as a legacy app and ignores the newer appinfo features.
+    :param ctx: the ConfigureContext object
+    :param project_info: the project info appinfo.json is written from
+    :return: N/A
+    """
+    version = project_info.get("manifestVersion", 2)
+    if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+        ctx.fatal("'manifestVersion' must be 1 or 2")
+    if version < 2:
+        used = [key for key in MANIFEST_V2_KEYS if key in project_info]
+        if used:
+            ctx.fatal(
+                f"{', '.join(repr(key) for key in used)} {'needs' if len(used) == 1 else 'need'} "
+                "manifestVersion 2, the default: "
+                "remove '\"manifestVersion\": 1' from package.json"
+            )
+
+
 def validate_plugin(ctx, project_info):
     """
     Check the project's `plugin` block (and that the files appinfo.json names exist) the way the
