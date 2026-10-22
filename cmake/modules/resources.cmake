@@ -58,8 +58,8 @@ function(pbl_resources)
 
   # The timezone database is built straight into a resource.
   if(NOT CONFIG_RECOVERY_FW)
-    set(tzdata ${PROJECT_BINARY_DIR}/resources/normal/base/tzdata/tzdata.bin.reso)
-    set(olson ${PBL_BASE}/resources/normal/base/tzdata/timezones_olson.txt)
+    set(tzdata ${PROJECT_BINARY_DIR}/resources/tzdata/tzdata.bin.reso)
+    set(olson ${PBL_BASE}/resources/tzdata/timezones_olson.txt)
     pbl_resource_command(
       OUTPUT ${tzdata}
       ARGS tzdata --input ${olson} --output ${tzdata}
@@ -196,9 +196,9 @@ function(pbl_resources)
     pbl_resource_command(
       OUTPUT ${PROJECT_BINARY_DIR}/resources/layouts.json.auto
       ARGS layouts --manifest ${manifest}
-           --template ${PBL_BASE}/resources/normal/base/layouts/layouts.json.in
+           --template ${PBL_BASE}/resources/timeline/layouts.json.in
            --output ${PROJECT_BINARY_DIR}/resources/layouts.json.auto
-      DEPENDS ${manifest} ${PBL_BASE}/resources/normal/base/layouts/layouts.json.in
+      DEPENDS ${manifest} ${PBL_BASE}/resources/timeline/layouts.json.in
       COMMENT "Generating layouts.json"
     )
     list(APPEND generated
