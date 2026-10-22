@@ -4,10 +4,10 @@
 
 """Drive the resource build from CMake.
 
-``manifest`` runs at configure time: it merges the resource maps for the
-board and variant, and emits the CMake rules that turn every declared
-resource into a .reso file. The remaining sub-commands are the build
-steps those rules invoke.
+``manifest`` runs at configure time: it resolves the platform file and
+the registered fragments into the resources the firmware builds, and
+emits the CMake rules that turn each one into a .reso file. The
+remaining sub-commands are the build steps those rules invoke.
 """
 
 import argparse
@@ -69,18 +69,12 @@ def import_generators():
 def make_bld(args):
     env = Env()
     env.PLATFORM_NAME = args.platform
-    env.BOARD_NAME = getattr(args, "board_name", None)
     env.VARIANT = args.variant
     env.NODE = getattr(args, "node", None) or "node"
     return Bld(env, RESOURCES_DIR, args.builddir)
 
 
-# --- Resource map merging (was resources/wscript_build) --------------------
-
-
-def _load_map(path):
-    with open(path) as f:
-        return json.load(f)
+# --- Loading the tree ------------------------------------------------------
 
 
 def _load_config(path):
@@ -93,68 +87,6 @@ def _load_config(path):
             for line in (raw.strip() for raw in f)
             if line.endswith("=y")
         }
-
-
-def get_resources_dict(bld, variant, config=frozenset()):
-    """Merge common/base with the variant and platform overrides."""
-    resource_nodes = []
-    override_dicts = []
-
-    common_node = bld.path.find_node("common/base/resource_map.json")
-    resources_dict = _load_map(common_node.abspath())
-    resource_nodes.append(common_node)
-
-    is_recovery = variant == "prf"
-    root_path = "prf/" if is_recovery else "normal/"
-    specific_node = bld.path.find_node(root_path + "base/resource_map.json")
-    specific_dict = _load_map(specific_node.abspath())
-    resource_nodes.append(specific_node)
-    override_dicts.append(specific_dict)
-
-    # Add and override resources based on the platform
-    for path in ("common/" + bld.env.BOARD_NAME + "/resource_map.json",
-                 root_path + bld.env.BOARD_NAME + "/resource_map.json"):
-        platform_node = bld.path.find_node(path)
-        if platform_node:
-            resource_nodes.append(platform_node)
-            override_dicts.append(_load_map(platform_node.abspath()))
-
-    def update_common_media_item(item_dict):
-        for common_media_item in resources_dict["media"]:
-            if common_media_item["name"] == item_dict["name"]:
-                common_media_item.update(item_dict)
-                return
-        resources_dict["media"].append(item_dict)
-
-    for override in override_dicts:
-        for item in override["media"]:
-            update_common_media_item(item)
-
-    resources_dict["media"] = [
-        item for item in resources_dict["media"]
-        if "config" not in item or item["config"] in config
-    ]
-
-    # "files" and "timeline" cannot exist in the common resource map.
-    for key in ("files", "timeline"):
-        if key in specific_dict:
-            resources_dict[key] = specific_dict[key]
-
-    # The font scripts want an absolute characterList path.
-    for item in resources_dict["media"]:
-        if "characterList" in item:
-            item["characterList"] = os.path.abspath(
-                os.path.join("resources", item["characterList"])
-            )
-
-    if is_recovery:
-        # PRF needs every media item built into the firmware image.
-        for item in resources_dict["media"]:
-            if item["type"] == "font":
-                item["extended"] = False
-            item["builtin"] = True
-
-    return resource_nodes, resources_dict
 
 
 def load_tree(args, config):
@@ -198,12 +130,7 @@ def reso_output(definition, builddir):
 def cmd_manifest(args):
     load_generators()
     bld = make_bld(args)
-    config = _load_config(args.config)
-    if args.platform_file:
-        source_files, resources_dict = load_tree(args, config)
-    else:
-        resource_nodes, resources_dict = get_resources_dict(bld, args.variant, config)
-        source_files = [n.abspath() for n in resource_nodes]
+    source_files, resources_dict = load_tree(args, _load_config(args.config))
 
     definitions = []
     for item in resources_dict["media"]:
@@ -219,7 +146,6 @@ def cmd_manifest(args):
         "files": resources_dict.get("files", []),
         "timeline": resources_dict.get("timeline", []),
         "platform": args.platform,
-        "board_name": args.board_name,
         "variant": args.variant,
         "dynamic": args.dynamic,
         "builddir": args.builddir,
@@ -290,7 +216,6 @@ def load_manifest(path):
 def bld_from_manifest(manifest):
     args = argparse.Namespace(
         platform=manifest["platform"],
-        board_name=manifest["board_name"],
         variant=manifest["variant"],
         builddir=manifest["builddir"],
     )
@@ -433,9 +358,8 @@ def main():
     p = sub.add_parser("manifest")
     p.add_argument("--builddir", required=True)
     p.add_argument("--platform", required=True)
-    p.add_argument("--platform-file")
+    p.add_argument("--platform-file", required=True)
     p.add_argument("--fragment", nargs="*", default=[])
-    p.add_argument("--board-name")
     p.add_argument("--variant", required=True)
     p.add_argument("--config")
     p.add_argument("--dynamic", nargs="*", default=[])

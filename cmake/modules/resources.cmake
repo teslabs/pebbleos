@@ -74,24 +74,14 @@ function(pbl_resources)
     set(platform_file ${PBL_BASE}/resources/platforms/${PBL_PLATFORM_NAME}.prf.yaml)
   endif()
   get_property(fragments GLOBAL PROPERTY PBL_RESOURCE_FRAGMENTS)
-  if(EXISTS ${platform_file})
-    set(source_args --platform-file ${platform_file} --fragment ${fragments})
-  else()
-    # Until the tree is converted: the board's resource maps, which a
-    # board may share with another one.
-    set(resources_board ${PBL_BOARD_NAME})
-    if(CONFIG_RESOURCES_BOARD)
-      set(resources_board ${CONFIG_RESOURCES_BOARD})
-    endif()
-    set(source_args --board-name ${resources_board})
-  endif()
 
   # Resolve the declarations into per-resource build rules.
   execute_process(
     COMMAND ${PYTHON_EXECUTABLE} ${PBL_RESOURCES_PY} manifest
       --builddir ${PROJECT_BINARY_DIR}
       --platform ${PBL_PLATFORM_NAME}
-      ${source_args}
+      --platform-file ${platform_file}
+      --fragment ${fragments}
       --variant ${VARIANT}
       --config ${PBL_DOTCONFIG}
       --output ${manifest}
