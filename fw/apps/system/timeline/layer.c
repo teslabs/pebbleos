@@ -112,13 +112,17 @@ static const TimelineLayerStyle *const s_styles[NumPreferredContentSizes] = {
   [PreferredContentSizeExtraLarge] = &s_style_large,
 };
 
-static int16_t s_height_offsets[TIMELINE_NUM_ITEMS_IN_TIMELINE_LAYER];
 static const int s_visible_items[] = {1, 2};
 static const int s_nonvisible_items[] = {0, TIMELINE_NUM_ITEMS_IN_TIMELINE_LAYER - 1};
 
 static const TimelineLayerStyle *prv_get_style(void) {
   // Round pin heights and icon positions depend on the display, not the font size.
   return s_styles[PBL_IF_ROUND_ELSE(PreferredContentSizeDefault, system_theme_get_content_size())];
+}
+
+// The end-of-timeline and day separator sit relative to the display, not the font size.
+static const TimelineLayerStyle *prv_get_display_style(void) {
+  return s_styles[PreferredContentSizeDefault];
 }
 
 uint16_t timeline_layer_get_fat_pin_height(void) {
@@ -164,26 +168,53 @@ static LayoutLayerMode prv_get_mode(int index) {
   }
 }
 
-static void prv_get_size_for(LayoutLayerMode layout_mode, const GRect *bounds, GSize *size) {
-  const TimelineLayerStyle *style = prv_get_style();
-  const int16_t width = bounds->size.w - (style->left_margin + style->right_margin);
-  switch (layout_mode) {
+static int16_t prv_get_height_offset(TimelineLayer *layer, const TimelineLayerStyle *style,
+                                     int index) {
+  if (layer->scroll_direction == TimelineScrollDirectionUp) {
+    switch (index) {
+      case 0:
+        return PAST_TOP_MARGIN_EXTRA + style->thin_pin_height + (2 * style->fat_pin_height);
+      case 1:
+        return style->past_top_margin + style->thin_pin_height + style->past_thin_pin_margin;
+      case 2:
+        return style->past_top_margin;
+      default:
+        return style->past_top_margin - 2 * style->fat_pin_height;
+    }
+  }
+  switch (index) {
+    case 0:
+      return FUTURE_TOP_MARGIN_EXTRA - 2 * style->fat_pin_height;
+    case 1:
+      return style->future_top_margin;
+    case 2:
+      return style->future_top_margin + style->fat_pin_height;
     default:
-    case LayoutLayerModePinnedFat:
-      *size = GSize(width, style->fat_pin_height);
-      break;
-    case LayoutLayerModePinnedThin:
-      *size = GSize(width, style->thin_pin_height);
-      break;
+      return style->future_top_margin + 3 * style->fat_pin_height;
   }
 }
 
+static void prv_get_frame_for_style(TimelineLayer *layer, const TimelineLayerStyle *style,
+                                    int index, GRect *frame) {
+  index = CLIP(index, 0, TIMELINE_NUM_ITEMS_IN_TIMELINE_LAYER - 1);
+  const int16_t width = layer->layer.bounds.size.w - (style->left_margin + style->right_margin);
+  const uint16_t height = (prv_get_mode(index) == LayoutLayerModePinnedThin)
+                              ? style->thin_pin_height
+                              : style->fat_pin_height;
+  *frame = GRect(style->left_margin, prv_get_height_offset(layer, style, index), width, height);
+}
+
 static void prv_get_frame(TimelineLayer *layer, int index, GRect *frame) {
-  const TimelineLayerStyle *style = prv_get_style();
-  index = CLIP(index, 0, (int)ARRAY_LENGTH(s_height_offsets) - 1);
-  const GRect *bounds = &layer->layer.bounds;
-  frame->origin = GPoint(style->left_margin, s_height_offsets[index]);
-  prv_get_size_for(prv_get_mode(index), bounds, &frame->size);
+  prv_get_frame_for_style(layer, prv_get_style(), index, frame);
+}
+
+// Horizontal placement follows the font size style, vertical placement the display style.
+static void prv_get_indicator_frame(TimelineLayer *layer, int index, GRect *frame) {
+  GRect display_frame;
+  prv_get_frame_for_style(layer, prv_get_display_style(), index, &display_frame);
+  prv_get_frame(layer, index, frame);
+  frame->origin.y = display_frame.origin.y;
+  frame->size.h = display_frame.size.h;
 }
 
 void timeline_layer_get_layout_frame(TimelineLayer *layer, int index, GRect *frame_out) {
@@ -215,20 +246,23 @@ void timeline_layer_get_icon_frame(TimelineLayer *layer, int index, GRect *icon_
 }
 
 static void prv_get_end_of_timeline_frame(TimelineLayer *layer, int index, GRect *frame) {
-  prv_get_frame(layer, index, frame);
+  prv_get_indicator_frame(layer, index, frame);
   const bool is_future = (layer->scroll_direction == TimelineScrollDirectionDown);
   const TimelineLayerStyle *style = prv_get_style();
-  gpoint_add_eq(&frame->origin, GPoint(style->fin_offset_x, is_future ? style->future_fin_offset_y
-                                                                      : style->past_fin_offset_y));
+  const TimelineLayerStyle *display_style = prv_get_display_style();
+  gpoint_add_eq(&frame->origin,
+                GPoint(style->fin_offset_x, is_future ? display_style->future_fin_offset_y
+                                                      : display_style->past_fin_offset_y));
   frame->size.w -= PBL_IF_RECT_ELSE(style->sidebar_width, 0);
 }
 
 static void prv_get_day_sep_frame(TimelineLayer *layer, int index, GRect *frame) {
-  prv_get_frame(layer, index, frame);
+  prv_get_indicator_frame(layer, index, frame);
   const bool is_future = (layer->scroll_direction == TimelineScrollDirectionDown);
   const TimelineLayerStyle *style = prv_get_style();
-  frame->origin.y +=
-      is_future ? style->future_day_sep_dot_offset_y : style->past_day_sep_dot_offset_y;
+  const TimelineLayerStyle *display_style = prv_get_display_style();
+  frame->origin.y += is_future ? display_style->future_day_sep_dot_offset_y
+                               : display_style->past_day_sep_dot_offset_y;
   // Remove the built-in margins and subtract the sidebar
   frame->origin.x -= style->left_margin;
   frame->size.w +=
@@ -911,20 +945,6 @@ void timeline_layer_init(TimelineLayer *layer, const GRect *frame_ref,
   // layouts
   layer->scroll_direction = scroll_direction;
   layer->move_delta = prv_get_scroll_delta(layer);
-  if (scroll_direction == TimelineScrollDirectionUp) {
-    s_height_offsets[0] =
-        (PAST_TOP_MARGIN_EXTRA + style->thin_pin_height + (2 * style->fat_pin_height));
-    s_height_offsets[1] =
-        (style->past_top_margin + style->thin_pin_height + style->past_thin_pin_margin);
-    s_height_offsets[2] = style->past_top_margin;
-    s_height_offsets[3] = style->past_top_margin - 2 * style->fat_pin_height;
-  } else {
-    s_height_offsets[0] = FUTURE_TOP_MARGIN_EXTRA - 2 * style->fat_pin_height;
-    s_height_offsets[1] = style->future_top_margin;
-    s_height_offsets[2] = style->future_top_margin + style->fat_pin_height;
-    s_height_offsets[3] =
-        (style->future_top_margin + style->fat_pin_height + (2 * style->fat_pin_height));
-  }
   // layouts layer - contains all the pin
   layer_init(&layer->layouts_layer, &(GRect){.size = frame_ref->size});
   layer_set_clips(&layer->layouts_layer, false);
