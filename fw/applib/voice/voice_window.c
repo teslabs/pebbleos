@@ -39,6 +39,7 @@
 #include <applib/ui/scroll_layer.h>
 #include <applib/ui/status_bar_layer.h>
 #include <applib/ui/text_layer.h>
+#include <applib/ui/vibes.h>
 #include <applib/ui/window_stack.h>
 #include <kernel/ui/kernel_ui.h>
 #include <kernel/ui/modals/modal_manager.h>
@@ -153,6 +154,9 @@ static void prv_init_dialog(VoiceUiData *data, Dialog *dialog, const char *text,
   dialog_set_background_color(dialog, color);
   dialog_set_timeout(dialog, has_timeout ? ERROR_DIALOG_TIMEOUT : DIALOG_TIMEOUT_INFINITE);
   dialog_set_destroy_on_pop(dialog, false /* free_on_pop */);
+
+  // Alert users who aren't looking at the watch that dictation failed
+  vibes_double_pulse();
 }
 
 static void prv_push_error_dialog(VoiceUiData *data, const char *text, uint32_t resource_id,
@@ -248,6 +252,7 @@ static void prv_push_bt_dialog(VoiceUiData *data) {
   Dialog *dialog = &bt_dialog->dialog.dialog;
   dialog_set_destroy_on_pop(dialog, false /* free_on_pop */);
 
+  vibes_double_pulse();
   bt_conn_dialog_push(bt_dialog, prv_handle_bt_conn_result, data);
 }
 
