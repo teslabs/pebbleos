@@ -129,6 +129,8 @@ static uint32_t s_total_on_time_ms;            // Total backlight on time tracke
 //! (prv_light_allowed → prv_backlight_get_intensity, plus a button release
 //! that follows the press within the TTL) skip the ~200 ms I2C poll.
 static uint32_t s_als_cached_level;
+//! Same sample without screen compensation; see prv_get_als_gate_level().
+static uint32_t s_als_cached_gate_level;
 static RtcTicks s_als_cached_ticks;        // 0 = invalid
 #define ALS_CACHE_TTL_TICKS (RTC_TICKS_HZ) // 1 second
 
@@ -213,34 +215,52 @@ static void prv_als_prime_for_interaction(void) {
                   prv_als_prime_release_callback, nullptr, 0 /* flags */);
 }
 
-static uint32_t prv_get_als_level(void) {
+static void prv_als_sample(void) {
   RtcTicks now = rtc_get_ticks();
   const bool cache_valid =
       s_als_cached_ticks != 0 &&
       (s_current_brightness > 0 || (now - s_als_cached_ticks) < ALS_CACHE_TTL_TICKS);
   if (cache_valid) {
-    return s_als_cached_level;
+    return;
   }
-  uint32_t level = 0U;
+  uint32_t raw = 0U;
 
-  (void)pbl_als_read(ALS, &level);
+  (void)pbl_als_read(ALS, &raw);
+  uint32_t level = raw;
 #if defined(CONFIG_ALS_SCREEN_COMPENSATION) && !defined(CONFIG_RECOVERY_FW)
   // The ALS sits under the display; correct the reading for the transmittance
   // of the pixels in front of the sensor. Done once at ingest so every consumer
-  // sees a screen-corrected value, and the cache below throttles the
-  // framebuffer scan to at most once per TTL.
-  level = als_compensation_correct(level);
+  // but the wake gate sees a screen-corrected value, and the cache below
+  // throttles the framebuffer scan to at most once per TTL.
+  level = als_compensation_correct(raw);
 #endif
   // Convert to lux (identity on boards without coefficients) so thresholds
   // and the backlight ramp operate in device-independent units.
-  level = pbl_als_to_lux(ALS, level);
-  s_als_cached_level = level;
+  s_als_cached_level = pbl_als_to_lux(ALS, level);
+  s_als_cached_gate_level = pbl_als_to_lux(ALS, raw);
   s_als_cached_ticks = now;
+}
+
+static uint32_t prv_get_als_level(void) {
+  prv_als_sample();
   return s_als_cached_level;
+}
+
+//! Level the wake gate compares against the dark threshold. Compensation only
+//! ever raises a reading, and an over-estimate refuses a wake the user needs,
+//! so the gate uses the uncompensated value: dark screen content can at worst
+//! let the backlight on in a lit room, never keep it off in a dim one.
+static uint32_t prv_get_als_gate_level(void) {
+  prv_als_sample();
+  return s_als_cached_gate_level;
 }
 
 uint32_t light_get_ambient_lux(void) {
   return prv_get_als_level();
+}
+
+uint32_t light_get_ambient_gate_lux(void) {
+  return prv_get_als_gate_level();
 }
 
 uint32_t light_get_dark_threshold(void) {
@@ -270,7 +290,7 @@ AmbientLightLevel light_level_to_enum(uint32_t lux) {
 }
 
 static bool prv_als_is_light(void) {
-  return prv_get_als_level() > s_dark_threshold;
+  return prv_get_als_gate_level() > s_dark_threshold;
 }
 
 static void light_timer_callback(void *data) {

@@ -129,7 +129,7 @@ pbl_clar_test(test_light
     subsys/cron/cron.c
     tests/fakes/fake_rtc.c
   MODULES time
-  DEFINES CONFIG_BACKLIGHT_HAS_COLOR
+  DEFINES CONFIG_BACKLIGHT_HAS_COLOR CONFIG_ALS_SCREEN_COMPENSATION
   OVERRIDES getafix_backlight
 )
 

@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include <pbl/cron/cron.h>
+#include <pbl/drivers/als.h>
 #include <pbl/drivers/backlight.h>
 #include <pbl/kernel/assert.h>
 #include <pbl/services/light.h>
@@ -46,8 +47,10 @@ bool backlight_is_enabled(void) {
   return s_backlight_enabled;
 }
 
+static bool s_ambient_sensor_enabled;
+
 bool backlight_is_ambient_sensor_enabled(void) {
-  return false;
+  return s_ambient_sensor_enabled;
 }
 
 void backlight_set_enabled(bool enabled) {
@@ -74,6 +77,18 @@ int pbl_backlight_refresh(const struct pbl_backlight *bl) {
 
 bool backlight_is_motion_enabled(void) {
   return false;
+}
+
+static uint32_t s_als_raw;
+static uint32_t s_als_compensation_gain;
+
+int pbl_als_read(const struct pbl_als *als, uint32_t *level) {
+  *level = s_als_raw;
+  return 0;
+}
+
+uint32_t als_compensation_correct(uint32_t raw_level) {
+  return raw_level * s_als_compensation_gain;
 }
 
 // From pref.h
@@ -193,6 +208,9 @@ void test_light__initialize(void) {
   backlight_set_intensity(100);
   s_backlight_enabled = true;
   s_backlight_color = 0;
+  s_ambient_sensor_enabled = false;
+  s_als_raw = 0;
+  s_als_compensation_gain = 1;
   prv_set_schedule(false, 6, 18);
 }
 
@@ -230,6 +248,28 @@ void test_light__button_press_and_release(void) {
 void test_light__light_enable_interaction(void) {
   light_enable_interaction();
   check_on_timed_and_consume();
+}
+
+void test_light__ambient_gate_ignores_screen_compensation(void) {
+  s_ambient_sensor_enabled = true;
+  light_set_dark_threshold(150);
+  // Dim room behind a black sensor region: compensation scales 100 up to 1200.
+  s_als_raw = 100;
+  s_als_compensation_gain = 12;
+
+  cl_assert_equal_i(light_get_ambient_lux(), 1200);
+  cl_assert_equal_i(light_get_ambient_gate_lux(), 100);
+  light_enable_interaction();
+  check_on_timed_and_consume();
+}
+
+void test_light__ambient_gate_blocks_bright_room(void) {
+  s_ambient_sensor_enabled = true;
+  light_set_dark_threshold(150);
+  s_als_raw = 200;
+
+  light_enable_interaction();
+  check_off();
 }
 
 void test_light__light_enable(void) {

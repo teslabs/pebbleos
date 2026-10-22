@@ -245,9 +245,21 @@ uint32_t light_get_ambient_lux(void);
 
 /**
  * @ingroup services_light
+ * @brief Get the ambient light level the backlight wake gate compares against the dark
+ * threshold.
+ *
+ * Same sample as light_get_ambient_lux() but without screen compensation, so dark screen
+ * content can't keep the backlight off in a dim room.
+ *
+ * @return Ambient light level in lux.
+ */
+uint32_t light_get_ambient_gate_lux(void);
+
+/**
+ * @ingroup services_light
  * @brief Get the ambient light level below which the backlight turns on.
  *
- * @return Threshold, in the units of light_get_ambient_lux().
+ * @return Threshold, in the units of light_get_ambient_gate_lux().
  */
 uint32_t light_get_dark_threshold(void);
 
@@ -255,7 +267,7 @@ uint32_t light_get_dark_threshold(void);
  * @ingroup services_light
  * @brief Set the ambient light level below which the backlight turns on.
  *
- * @param threshold Threshold, in the units of light_get_ambient_lux().
+ * @param threshold Threshold, in the units of light_get_ambient_gate_lux().
  */
 void light_set_dark_threshold(uint32_t threshold);
 

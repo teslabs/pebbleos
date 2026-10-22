@@ -361,7 +361,7 @@ static void prv_maybe_trigger_core_dump() {
 /////////////////////////////
 
 static void prv_update_als_threshold_label(NumberWindow *number_window, SettingsSystemData *data) {
-  uint32_t current_reading = light_get_ambient_lux();
+  uint32_t current_reading = light_get_ambient_gate_lux();
   uint32_t current_threshold = (uint32_t)number_window_get_value(number_window);
   bool would_backlight_be_on = current_reading <= current_threshold;
 
@@ -401,7 +401,7 @@ static void prv_als_threshold_menu_push(SettingsSystemData *data) {
   sys_psleep(200);
 
   // Get current ambient light reading to show backlight status
-  uint32_t current_reading = light_get_ambient_lux();
+  uint32_t current_reading = light_get_ambient_gate_lux();
   uint32_t current_threshold = backlight_get_ambient_threshold();
   bool would_backlight_be_on = current_reading <= current_threshold;
 
