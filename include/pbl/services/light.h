@@ -78,9 +78,19 @@ void light_button_released(void);
  * @ingroup services_light
  * @brief Handle a touch finger-down.
  *
- * Acts like a button press; repeated calls before light_touch_up() count once.
+ * Lights the backlight for the timeout; repeated calls before light_touch_up() count once.
+ * Unlike a held button, a held touch doesn't keep the backlight on: only light_touch_moved()
+ * restarts the timeout.
  */
 void light_touch_down(void);
+
+/**
+ * @ingroup services_light
+ * @brief Handle a touch moving while down.
+ *
+ * Restarts the timeout of the backlight lit by light_touch_down().
+ */
+void light_touch_moved(void);
 
 /**
  * @ingroup services_light

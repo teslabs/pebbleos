@@ -642,7 +642,9 @@ static void prv_button_pressed(bool touch) {
 
   // set the state to be on; releasing buttons will start the timer counting down
   if (prv_light_allowed()) {
-    prv_change_state(LIGHT_STATE_ON);
+    // A touch alone only lights for the timeout, so a resting contact can't keep it on
+    const bool timed = touch && s_num_buttons_down == 1 && !s_user_controlled_state;
+    prv_change_state(timed ? LIGHT_STATE_ON_TIMED : LIGHT_STATE_ON);
   }
 
   pbl_mutex_unlock(&s_mutex);
@@ -676,6 +678,17 @@ void light_touch_down(void) {
   }
   s_touch_holding = true;
   prv_button_pressed(true);
+}
+
+void light_touch_moved(void) {
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
+
+  if (s_touch_holding && s_num_buttons_down == 1 && !s_user_controlled_state &&
+      s_light_state != LIGHT_STATE_ON && prv_light_allowed()) {
+    prv_change_state(LIGHT_STATE_ON_TIMED);
+  }
+
+  pbl_mutex_unlock(&s_mutex);
 }
 
 void light_touch_up(void) {

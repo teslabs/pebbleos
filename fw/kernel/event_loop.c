@@ -334,6 +334,7 @@ static PBL_NOINLINE void prv_minimal_event_handler(PebbleEvent *e) {
       } else if (e->touch.event.type == TouchEvent_PositionUpdate) {
         s_touch_contact_engaged = true;
         touch_session_extend();
+        light_touch_moved();
       } else if (e->touch.event.type == TouchEvent_Liftoff) {
         light_touch_up();
         // A contact that neither moved nor formed a gesture is indistinguishable from a false
