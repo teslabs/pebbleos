@@ -2,18 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """The Pebble Protocol over GATT, as the watch runs it: the windows it agrees
-on, transfers larger than a window, resets from either side, lost
-packets, and the versions it agrees on with a phone hosting the service."""
+on, transfers larger than a window, dictation with late Acks, resets from
+either side, lost packets, and the versions it agrees on with a phone
+hosting the service."""
 
 import re
 import time
 import uuid
 
 import pytest
-from harness.ble import FORWARD, PPOG_FORWARD_META
-from harness.ble.ppogatt import SN_MOD
+from harness.ble import FORWARD, PPOG_FORWARD_META, REVERSED
+from harness.ble.ppogatt import SN_MOD, LateAcks
 from harness.errors import Unsupported, WatchTimeout
 from harness.helpers.ui import Ui
+from harness.helpers.voice import VoicePhone
 
 pytestmark = pytest.mark.integration_boards("qemu_emery", "getafix@dvt2")
 BOTH = pytest.mark.variants("normal", "prf")
@@ -31,6 +33,13 @@ V0_WINDOW = 4
 PINGS = 100
 SETTLE_S = 5.0
 APP_UUID = uuid.UUID("3b0b7c4f-0e1a-4d3a-9c47-6a0c3d1e2f50")
+# An idle link: 45 ms, peripheral latency 30. With Acks 6 events late,
+# about 14 audio frames are in flight: more than a window of 4, fewer than
+# 25. A watch quiet for 3 events, longer than the emulator stalls, sleeps.
+IDLE_LINK = LateAcks(interval_s=0.045, latency=30, events=6, quiet_events=3)
+DICTATION_S = 3.0
+FRAME_S = 0.02
+DROPPED_FRAMES = r"Dropped \d+ frames during audio transfer"
 
 
 def _meta(min_version, max_version, app=None, session_type=True):
@@ -116,6 +125,30 @@ def test_large_transfer(dut, watch, phones, mtu):
         if b"".join(bytes(r) for r in rows) == image.tobytes():
             return
     pytest.fail("the screenshot differs from the screen")
+
+
+@pytest.mark.requires_config(
+    "CONFIG_SHELL", "CONFIG_SERVICE_VOICE", "CONFIG_SERVICE_VOICE_ENDPOINT"
+)
+@pytest.mark.parametrize("ppogatt", [REVERSED, FORWARD])
+def test_dictation_with_late_acks(dut, prompt, watch, phones, ppogatt):
+    """Dictation started on an idle link sends every audio frame: the
+    window covers the Acks' round trip, so the watch always has a packet to
+    send and never skips the events that bring them."""
+    phone = _settled(phones(ppogatt=ppogatt, late_acks=IDLE_LINK).connect())
+    voice = VoicePhone(phone.pebble)
+    since = dut.logs.mark()
+    prompt("voice start dictation")
+    session = voice.wait_session()
+    voice.wait_frames(session, 1)
+    time.sleep(DICTATION_S)
+    prompt("voice stop")
+    # The watch logs its drops before the stop it queues behind the frames.
+    voice.wait_stopped(session)
+    voice.send_result(session, ["hello"])
+    dropped = dut.logs.find(DROPPED_FRAMES, since)
+    assert dropped is None, str(dropped)
+    assert len(session.frames) >= 0.9 * DICTATION_S / FRAME_S
 
 
 @BOTH
