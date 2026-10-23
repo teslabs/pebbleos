@@ -13,6 +13,7 @@
 #include <pbl/services/data_logging/dls_list.h>
 #include <pbl/services/data_logging/dls_storage.h>
 #include <pbl/services/filesystem/pfs.h>
+#include <pbl/task_wdt/task_wdt.h>
 #include <pbl/util/math.h>
 #include <pbl/util/string.h>
 
@@ -445,6 +446,8 @@ static bool prv_copy_unread_data(DataLoggingSession *session, int dst_fd, uint8_
       return false;
     }
     offset += len;
+
+    pbl_task_wdt_feed_self();
   }
 
   return true;
