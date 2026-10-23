@@ -427,6 +427,30 @@ static bool prv_write_data(DataLoggingSessionStorage *storage, const void *data,
 }
 
 // -----------------------------------------------------------------------------------------
+static bool prv_copy_unread_data(DataLoggingSession *session, int dst_fd, uint8_t *buf,
+                                 uint32_t buf_size) {
+  uint32_t offset = session->storage.read_offset;
+  const uint32_t end = session->storage.write_offset;
+
+  if (!prv_pfs_seek(session->storage.fd, offset, FSeekSet)) {
+    return false;
+  }
+
+  while (offset < end) {
+    const uint32_t len = MIN(buf_size, end - offset);
+    if (!prv_pfs_read(session->storage.fd, buf, len)) {
+      return false;
+    }
+    if (!prv_pfs_write(dst_fd, buf, len)) {
+      return false;
+    }
+    offset += len;
+  }
+
+  return true;
+}
+
+// -----------------------------------------------------------------------------------------
 // Migrate a session's data to a new file, removing already consumed bytes from the front
 static bool prv_realloc_storage(DataLoggingSession *session, uint32_t new_size) {
   bool success;
@@ -439,6 +463,10 @@ static bool prv_realloc_storage(DataLoggingSession *session, uint32_t new_size) 
   PBL_LOG_DBG("Before compaction: num_bytes: %" PRIu32 ", write_offset:%" PRIu32,
               session->storage.num_bytes, session->storage.write_offset);
 
+  // The unread data is copied verbatim, so make room for its chunk headers too
+  const uint32_t data_size = session->storage.write_offset - session->storage.read_offset;
+  new_size += data_size - session->storage.num_bytes;
+
   // Init a storage struct and create a new file for the compacted data
   DataLoggingSessionStorage new_storage = {
     .fd = DLS_INVALID_FILE,
@@ -449,52 +477,34 @@ static bool prv_realloc_storage(DataLoggingSession *session, uint32_t new_size) 
     goto exit;
   }
 
-  // Copy data in chunks from the old file to the new one. Things go faster with a bigger buffer.
   success = false;
-  // We have to make sure we have at least 1 delineated item within each DLS_ENDPOINT_MAX_PAYLOAD
-  // bytes and clipping max_chunk_size to DLS_ENDPOINT_MAX_PAYLOAD insures that. If we didn't clip
-  // it and the item size was 645 for example, we might pack 2 items back to back in storage
-  // using DLS_MAX_CHUNK_SIZE_BYTES (100) byte chunks and dls_private_send_session() wouldn't be
-  // able to get a complete single item because we wrote 1290 bytes using DLS_MAX_CHUNK_SIZE_BYTES
-  // byte chunks and there is no chunk boundary at the 645 byte offset.
-  int32_t max_chunk_size = DLS_ENDPOINT_MAX_PAYLOAD;
+  int32_t buf_size = DLS_ENDPOINT_MAX_PAYLOAD;
   while (true) {
-    tmp_buf = kernel_malloc(max_chunk_size);
+    tmp_buf = kernel_malloc(buf_size);
     if (tmp_buf) {
       break;
     }
-    if (max_chunk_size < 256) {
+    if (buf_size < 256) {
       PBL_LOG_ERR("Not enough memory for reallocation");
       goto exit;
     }
-    max_chunk_size /= 2;
+    buf_size /= 2;
   }
 
-  int32_t bytes_to_copy = session->storage.num_bytes;
-  while (bytes_to_copy) {
-    uint32_t new_read_offset;
-    int32_t bytes_read =
-        dls_storage_read(session, tmp_buf, MIN(max_chunk_size, bytes_to_copy), &new_read_offset);
-    if (bytes_read <= 0) {
-      goto exit;
-    }
-
-    // Write to new file
-    if (!prv_write_data(&new_storage, tmp_buf, bytes_read)) {
-      goto exit;
-    }
-
-    // Consume out of old one now.
-    if (dls_storage_consume(session, bytes_read) < 0) {
-      goto exit;
-    }
-
-    bytes_to_copy -= bytes_read;
+  if (!prv_get_session_file(session, 0)) {
+    goto exit;
   }
 
-  // We successfully transferred the unread data to the new storage, place it into the session
-  // info
-  pfs_close(session->storage.fd);
+  // Only chunks before the read offset are ever consumed, so the unread data is copied verbatim,
+  // chunk headers included. The old file stays valid until the new one is committed.
+  const bool copied = prv_copy_unread_data(session, new_storage.fd, tmp_buf, buf_size);
+  prv_release_session_file(session);
+  if (!copied) {
+    goto exit;
+  }
+
+  new_storage.write_offset += data_size;
+  new_storage.num_bytes = session->storage.num_bytes;
 
   // Close the new file now. That will finish up the swap for us
   pfs_close(new_storage.fd);
