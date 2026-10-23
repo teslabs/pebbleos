@@ -144,6 +144,7 @@ static const char *s_syncable_notif_prefs[] = {
   "dndWeekdayScheduleEnabled",
   "dndWeekendSchedule",
   "dndWeekendScheduleEnabled",
+  DND_SCHEDULE_SLOT_KEYS,
   "notifWindowTimeout",
   "notifTextSize",
   "notifDesignStyle",
