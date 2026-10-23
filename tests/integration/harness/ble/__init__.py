@@ -105,8 +105,10 @@ class BleLink:
     host's identity: another one is another phone to the watch. ``ppogatt``
     is :data:`REVERSED` or :data:`FORWARD`. ``mtu`` is the ATT MTU asked for,
     ``accept_parameters`` whether the watch's connection parameter updates
-    are granted (they are declined by default), and ``forward_meta`` the
-    value of the phone's PPoGATT meta characteristic. ``services`` are more
+    are granted (they are declined by default), ``forward_meta`` the
+    value of the phone's PPoGATT meta characteristic, and ``late_acks``
+    (a :class:`harness.ble.ppogatt.LateAcks`) how late its PPoGATT Acks
+    reach the watch. ``services`` are more
     services of the phone's GATT server (e.g. :mod:`harness.ble.apple`'s),
     each bound to the link."""
 
@@ -122,6 +124,7 @@ class BleLink:
         mtu=REQUESTED_MTU,
         accept_parameters=False,
         forward_meta=PPOG_FORWARD_META,
+        late_acks=None,
         snoop=None,
         services=(),
     ):
@@ -145,6 +148,7 @@ class BleLink:
         self.mtu = mtu
         self.accept_parameters = accept_parameters
         self.forward_meta = forward_meta
+        self.late_acks = late_acks
         self.services = list(services)
         for service in self.services:
             service.bind(self)
@@ -531,6 +535,7 @@ class BleLink:
                 self._session_open.done() or self._session_open.set_result(True)
             ),
             on_reset=self._on_session_reset,
+            late_acks=self.late_acks,
         )
         self._ppog.mtu = mtu
         self._ticker = asyncio.ensure_future(self._tick())
