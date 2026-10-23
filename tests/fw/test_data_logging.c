@@ -15,6 +15,7 @@
 #include <pbl/services/filesystem/flash_translation.h>
 #include <pbl/services/filesystem/pfs.h>
 #include <pbl/services/regular_timer.h>
+#include <pbl/task_wdt/task_wdt.h>
 #include <pbl/util/list.h>
 #include <pbl/util/math.h>
 #include <pbl/util/size.h>
@@ -54,6 +55,19 @@ bool memory_layout_is_buffer_in_region(const MpuRegion *region, const void *buf,
 // We can't include all of stubs_process_manager because it conflicts with fake_app_manager.h
 bool process_manager_send_event_to_process(PebbleTask task, PebbleEvent *e) {
   return true;
+}
+
+static uint32_t s_flash_ops_at_feed;
+static uint32_t s_max_flash_ops_between_feeds;
+
+static uint32_t prv_flash_ops(void) {
+  return fake_flash_read_count() + fake_flash_write_count();
+}
+
+void pbl_task_wdt_feed_self(void) {
+  uint32_t ops = prv_flash_ops();
+  s_max_flash_ops_between_feeds = MAX(s_max_flash_ops_between_feeds, ops - s_flash_ops_at_feed);
+  s_flash_ops_at_feed = ops;
 }
 
 // ------------------------------------------------------------------------------------
@@ -122,6 +136,8 @@ static void prv_data_log_chain(DataLoggingSessionRef logging_session, uint8_t *b
     PBL_ASSERTN(chunk_size <= num_bytes);
     data_logging_log(logging_session, buf, chunk_size / item_size);
     fake_system_task_callbacks_invoke_pending();
+    // KernelBG feeds its watchdog after every system task callback
+    pbl_task_wdt_feed_self();
     buf += chunk_size;
     num_bytes -= chunk_size;
   }
@@ -269,6 +285,25 @@ void test_data_logging__log_realloc(void) {
       prv_log_consume_random(logging_sessions[i], item_size, num_bytes);
     }
   }
+}
+
+// ----------------------------------------------------------------------------------------
+// Grow a session with a lot of unread data, so that each reallocation copies it all over
+void test_data_logging__log_realloc_large_unread(void) {
+  const int item_size = 1;
+  const int num_bytes = PBL_KIB(300);
+
+  DataLoggingSessionRef logging_session =
+      data_logging_create(0, DATA_LOGGING_UINT, item_size, false);
+  cl_assert(logging_session);
+  fake_system_task_callbacks_invoke_pending();
+
+  s_flash_ops_at_feed = prv_flash_ops();
+  s_max_flash_ops_between_feeds = 0;
+  uint32_t crc = prv_log_random_data(logging_session, item_size, num_bytes);
+  // Each reallocation copies the whole session, so it must keep the watchdog fed
+  cl_assert(s_max_flash_ops_between_feeds < 8192);
+  prv_check_session_data(logging_session, crc, num_bytes);
 }
 
 // ----------------------------------------------------------------------------------------
