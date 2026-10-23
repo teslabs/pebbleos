@@ -23,9 +23,11 @@
 #include <resource/resource_ids.auto.h>
 #include <shell/system_theme.h>
 
-#define INDICATOR                "»"
-#define GLYPH_SCRATCH_SIZE       32
-#define GLYPH_CELL_SIZE          48
+#define INDICATOR          "»"
+#define GLYPH_SCRATCH_SIZE 32
+#define GLYPH_CELL_SIZE    48
+// On color, short rows take part of their spacing so the selection has room around the label
+#define SHORT_CELL_EXTRA         PBL_IF_COLOR_ELSE(6, 0)
 #define GLYPH_CELL_GAP           4
 #define GLYPHS_PER_ROUND_PAGE    10
 #define GLYPH_PAGE_SWIPE_MIN     24
@@ -287,11 +289,8 @@ static void prv_cell_column_draw(GContext *ctx, struct Layer const *cell_layer,
 
     if (sel_idx == i) {
       graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
-#if CONFIG_SCREEN_COLOR_DEPTH_BITS == 1
-      // We only want to have a background on non-color platforms, while leaving this in with
-      // a PBL_IF_COLOR_ELSE makes this a no-op, we'll save some cycles and code space just
-      // skipping it.
-      graphics_context_set_fill_color(ctx, GColorWhite);
+      // Color emoji ignore the text color, so the selection needs a background too
+      graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorDarkGray, GColorWhite));
 
       const int16_t y_offset = 1;
       const int16_t padding = r.size.w / 6;
@@ -300,8 +299,19 @@ static void prv_cell_column_draw(GContext *ctx, struct Layer const *cell_layer,
       bg_rect.origin.y = layer_bounds->origin.y;
       bg_rect.size.h = layer_bounds->size.h;
       bg_rect = grect_inset_internal(bg_rect, padding, y_offset);
-      graphics_fill_round_rect(ctx, &bg_rect, corner_radius, GCornersAll);
+#if PBL_COLOR
+      // Square around single glyphs, wider for longer labels
+      const GSize text_size = graphics_text_layout_get_max_used_size(
+          ctx, items[i].label, font, r, GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter,
+          nullptr);
+      const int16_t text_padding = 4;
+      const int16_t width = (text_size.w <= bg_rect.size.h)
+                                ? bg_rect.size.h
+                                : MIN(text_size.w + 2 * text_padding, bg_rect.size.w);
+      bg_rect.origin.x += (bg_rect.size.w - width) / 2;
+      bg_rect.size.w = width;
 #endif
+      graphics_fill_round_rect(ctx, &bg_rect, corner_radius, GCornersAll);
     } else {
       graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorDarkGray, GColorWhite));
     }
@@ -906,13 +916,13 @@ static int16_t prv_get_cell_padding(ActionMenuLayer *aml) {
   const int16_t default_sep_height = 10;
 #if PBL_ROUND
   // when showing columns, set cells further apart
-  return prv_aml_is_short(aml) ? default_sep_height : 1;
+  return prv_aml_is_short(aml) ? default_sep_height - SHORT_CELL_EXTRA : 1;
 #elif CONFIG_SCREEN_COLOR_DEPTH_BITS == 1
   return default_sep_height;
 #else
   const int16_t line_height = fonts_get_font_height(aml->layout_cache.font);
   const int16_t sep_height = MAX(prv_small_cell_height(aml) - line_height, default_sep_height) + 1;
-  return sep_height;
+  return prv_aml_is_short(aml) ? sep_height - SHORT_CELL_EXTRA : sep_height;
 #endif
 }
 
@@ -926,7 +936,7 @@ static int16_t prv_get_cell_height_cb(struct MenuLayer *menu_layer, MenuIndex *c
       const int rows = PBL_IF_ROUND_ELSE(3, 1);
       return rows * GLYPH_CELL_SIZE + (rows - 1) * GLYPH_CELL_GAP;
     }
-    return line_height;
+    return line_height + SHORT_CELL_EXTRA;
   }
 
 #if PBL_ROUND

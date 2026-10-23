@@ -352,6 +352,12 @@ void test_action_menu_window__thin_display_mode_with_emoji(void) {
                     PBL_IF_COLOR_ELSE(true, false));
 }
 
+// Apps can only use the thin display mode, which must show the selected emoji too
+void test_action_menu_window__thin_display_mode_emoji_selection(void) {
+  prv_render_emoji_picker(4, false);
+  cl_check(gbitmap_pbi_eq(s_dest_bitmap, TEST_PBI_FILE));
+}
+
 void test_action_menu_window__emoji_picker_snooze(void) {
   prv_check_emoji_picker(12, TEST_PBI_FILE);
 }
