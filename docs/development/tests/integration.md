@@ -191,8 +191,10 @@ and answers it. A Bumble phone can also be another phone to the watch,
 service itself, `phones(ppogatt="forward")`, instead of using the one the
 watch hosts; tests that ask for these skip on other phones. It can also
 ask for another ATT MTU (`mtu=23`), grant the watch's connection
-parameter updates (`accept_parameters=True`), and serve another PPoGATT
-meta characteristic (`forward_meta=...`); its `link` reads the watch's
+parameter updates (`accept_parameters=True`), serve another PPoGATT
+meta characteristic (`forward_meta=...`), and get its PPoGATT Acks to
+the watch late, as over a link with peripheral latency
+(`late_acks=LateAcks(...)`); its `link` reads the watch's
 GATT characteristics, resets the PPoGATT session and records the
 parameters the watch asks for.
 `harness.helpers.firmware` installs a firmware bundle through a phone, as
