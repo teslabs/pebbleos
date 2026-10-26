@@ -33,6 +33,7 @@ PebblePhoneCaller *phone_call_util_create_caller(const char *number, const char 
 #include <fake_new_timer.h>
 #include <fake_notification_storage.h>
 #include <fake_pbl_malloc.h>
+#include <fake_rtc.h>
 #include <fake_spi_flash.h>
 
 bool shell_prefs_get_language_english(void) {
@@ -286,6 +287,7 @@ void test_ancs__initialize(void) {
   fake_notification_storage_reset();
   fake_event_init();
   fake_gatt_client_subscriptions_set_subscribe_return_value(PBL_BT_ERRNO_OK);
+  fake_rtc_init(0, 0);
 
   ancs_create();
   ancs_handle_service_discovered(s_characteristics);
@@ -730,6 +732,57 @@ void test_ancs__alive_check_escalates_when_wedged(void) {
   prv_is_ancs_alive_launcher_task_cb(nullptr);
   cl_assert_equal_i(prv_get_state(), ANCSClientStateIdle);
   cl_assert_equal_i(prv_get_queue_depth(), 0);
+}
+
+// s_complete_dict is dated 2013-11-05T18:19:28
+#define COMPLETE_DICT_TIME 1383675568
+
+static void prv_subscribe_data_source(void) {
+  ancs_handle_subscribe(s_characteristics[ANCSCharacteristicData], BLESubscriptionNotifications,
+                        PBL_BT_GATT_ERROR_SUCCESS);
+}
+
+// Establish a session, lose it at lost_time and reconnect at now.
+static void prv_reconnect(time_t lost_time, time_t now) {
+  prv_subscribe_data_source();
+  rtc_set_time(lost_time);
+  ancs_invalidate_all_references();
+  rtc_set_time(now);
+  ancs_handle_service_discovered(s_characteristics);
+  prv_subscribe_data_source();
+}
+
+static void prv_send_pre_existing_complete_dict(void) {
+  prv_send_notification_with_event_flags((uint8_t *)&s_complete_dict, EventFlagPreExisting);
+  // Let the post-reconnection window expire
+  regular_timer_fire_seconds(10);
+}
+
+// Posted while disconnected and still fresh: alert as if it just arrived.
+void test_ancs__recovered_recent_notification_alerts(void) {
+  prv_reconnect(COMPLETE_DICT_TIME - 120, COMPLETE_DICT_TIME + 60);
+  prv_send_pre_existing_complete_dict();
+
+  cl_assert_equal_i(fake_notification_storage_get_store_count(), 1);
+  cl_assert_equal_i(fake_kernel_services_notifications_ancs_notifications_count(), 1);
+}
+
+// Posted while disconnected but a while ago: keep it, but don't alert.
+void test_ancs__recovered_old_notification_stored_silently(void) {
+  prv_reconnect(COMPLETE_DICT_TIME - 120, COMPLETE_DICT_TIME + 30 * 60);
+  prv_send_pre_existing_complete_dict();
+
+  cl_assert_equal_i(fake_notification_storage_get_store_count(), 1);
+  cl_assert_equal_i(fake_kernel_services_notifications_ancs_notifications_count(), 0);
+}
+
+// Posted before the session was lost: already seen, ignore it.
+void test_ancs__pre_existing_from_before_disconnection_ignored(void) {
+  prv_reconnect(COMPLETE_DICT_TIME + 10 * 60, COMPLETE_DICT_TIME + 20 * 60);
+  prv_send_pre_existing_complete_dict();
+
+  cl_assert_equal_i(fake_notification_storage_get_store_count(), 0);
+  cl_assert_equal_i(fake_kernel_services_notifications_ancs_notifications_count(), 0);
 }
 
 // No Longer Supported

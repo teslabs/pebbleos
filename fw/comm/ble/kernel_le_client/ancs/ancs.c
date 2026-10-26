@@ -609,10 +609,13 @@ static void prv_is_ancs_alive_cb(void *data) {
 }
 
 // -----------------------------------------------------------------------------
-//! With iOS 8.2 the pre-existing flag seems to be broken. Don't allow notifications for a bit after
-//! reconnection so that all the "real" pre-existing notification don't come through again.
+//! iOS re-sends the whole notification center as pre-existing right after (re)subscribing. Those
+//! are only handed over as recovered (missed while disconnected) for a bit after reconnection.
+//! Without a previous session to compare against, they are dropped.
 static RegularTimerInfo s_notification_connection_delay_timer;
 static bool s_just_connected = false;
+static bool s_session_active = false;
+static bool s_had_session = false;
 
 static void prv_set_no_longer_just_connected(void *data) {
   s_just_connected = false;
@@ -947,6 +950,12 @@ static ANCSCharacteristic prv_get_id_for_characteristic(
 }
 
 static void prv_put_ancs_disconnected_event(void) {
+  if (s_session_active) {
+    s_session_active = false;
+    s_had_session = true;
+    ancs_notifications_handle_session_lost();
+  }
+
   PebbleEvent event = {
     .type = PEBBLE_ANCS_DISCONNECTED_EVENT,
   };
@@ -969,6 +978,7 @@ void ancs_handle_subscribe(pbl_bt_characteristic_t subscribed_characteristic,
     if (characteristic_id == ANCSCharacteristicData) {
       prv_ancs_is_alive_start_tracking();
       prv_start_temp_notification_connection_delay_timer();
+      s_session_active = true;
     }
   } else {
     PBL_LOG_ERR("Failed to subscribe charx: %u (error=%u)", characteristic_id, error);
@@ -1084,7 +1094,13 @@ static void prv_handle_ns_notification(uint32_t length, const uint8_t *notificat
       // we got in the past 2 hours. To get past this ignore notifications for the first couple
       // seconds after connecting
       if (s_just_connected && (nsnotification->event_flags & EventFlagPreExisting)) {
-        PBL_LOG_DBG("Ignoring notification because we just connected and PreExisting");
+        if (s_had_session) {
+          PBL_LOG_DBG("PreExisting ANCS notification after reconnecting");
+          prv_notif_queue_push_attr_request(nsnotification->uid,
+                                            properties | ANCSProperty_Recovered);
+        } else {
+          PBL_LOG_DBG("Ignoring notification because we just connected and PreExisting");
+        }
       } else {
         PBL_LOG_DBG("Added ANCS notification!");
         prv_notif_queue_push_attr_request(nsnotification->uid, properties);
