@@ -3,8 +3,9 @@
 
 """Core binary-runner abstraction, modeled on Zephyr's west runners.
 
-A runner knows how to talk to a connected device for a small set of commands
-(flash/reset/erase/debug/debugserver). The pbl CLI builds a
+A runner knows how to talk to a target for a small set of commands
+(flash/run/reset/erase/debug/debugserver): a connected device, or a program
+on the host, such as an emulator, that runs the firmware. The pbl CLI builds a
 :class:`RunnerConfig`, registers runner-specific CLI arguments via
 ``do_add_parser()``, instantiates the selected runner with ``create()`` and
 dispatches a command with ``run()``.
@@ -17,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 
 # Commands a runner may implement.
-COMMANDS = ("flash", "reset", "erase", "debug", "debugserver")
+COMMANDS = ("flash", "run", "reset", "erase", "debug", "debugserver")
 
 
 class RunnerError(Exception):
@@ -56,6 +57,8 @@ class RunnerConfig(NamedTuple):
     erase_ranges: tuple = ()  # (address, size) in the board's flash layout
     sftool: str = "sftool"
     gdb: str | None = None
+    build: object | None = None  # pbl.build.BuildDir, for runners on the host
+    extra_args: tuple = ()  # passed on to the program a runner starts
     dry_run: bool = False
 
 
@@ -68,6 +71,11 @@ class Runner(ABC):
     @classmethod
     def capabilities(cls):
         return RunnerCaps()
+
+    @classmethod
+    def supports(cls, cfg):
+        """Whether the runner can handle the build, e.g. its toolchain."""
+        return True
 
     @classmethod
     def do_add_parser(cls, parser):
@@ -99,7 +107,7 @@ class Runner(ABC):
             raise UnsupportedOperation(
                 f"{self.name} runner does not support erasing ranges"
             )
-        self.do_run(command)
+        return self.do_run(command)
 
     @abstractmethod
     def do_run(self, command):
@@ -117,6 +125,15 @@ class Runner(ABC):
             raise RunnerError(
                 f"Command failed with exit status {exc.returncode}: {cmd}"
             ) from exc
+
+    def run_program(self, argv, cwd=None):
+        """Run a program in the foreground, honoring dry-run; returns its status."""
+        cmd = self.quote(*argv)
+        if self.cfg.dry_run:
+            print("[dry-run] " + cmd)
+            return 0
+        print(cmd, flush=True)
+        return subprocess.call([str(a) for a in argv], cwd=cwd)
 
     @staticmethod
     def quote(*args):
