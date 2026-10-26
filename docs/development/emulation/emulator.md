@@ -47,7 +47,7 @@ Configure a build for an emulator board, build it and launch it:
 ```shell
 pbl configure --board qemu_emery
 pbl build
-pbl qemu
+pbl run
 ```
 
 A window opens with the watch's screen, drawn inside a bezel of the watch,
@@ -58,12 +58,12 @@ quit with `quit` there or by closing the window.
 The emulated watch keeps its data in two flash images in the build
 directory: the internal flash, holding the firmware, and the external
 flash, holding the resources, the file system and with it the installed
-apps, settings and Bluetooth bondings. {doc}`../../pbl/qemu` rebuilds both on
+apps, settings and Bluetooth bondings. {doc}`../../pbl/run` rebuilds both on
 every launch; pass `--keep-flash-image` to keep the external flash, and
 with it the watch's data:
 
 ```shell
-pbl qemu --keep-flash-image
+pbl run --keep-flash-image
 ```
 
 The emulated clock follows the host's local time.
@@ -162,7 +162,7 @@ Then build with the UART transport and pass the controller's port:
 ```shell
 pbl configure --board qemu_flint -DCONFIG_BT_HCI_UART=y
 pbl build
-pbl qemu --bt-hci /dev/cu.usbmodemXXXX
+pbl run --bt-hci /dev/cu.usbmodemXXXX
 ```
 
 `--bt-hci` takes any QEMU `-serial` spec, e.g. `tcp:localhost:9000`. On

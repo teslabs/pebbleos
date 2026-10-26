@@ -6,7 +6,7 @@ description: Use when building, launching, debugging, or capturing screenshots o
 # Working with QEMU
 
 Read `docs/development/emulation/emulator.md` — it documents the full workflow: qemu_*
-boards, `./pbl qemu` (monitor sockets, serial ports, uart1.log), `./pbl
+boards, `./pbl run` (monitor sockets, serial ports, uart1.log), `./pbl
 console`, `./pbl screenshot`, programmatic key input via `sendkey`, touch
 injection via `./pbl touch`/`./pbl swipe`, and `./pbl debug`.
 
@@ -20,7 +20,7 @@ Agent notes:
 
 ## Touch
 
-On touch-capable boards you can inject touch into a running QEMU (`./pbl qemu`
+On touch-capable boards you can inject touch into a running QEMU (`./pbl run`
 exposes the QMP socket used for injection). Coordinates are screen pixels; the
 display size is read from the emulated `pebble-touch` device and scaled
 automatically.

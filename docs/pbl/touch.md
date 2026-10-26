@@ -8,7 +8,7 @@ device and scaled automatically. A tap is a finger down then up.
 pbl touch 130 130
 ```
 
-Injection goes through the QMP socket {doc}`qemu` opens, on the
+Injection goes through the QMP socket {doc}`run` opens, on the
 absolute-pointer input path; multi-touch is not wired up in the device. See
 {doc}`swipe` for drags.
 

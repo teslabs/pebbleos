@@ -9,6 +9,7 @@ from .core import (
 )
 from .nrfutil import NrfUtilRunner
 from .openocd import OpenOcdRunner
+from .qemu import QemuRunner
 from .sftool import SfToolRunner
 
 __all__ = [
@@ -29,6 +30,7 @@ RUNNERS = {
         OpenOcdRunner,
         SfToolRunner,
         NrfUtilRunner,
+        QemuRunner,
     )
 }
 
