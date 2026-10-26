@@ -33,8 +33,7 @@ command's own options.
 | {doc}`menuconfig` | {doc}`image_resources` | {doc}`swipe` |
 | {doc}`clean` | {doc}`image_recovery` | {doc}`feed` |
 | {doc}`test` | {doc}`reset` | |
-| {doc}`itest` | {doc}`run` | |
-| | {doc}`erase` | |
+| {doc}`itest` | {doc}`erase` | |
 | | {doc}`bork` | |
 | | {doc}`openocd` | |
 
@@ -80,8 +79,8 @@ first one is the default; `-r/--runner` picks another.
 
 | Runner | Boards | Operations |
 | --- | --- | --- |
-| `openocd` | asterix | flash (with resources), run, reset, erase (with ranges), debug, debug server |
-| `nrfutil` | asterix | flash (with resources), run, reset, erase (with ranges) |
+| `openocd` | asterix | flash (with resources), reset, erase (with ranges), debug, debug server |
+| `nrfutil` | asterix | flash (with resources), reset, erase (with ranges) |
 | `sftool` | obelix, getafix | flash (with resources), erase (with ranges) |
 
 For the OpenOCD runner, the probe and target configuration lives in the
@@ -115,7 +114,6 @@ debug.md
 image_resources.md
 image_recovery.md
 reset.md
-run.md
 erase.md
 bork.md
 openocd.md

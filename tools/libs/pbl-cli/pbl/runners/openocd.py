@@ -33,7 +33,7 @@ class OpenOcdRunner(Runner):
     @classmethod
     def capabilities(cls):
         return RunnerCaps(
-            commands={"flash", "run", "reset", "erase", "debug", "debugserver"},
+            commands={"flash", "reset", "erase", "debug", "debugserver"},
             flash_resources=True,
             erase_ranges=True,
         )
@@ -86,8 +86,6 @@ class OpenOcdRunner(Runner):
                 expect=["Programming Started", "Programming Finished", "shutdown"],
                 enforce_expect=True,
             )
-        elif command == "run":
-            self._run_command("init; reset run;", expect=["found"])
         elif command == "reset":
             self._run_command("init; reset;", expect=["found"])
         elif command == "erase" and self.cfg.erase_ranges:
