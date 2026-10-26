@@ -16,7 +16,7 @@ class NrfUtilRunner(Runner):
     @classmethod
     def capabilities(cls):
         return RunnerCaps(
-            commands={"flash", "run", "reset", "erase"},
+            commands={"flash", "reset", "erase"},
             flash_resources=True,
             erase_ranges=True,
         )
@@ -79,7 +79,7 @@ class NrfUtilRunner(Runner):
             if self.cfg.resources_file:
                 self._program_resources()
             self._nrfutil("reset")
-        elif command in ("run", "reset"):
+        elif command == "reset":
             self._nrfutil("reset")
         elif command == "erase" and self.cfg.erase_ranges:
             self._erase_ranges()

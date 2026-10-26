@@ -28,13 +28,6 @@ class Reset(_DeviceCommand):
         super().__init__("reset", "Reset a connected device")
 
 
-class Run(_DeviceCommand):
-    operation = "run"
-
-    def __init__(self):
-        super().__init__("run", "Start or resume execution on a connected device")
-
-
 class Bork(_DeviceCommand):
     operation = "erase"
 
