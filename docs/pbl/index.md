@@ -86,6 +86,8 @@ handle the build is the default; `-r/--runner` picks another.
 | `nrfutil` | asterix | flash (with resources), reset, erase (with ranges) |
 | `sftool` | obelix, getafix | flash (with resources), erase (with ranges) |
 | `qemu` | qemu_* | run |
+| `native` | native_* | run |
+| `wasm` | native_*/wasm | run |
 
 For the OpenOCD runner, the probe and target configuration lives in the
 board's `support/openocd.cfg`, and how to write the resources and erase

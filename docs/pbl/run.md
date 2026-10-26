@@ -1,7 +1,8 @@
 # `pbl run`
 
 Run the firmware with the board's {ref}`runner <pbl-runners>`: in the
-emulator for a QEMU board, or flashed to a watch.
+emulator for a QEMU board, as a host program or in a browser for a native
+board, or flashed to a watch.
 
 ```shell
 pbl run
@@ -37,6 +38,36 @@ The launched QEMU exposes:
 UART1 output is also captured to `uart1.log` in the repository root.
 {doc}`../development/emulation/emulator` covers what the emulator models and how to
 operate it.
+
+## On the host
+
+On a native board, the `native` runner starts the
+{doc}`native simulator <../development/emulation/native_simulator>`, with
+its external flash in `pebbleos-flash.bin` in the build directory, kept
+across runs. Arguments after `--` are the program's own options, e.g. a
+window scale factor:
+
+```shell
+pbl configure --board native_emery
+pbl build
+pbl run -- -s 2
+```
+
+`--bt-hci` connects the Bluetooth HCI UART of a `CONFIG_BT_HCI_UART` build
+to a controller, as in the emulator.
+
+## In a browser
+
+The `wasm` variant of a native board is run by the `wasm` runner: it serves
+the build directory on `localhost`, port 8000 or `--http-port`, and opens
+the page in a browser, unless `--no-browser` is given. `Ctrl-C` stops it;
+reloading the page picks up a rebuild.
+
+```shell
+pbl configure --board native_emery/wasm
+pbl build
+pbl run
+```
 
 ## On a watch
 
