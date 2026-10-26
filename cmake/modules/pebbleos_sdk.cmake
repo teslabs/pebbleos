@@ -83,7 +83,7 @@ endif()
 list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES PEBBLEOS_SDK_ROOT)
 
 find_program(PBL_QEMU qemu-pebble HINTS ${PEBBLEOS_SDK_HINTS}
-  DOC "Pebble QEMU, for 'pbl qemu'")
+  DOC "Pebble QEMU, for 'pbl run'")
 find_program(PBL_SFTOOL sftool HINTS ${PEBBLEOS_SDK_HINTS}
   DOC "SiFli flash tool, for 'pbl flash'")
 find_program(PBL_GDB NAMES pebble-gdb arm-none-eabi-gdb-py arm-none-eabi-gdb

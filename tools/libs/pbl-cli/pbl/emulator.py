@@ -3,7 +3,7 @@
 
 """Talking to a running QEMU.
 
-``pbl qemu`` exposes two unix sockets in the build directory: the human
+The qemu runner (``pbl run``) exposes two unix sockets in the build directory: the human
 monitor, used for screendumps, and QMP, used to inject input events. The
 firmware's Pebble protocol is served over a TCP serial port, reached with
 :func:`connect_watch`.
@@ -33,7 +33,7 @@ def _connect(path, what):
         sock.connect(path)
     except OSError as e:
         raise CommandContextError(
-            f"cannot reach the QEMU {what} socket at {path} -- is 'pbl qemu' running? ({e})"
+            f"cannot reach the QEMU {what} socket at {path} -- is 'pbl run' running QEMU? ({e})"
         ) from e
     return sock
 
@@ -144,7 +144,7 @@ def connect_watch(host="127.0.0.1", port=PEBBLE_TOOL_PORT):
     except PebbleConnectionError as e:
         raise CommandContextError(
             f"cannot reach the emulator's Pebble protocol port at {host}:{port} "
-            f"-- is 'pbl qemu' running? ({e})"
+            f"-- is 'pbl run' running QEMU? ({e})"
         ) from e
     try:
         pebble.run_async()

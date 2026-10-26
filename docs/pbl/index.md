@@ -27,11 +27,11 @@ command's own options.
 
 | Build | Device | Emulator |
 | --- | --- | --- |
-| {doc}`configure` | {doc}`run` | {doc}`qemu` |
-| {doc}`build` | {doc}`flash` | {doc}`screenshot` |
-| {doc}`bundle` | {doc}`console` | {doc}`touch` |
-| {doc}`menuconfig` | {doc}`debug` | {doc}`swipe` |
-| {doc}`clean` | {doc}`image_resources` | {doc}`feed` |
+| {doc}`configure` | {doc}`run` | {doc}`screenshot` |
+| {doc}`build` | {doc}`flash` | {doc}`touch` |
+| {doc}`bundle` | {doc}`console` | {doc}`swipe` |
+| {doc}`menuconfig` | {doc}`debug` | {doc}`feed` |
+| {doc}`clean` | {doc}`image_resources` | |
 | {doc}`test` | {doc}`image_recovery` | |
 | {doc}`itest` | {doc}`reset` | |
 | | {doc}`erase` | |
@@ -75,14 +75,17 @@ pbl -b build-asterix flash
 
 ## Runners
 
-Device commands reach a watch through a binary runner. A board lists the ones it supports in its manifest, and the
-first one is the default; `-r/--runner` picks another.
+Device commands reach their target through a binary runner: a watch, or a
+program on the host running the firmware, such as the emulator. A board
+lists the runners it supports in its manifest, and the first one that can
+handle the build is the default; `-r/--runner` picks another.
 
 | Runner | Boards | Operations |
 | --- | --- | --- |
 | `openocd` | asterix | flash (with resources), reset, erase (with ranges), debug, debug server |
 | `nrfutil` | asterix | flash (with resources), reset, erase (with ranges) |
 | `sftool` | obelix, getafix | flash (with resources), erase (with ranges) |
+| `qemu` | qemu_* | run |
 
 For the OpenOCD runner, the probe and target configuration lives in the
 board's `support/openocd.cfg`, and how to write the resources and erase
@@ -125,7 +128,6 @@ openocd.md
 :hidden:
 :caption: Emulator
 
-qemu.md
 screenshot.md
 touch.md
 swipe.md

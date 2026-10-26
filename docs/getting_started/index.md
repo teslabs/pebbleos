@@ -185,7 +185,7 @@ pbl build
 Launch the emulator:
 
 ```shell
-pbl qemu
+pbl run
 ```
 
 A window opens with the emulated watch and the firmware boots to the
