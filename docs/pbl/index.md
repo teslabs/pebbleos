@@ -27,13 +27,14 @@ command's own options.
 
 | Build | Device | Emulator |
 | --- | --- | --- |
-| {doc}`configure` | {doc}`flash` | {doc}`qemu` |
-| {doc}`build` | {doc}`console` | {doc}`screenshot` |
-| {doc}`bundle` | {doc}`debug` | {doc}`touch` |
-| {doc}`menuconfig` | {doc}`image_resources` | {doc}`swipe` |
-| {doc}`clean` | {doc}`image_recovery` | {doc}`feed` |
-| {doc}`test` | {doc}`reset` | |
-| {doc}`itest` | {doc}`erase` | |
+| {doc}`configure` | {doc}`run` | {doc}`qemu` |
+| {doc}`build` | {doc}`flash` | {doc}`screenshot` |
+| {doc}`bundle` | {doc}`console` | {doc}`touch` |
+| {doc}`menuconfig` | {doc}`debug` | {doc}`swipe` |
+| {doc}`clean` | {doc}`image_resources` | {doc}`feed` |
+| {doc}`test` | {doc}`image_recovery` | |
+| {doc}`itest` | {doc}`reset` | |
+| | {doc}`erase` | |
 | | {doc}`bork` | |
 | | {doc}`openocd` | |
 
@@ -108,6 +109,7 @@ itest.md
 :hidden:
 :caption: Device
 
+run.md
 flash.md
 console.md
 debug.md
