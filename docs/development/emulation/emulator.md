@@ -124,6 +124,19 @@ pebble install /path/to/app.pbw --qemu
 
 Launch with `--keep-flash-image` to keep installed apps across launches.
 
+### Microphone
+
+The emulator's microphone captures audio sent from the host, and silence
+otherwise. With an app capturing, play a tone, noise or a WAV file into it:
+
+```shell
+pebble emu-mic --qemu localhost:12344 --file speech.wav
+```
+
+Apps need the phone to grant them the microphone, which only the SDK
+emulator (`pebble install --emulator`) does; see
+{doc}`../../reference/local-microphone`.
+
 ### Debugging
 
 The emulator always runs a GDB server. {doc}`../../pbl/debug` attaches to it
