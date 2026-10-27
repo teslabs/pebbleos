@@ -3,6 +3,8 @@
 
 import os
 
+from pbl import emulator
+
 from .core import Runner, RunnerCaps, RunnerError
 
 # Backs the external flash; kept across runs, like a watch's.
@@ -39,7 +41,11 @@ class NativeRunner(Runner):
         if self.bt_hci and not hci_uart:
             raise RunnerError("--bt-hci needs a build with CONFIG_BT_HCI_UART=y")
 
-        argv = [program, "-f", build.join(FLASH_FILE)]
+        argv = [
+            program,
+            "-f", build.join(FLASH_FILE),
+            "-p", str(emulator.PEBBLE_TOOL_PORT),
+        ]  # fmt: skip
         if self.bt_hci:
             argv += ["-b", self.bt_hci]
         return self.run_program(argv + list(self.cfg.extra_args))

@@ -44,8 +44,9 @@ operate it.
 On a native board, the `native` runner starts the
 {doc}`native simulator <../development/emulation/native_simulator>`, with
 its external flash in `pebbleos-flash.bin` in the build directory, kept
-across runs. Arguments after `--` are the program's own options, e.g. a
-window scale factor:
+across runs, and the Pebble protocol over TCP on `localhost:12344`, as the
+emulator, for the `pebble` tool and {doc}`emulator`. Arguments after `--`
+are the program's own options, e.g. a window scale factor:
 
 ```shell
 pbl configure --board native_emery

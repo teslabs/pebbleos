@@ -81,6 +81,9 @@ colors the firmware draws.
 The mouse drives the touchscreen: click and drag, or scroll with the wheel
 or two fingers on a trackpad, which drags a finger from the pointer.
 
+From a shell, {doc}`../../pbl/emulator` taps, swipes, captures the screen
+and feeds phone data over the Pebble protocol port, as with the emulator.
+
 ### Console
 
 The terminal is the watch's serial console: logs go there, and as on the
@@ -103,6 +106,7 @@ quits.
   of the terminal. Its output still goes to stdout.
 - `-p PORT`: serve the QEMU serial protocol on a TCP port, where a phone
   connects with libpebble2's QEMU transport (`pebble --qemu`).
+  {doc}`../../pbl/run` serves it on 12344.
 - `-b PORT|DEVICE`: with `CONFIG_BT_HCI_UART`, connect the Bluetooth HCI
   UART to an H4 controller: a TCP port on the local host (e.g. Bumble's
   `tcp-server` transport) or a serial device, such as an nRF52840 dongle
@@ -122,7 +126,6 @@ the QEMU serial protocol as a phone would:
 
 ```shell
 pbl run -- -i app.pbw
-pbl run -- -p 12344
 pebble install --qemu localhost:12344 app.pbw
 ```
 

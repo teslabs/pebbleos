@@ -16,7 +16,8 @@ class Emulator(PblCommand):
             "emulator",
             "Interact with the running emulator",
             "Capture the screen of, inject touches into, or feed phone data to "
-            "the emulator 'pbl run' is running.",
+            "the emulator 'pbl run' is running: QEMU, or the firmware as a "
+            "native program.",
         )
         self.feeds = builtin_feeds()
 
