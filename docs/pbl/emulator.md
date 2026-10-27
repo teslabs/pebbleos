@@ -1,10 +1,14 @@
 # `pbl emulator`
 
-Interact with the emulator {doc}`run` is running. Each action is a
-subcommand.
+Interact with the emulator {doc}`run` is running: QEMU on a `qemu_*` board,
+or the {doc}`native simulator <../development/emulation/native_simulator>`
+on a `native_*` one. Each action is a subcommand.
 
-Screenshots go through the socket monitor and touches through the QMP
-socket, on the emulated touch controller's input path.
+On QEMU, screenshots go through the socket monitor and touches through the
+QMP socket, on the emulated touch controller's input path. The native
+simulator has neither: both go over its Pebble protocol port, to the
+firmware's screenshot and remote input endpoints. That port serves one
+client at a time, so they fail there while a feed holds it.
 
 ## Screenshots
 
