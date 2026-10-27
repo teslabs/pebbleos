@@ -309,22 +309,4 @@ static inline int pbl_i2c_reg_write_byte(const struct pbl_i2c_dev *dev, uint8_t 
  */
 int pbl_i2c_reg_update_byte(const struct pbl_i2c_dev *dev, uint8_t reg, uint8_t mask, uint8_t val);
 
-/** @cond INTERNAL_HIDDEN */
-/* Previous API, until its users move */
-void pbl_i2c_use(const struct pbl_i2c_dev *dev);
-void pbl_i2c_release(const struct pbl_i2c_dev *dev);
-int pbl_i2c_read_register(const struct pbl_i2c_dev *dev, uint8_t reg, uint8_t *result);
-int pbl_i2c_read_register_block(const struct pbl_i2c_dev *dev, uint8_t reg, uint32_t size,
-                                uint8_t *result);
-int pbl_i2c_read_register_block_dma(const struct pbl_i2c_dev *dev, uint8_t reg, uint32_t size,
-                                    uint8_t *result);
-int pbl_i2c_write_register(const struct pbl_i2c_dev *dev, uint8_t reg, uint8_t value);
-int pbl_i2c_write_register_block(const struct pbl_i2c_dev *dev, uint8_t reg, uint32_t size,
-                                 const uint8_t *data);
-int pbl_i2c_read_block(const struct pbl_i2c_dev *dev, uint32_t size, uint8_t *result);
-int pbl_i2c_write_block(const struct pbl_i2c_dev *dev, uint32_t size, const uint8_t *data);
-int pbl_i2c_write_read_block(const struct pbl_i2c_dev *dev, uint32_t write_size,
-                             const uint8_t *write_data, uint32_t read_size, uint8_t *read_data);
-/** @endcond */
-
 /** @} */

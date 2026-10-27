@@ -12,7 +12,6 @@
 #include <pbl/mcu/cache.h>
 #include <pbl/services/analytics/analytics.h>
 #include <pbl/util/misc.h>
-#include <pbl/util/size.h>
 
 PBL_LOG_MODULE_DEFINE(driver_i2c, CONFIG_DRIVER_I2C_LOG_LEVEL);
 
@@ -119,57 +118,4 @@ int pbl_i2c_reg_update_byte(const struct pbl_i2c_dev *dev, uint8_t reg, uint8_t 
   }
 
   return pbl_i2c_reg_write_byte(dev, reg, new);
-}
-
-void pbl_i2c_use(const struct pbl_i2c_dev *dev) {
-}
-
-void pbl_i2c_release(const struct pbl_i2c_dev *dev) {
-}
-
-int pbl_i2c_read_register(const struct pbl_i2c_dev *dev, uint8_t reg, uint8_t *result) {
-  return pbl_i2c_reg_read_byte(dev, reg, result);
-}
-
-int pbl_i2c_read_register_block(const struct pbl_i2c_dev *dev, uint8_t reg, uint32_t size,
-                                uint8_t *result) {
-  return pbl_i2c_burst_read(dev, reg, result, size);
-}
-
-int pbl_i2c_read_register_block_dma(const struct pbl_i2c_dev *dev, uint8_t reg, uint32_t size,
-                                    uint8_t *result) {
-  struct pbl_i2c_msg msgs[] = {
-    {.buf = &reg, .len = 1U, .flags = PBL_I2C_MSG_WRITE},
-    {.buf = result, .len = size, .flags = PBL_I2C_MSG_READ | PBL_I2C_MSG_DMA_SAFE},
-  };
-
-  return pbl_i2c_transfer(dev, msgs, ARRAY_LENGTH(msgs));
-}
-
-int pbl_i2c_write_register(const struct pbl_i2c_dev *dev, uint8_t reg, uint8_t value) {
-  return pbl_i2c_reg_write_byte(dev, reg, value);
-}
-
-int pbl_i2c_write_register_block(const struct pbl_i2c_dev *dev, uint8_t reg, uint32_t size,
-                                 const uint8_t *data) {
-  return pbl_i2c_burst_write(dev, reg, data, size);
-}
-
-int pbl_i2c_read_block(const struct pbl_i2c_dev *dev, uint32_t size, uint8_t *result) {
-  return pbl_i2c_read(dev, result, size);
-}
-
-int pbl_i2c_write_block(const struct pbl_i2c_dev *dev, uint32_t size, const uint8_t *data) {
-  return pbl_i2c_write(dev, data, size);
-}
-
-int pbl_i2c_write_read_block(const struct pbl_i2c_dev *dev, uint32_t write_size,
-                             const uint8_t *write_data, uint32_t read_size, uint8_t *read_data) {
-  int ret = pbl_i2c_write(dev, write_data, write_size);
-
-  if (ret != 0) {
-    return ret;
-  }
-
-  return pbl_i2c_read(dev, read_data, read_size);
 }
