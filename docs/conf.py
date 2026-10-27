@@ -61,10 +61,7 @@ html_theme_options = {
         {"title": "Getting started", "url": "getting_started/index"},
         {"title": "Architecture", "url": "architecture/index"},
         {"title": "Boards", "url": "boards/index"},
-        {
-            "title": "API reference",
-            "url": "https://pebbleos.readthedocs.io/en/latest/apidoc/index.html",
-        },
+        {"title": "API reference", "url": "apidoc/index.html", "resource": True},
     ],
 }
 html_context = {
