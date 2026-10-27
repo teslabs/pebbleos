@@ -4,7 +4,7 @@
 """Core binary-runner abstraction, modeled on Zephyr's west runners.
 
 A runner knows how to talk to a target for a small set of commands
-(flash/run/reset/erase/debug/debugserver): a connected device, or a program
+(flash/run/erase/debug): a connected device, or a program
 on the host, such as an emulator, that runs the firmware. The pbl CLI builds a
 :class:`RunnerConfig`, registers runner-specific CLI arguments via
 ``do_add_parser()``, instantiates the selected runner with ``create()`` and
@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 
 # Commands a runner may implement.
-COMMANDS = ("flash", "run", "reset", "erase", "debug", "debugserver")
+COMMANDS = ("flash", "run", "erase", "debug")
 
 
 class RunnerError(Exception):
@@ -36,8 +36,6 @@ class RunnerCaps:
     commands: set = field(default_factory=lambda: {"flash"})
     # Whether flash() can also program system resources.
     flash_resources: bool = False
-    # Whether erase() can erase address ranges instead of the whole device.
-    erase_ranges: bool = False
 
     def __post_init__(self):
         invalid = self.commands - set(COMMANDS)
@@ -105,10 +103,6 @@ class Runner(ABC):
         if command == "flash" and self.cfg.resources_file and not caps.flash_resources:
             raise UnsupportedOperation(
                 f"{self.name} runner does not support flashing resources"
-            )
-        if command == "erase" and self.cfg.erase_ranges and not caps.erase_ranges:
-            raise UnsupportedOperation(
-                f"{self.name} runner does not support erasing ranges"
             )
         return self.do_run(command)
 

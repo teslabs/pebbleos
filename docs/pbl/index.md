@@ -32,10 +32,8 @@ command's own options.
 | {doc}`bundle` | {doc}`debug` | {doc}`swipe` |
 | {doc}`menuconfig` | {doc}`image_resources` | {doc}`feed` |
 | {doc}`clean` | {doc}`image_recovery` | |
-| {doc}`test` | {doc}`reset` | |
-| {doc}`itest` | {doc}`erase` | |
-| | {doc}`bork` | |
-| | {doc}`openocd` | |
+| {doc}`test` | {doc}`erase` | |
+| {doc}`itest` | | |
 
 ## Shared options
 
@@ -81,17 +79,17 @@ handle the build is the default; `-r/--runner` picks another.
 
 | Runner | Boards | Operations |
 | --- | --- | --- |
-| `openocd` | asterix | flash (with resources), reset, erase (with ranges), debug, debug server |
-| `nrfutil` | asterix | flash (with resources), reset, erase (with ranges) |
-| `sftool` | obelix, getafix | flash (with resources), erase (with ranges) |
-| `phone` | asterix, obelix, getafix | flash (always with resources), reset |
+| `openocd` | asterix | flash (with resources), erase, debug |
+| `nrfutil` | asterix | flash (with resources), erase |
+| `sftool` | obelix, getafix | flash (with resources), erase |
+| `phone` | asterix, obelix, getafix | flash (always with resources) |
 | `qemu` | qemu_* | run |
 | `native` | native_* | run |
 | `wasm` | native_*/wasm | run |
 
 For the OpenOCD runner, the probe and target configuration lives in the
 board's `support/openocd.cfg`, and how to write the resources and erase
-ranges, if it can, in `support/flash.cfg`.
+ranges, in `support/flash.cfg`.
 
 The `nrfutil` runner needs a J-Link probe. To write the resources it takes
 the external flash configuration from the board's
@@ -123,10 +121,7 @@ console.md
 debug.md
 image_resources.md
 image_recovery.md
-reset.md
 erase.md
-bork.md
-openocd.md
 ```
 
 ```{toctree}

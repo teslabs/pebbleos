@@ -12,8 +12,7 @@ RECOVERY_TIMEOUT = 120
 REENABLE_TIMEOUT = 300
 RECONNECT_INTERVAL = 3
 
-# The firmware's reset command values, which libpebble2's Reset enum does not match
-RESET_NORMAL = 0x00
+# The firmware's reset command value, which libpebble2's Reset enum does not match
 RESET_INTO_RECOVERY = 0xFF
 
 # Version reply: frame header, command, then the running firmware's metadata,
@@ -33,7 +32,7 @@ class PhoneRunner(Runner):
 
     @classmethod
     def capabilities(cls):
-        return RunnerCaps(commands={"flash", "reset"}, flash_resources=True)
+        return RunnerCaps(commands={"flash"}, flash_resources=True)
 
     @classmethod
     def do_add_parser(cls, parser):
@@ -171,9 +170,6 @@ class PhoneRunner(Runner):
         from libpebble2.exceptions import PebbleError
 
         try:
-            if command == "flash":
-                self._flash()
-            elif command == "reset":
-                self._reset(self._connect(), RESET_NORMAL)
+            self._flash()
         except PebbleError as e:
             raise RunnerError(f"{command} through the phone failed: {e}") from e
