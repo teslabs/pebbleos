@@ -117,72 +117,83 @@ static void prv_disable(const struct pbl_i2c_bus *bus) {
   prv_event_clear(i2c, NRF52_TWIM_EVENTS_STOPPED_OFFSET);
   prv_event_clear(i2c, NRF52_TWIM_EVENTS_ERROR_OFFSET);
   pbl_irq_clear_pending(s_instances[i2c->index].irqn);
-  i2c->state->busy = false;
 }
 
-static bool prv_is_busy(const struct pbl_i2c_bus *bus) {
-  return prv_i2c(bus)->state->busy;
-}
-
-static void prv_abort_transfer(const struct pbl_i2c_bus *bus) {
+static void prv_abort(const struct pbl_i2c_bus *bus) {
   const struct pbl_i2c_nrf5 *i2c = prv_i2c(bus);
 
   prv_disable(bus);
   prv_putreg(i2c, NRF52_TWIM_ENABLE_OFFSET, TWIM_ENABLE_ENABLED);
 }
 
-static void prv_start_transfer(const struct pbl_i2c_bus *bus) {
-  const struct pbl_i2c_nrf5 *i2c = prv_i2c(bus);
-  struct pbl_i2c_nrf5_state *state = i2c->state;
-  struct pbl_i2c_transfer *transfer = &bus->state->transfer;
-  const uint8_t *tx_buf = nullptr;
-  uint8_t *rx_buf = nullptr;
-  uint32_t shorts;
+// The TWIM issues one write, one read, or a write then a read after a repeated START. Writes
+// continued with PBL_I2C_MSG_NOSTART are gathered in the bounce buffer.
+static int prv_prepare(struct pbl_i2c_nrf5_state *state, struct pbl_i2c_msg *msgs, uint8_t num_msgs,
+                       const uint8_t **tx_buf, uint8_t **rx_buf) {
+  uint8_t i = 0U;
 
-  state->tx = transfer->with_reg || transfer->dir != PBL_I2C_READ;
-  state->rx = transfer->dir == PBL_I2C_READ;
+  state->tx = false;
+  state->rx = false;
   state->tx_len = 0U;
   state->rx_len = 0U;
 
-  if (transfer->with_reg) {
-    if (transfer->dir == PBL_I2C_READ) {
-      tx_buf = &transfer->reg;
-      state->tx_len = 1U;
-      rx_buf = transfer->data;
-      state->rx_len = transfer->size;
-    } else {
-      // Send the register address and data as one transfer
-      uint8_t *wbuf = state->reg_write_buf;
+  if ((msgs[0].flags & PBL_I2C_MSG_READ) == 0U) {
+    state->tx = true;
+    *tx_buf = msgs[0].buf;
+    state->tx_len = msgs[0].len;
 
-      if (transfer->size + 1U > sizeof(state->reg_write_buf)) {
-        pbl_i2c_bus_event(bus, PBL_I2C_EVENT_ERROR);
-        return;
+    for (i = 1U; i < num_msgs && (msgs[i].flags & PBL_I2C_MSG_NOSTART) != 0U; i++) {
+      if (*tx_buf != state->bounce) {
+        if (state->tx_len > sizeof(state->bounce)) {
+          return -ENOTSUP;
+        }
+        memcpy(state->bounce, *tx_buf, state->tx_len);
+        *tx_buf = state->bounce;
       }
 
-      wbuf[0] = transfer->reg;
-      memcpy(&wbuf[1], transfer->data, transfer->size);
-      tx_buf = wbuf;
-      state->tx_len = transfer->size + 1U;
-      state->rx = false;
+      if (state->tx_len + msgs[i].len > sizeof(state->bounce)) {
+        return -ENOTSUP;
+      }
+      memcpy(&state->bounce[state->tx_len], msgs[i].buf, msgs[i].len);
+      state->tx_len += msgs[i].len;
     }
-  } else if (transfer->dir == PBL_I2C_READ) {
-    rx_buf = transfer->data;
-    state->rx_len = transfer->size;
-  } else {
-    tx_buf = transfer->data;
-    state->tx_len = transfer->size;
   }
 
-  if ((state->tx_len > 0U && (!IS_IN_RAM(tx_buf) || state->tx_len > TWIM_MAXCNT_MASK)) ||
-      (state->rx_len > 0U && (!IS_IN_RAM(rx_buf) || state->rx_len > TWIM_MAXCNT_MASK))) {
-    pbl_i2c_bus_event(bus, PBL_I2C_EVENT_ERROR);
-    return;
+  if (i < num_msgs) {
+    if ((msgs[i].flags & PBL_I2C_MSG_READ) == 0U || i + 1U != num_msgs) {
+      return -ENOTSUP;
+    }
+
+    state->rx = true;
+    *rx_buf = msgs[i].buf;
+    state->rx_len = msgs[i].len;
   }
 
-  state->busy = true;
-  state->error = false;
+  if ((state->tx_len > 0U && (!IS_IN_RAM(*tx_buf) || state->tx_len > TWIM_MAXCNT_MASK)) ||
+      (state->rx_len > 0U && (!IS_IN_RAM(*rx_buf) || state->rx_len > TWIM_MAXCNT_MASK))) {
+    return -EINVAL;
+  }
 
-  prv_putreg(i2c, NRF52_TWIM_ADDRESS_OFFSET, transfer->addr);
+  return 0;
+}
+
+static int prv_start(const struct pbl_i2c_bus *bus, uint16_t addr, struct pbl_i2c_msg *msgs,
+                     uint8_t num_msgs) {
+  const struct pbl_i2c_nrf5 *i2c = prv_i2c(bus);
+  struct pbl_i2c_nrf5_state *state = i2c->state;
+  const uint8_t *tx_buf = nullptr;
+  uint8_t *rx_buf = nullptr;
+  uint32_t shorts;
+  int ret;
+
+  ret = prv_prepare(state, msgs, num_msgs, &tx_buf, &rx_buf);
+  if (ret != 0) {
+    return ret;
+  }
+
+  state->error = 0;
+
+  prv_putreg(i2c, NRF52_TWIM_ADDRESS_OFFSET, addr);
   prv_event_clear(i2c, NRF52_TWIM_EVENTS_STOPPED_OFFSET);
   prv_event_clear(i2c, NRF52_TWIM_EVENTS_ERROR_OFFSET);
   prv_event_clear(i2c, NRF52_TWIM_EVENTS_LASTTX_OFFSET);
@@ -215,6 +226,8 @@ static void prv_start_transfer(const struct pbl_i2c_bus *bus) {
   if ((state->tx ? state->tx_len : state->rx_len) == 0U) {
     prv_putreg(i2c, NRF52_TWIM_TASKS_STOP_OFFSET, 1U);
   }
+
+  return 0;
 }
 
 void pbl_i2c_nrf5_irq_handler(const struct pbl_i2c_nrf5 *i2c) {
@@ -225,7 +238,7 @@ void pbl_i2c_nrf5_irq_handler(const struct pbl_i2c_nrf5 *i2c) {
   if (prv_event_take(i2c, NRF52_TWIM_EVENTS_ERROR_OFFSET) && !stopped) {
     bool lasttx = prv_event_take(i2c, NRF52_TWIM_EVENTS_LASTTX_OFFSET);
 
-    state->error = true;
+    state->error = -EIO;
     prv_putreg(i2c, NRF52_TWIM_INTENCLR_OFFSET, TWIM_INT_ERROR);
 
     // Stop by hand, unless the LASTTX shortcut already does
@@ -246,29 +259,29 @@ void pbl_i2c_nrf5_irq_handler(const struct pbl_i2c_nrf5 *i2c) {
   prv_event_clear(i2c, NRF52_TWIM_EVENTS_LASTTX_OFFSET);
   prv_event_clear(i2c, NRF52_TWIM_EVENTS_LASTRX_OFFSET);
 
-  // A short transfer without an error is a premature STOP on the bus: reset the state machine
-  if (!state->error &&
-      ((state->tx && prv_getreg(i2c, NRF52_TWIM_TXD_AMOUNT_OFFSET) != state->tx_len) ||
-       (state->rx && prv_getreg(i2c, NRF52_TWIM_RXD_AMOUNT_OFFSET) != state->rx_len))) {
-    state->error = true;
+  errorsrc = prv_getreg(i2c, NRF52_TWIM_ERRORSRC_OFFSET);
+  prv_putreg(i2c, NRF52_TWIM_ERRORSRC_OFFSET, errorsrc);
+
+  if ((errorsrc & TWIM_ERRORSRC_ANACK) != 0U) {
+    state->error = -ENXIO;
+  } else if (errorsrc != 0U) {
+    state->error = -EIO;
+  } else if (state->error == 0 &&
+             ((state->tx && prv_getreg(i2c, NRF52_TWIM_TXD_AMOUNT_OFFSET) != state->tx_len) ||
+              (state->rx && prv_getreg(i2c, NRF52_TWIM_RXD_AMOUNT_OFFSET) != state->rx_len))) {
+    // A short transfer without an error is a premature STOP on the bus: reset the state machine
+    state->error = -EIO;
     prv_putreg(i2c, NRF52_TWIM_ENABLE_OFFSET, TWIM_ENABLE_DISABLED);
     prv_putreg(i2c, NRF52_TWIM_ENABLE_OFFSET, TWIM_ENABLE_ENABLED);
   }
 
-  errorsrc = prv_getreg(i2c, NRF52_TWIM_ERRORSRC_OFFSET);
-  prv_putreg(i2c, NRF52_TWIM_ERRORSRC_OFFSET, errorsrc);
-
-  state->busy = false;
-
-  pbl_i2c_bus_event(
-      &i2c->bus, (state->error || errorsrc != 0U) ? PBL_I2C_EVENT_ERROR : PBL_I2C_EVENT_COMPLETE);
+  pbl_i2c_bus_complete(&i2c->bus, state->error);
 }
 
 const struct pbl_i2c_bus_ops pbl_i2c_nrf5_ops = {
   .init = prv_init,
   .enable = prv_enable,
   .disable = prv_disable,
-  .is_busy = prv_is_busy,
-  .start_transfer = prv_start_transfer,
-  .abort_transfer = prv_abort_transfer,
+  .start = prv_start,
+  .abort = prv_abort,
 };
