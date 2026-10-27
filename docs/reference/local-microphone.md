@@ -22,7 +22,7 @@ MicCaptureStartResult result = mic_capture_start((MicCaptureHandlers) {
 // Later: mic_capture_stop();
 ```
 
-Declare `manifestVersion: 2` and `usesPermissions: ["Microphone"]` in
+Declare `manifestVersion: 2` and `usesPermissions: ["WatchMicrophone"]` in
 the `pebble` block of `package.json`. The updated phone app syncs only
 explicitly allowed Microphone decisions for installed apps while its
 experimental permission system is enabled. Permission granted automatically
