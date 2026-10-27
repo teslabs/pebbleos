@@ -10,6 +10,7 @@
 
 OUTPUT_DIRECTORY       = docs/_apidoc
 HTML_OUTPUT            = apidoc
+PROJECT_NUMBER         = $(PBL_DOCS_VERSION)
 SOURCE_BROWSER         = NO
 VERBATIM_HEADERS       = NO
 QUIET                  = YES

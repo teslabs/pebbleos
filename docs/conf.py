@@ -7,6 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_ext"))
@@ -17,7 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_ext"))
 project = "PebbleOS"
 copyright = "2026, The PebbleOS Contributors"
 author = "The PebbleOS Contributors"
-release = "0.1.0"
+release = subprocess.check_output(["git", "describe"], text=True).strip()
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
