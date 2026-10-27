@@ -86,12 +86,12 @@ The same keys can be sent from the monitor with `sendkey`, e.g.
 
 ### Touch
 
-On boards with touch, tap and swipe from a shell with {doc}`../../pbl/touch`
-and {doc}`../../pbl/swipe`:
+On boards with touch, tap and swipe from a shell with
+{doc}`../../pbl/emulator`:
 
 ```shell
-pbl touch 130 130
-pbl swipe 130 220 130 40
+pbl emulator touch 130 130
+pbl emulator swipe 130 220 130 40
 ```
 
 ### Console and screenshots
@@ -99,18 +99,18 @@ pbl swipe 130 220 130 40
 Other shells attach to the running emulator:
 
 ```shell
-pbl console       # the firmware's debug console
-pbl screenshot    # writes build/screenshot.png
+pbl console               # the firmware's debug console
+pbl emulator screenshot   # writes build/screenshot.png
 ```
 
 ### Phone data
 
-There is no phone attached, but {doc}`../../pbl/feed` writes what the phone
-app would, such as weather, music, notifications and calendar events, over
+There is no phone attached, but {doc}`pbl emulator feed <../../pbl/emulator>`
+writes what the phone app would, such as weather, music, notifications and calendar events, over
 the Pebble protocol port:
 
 ```shell
-pbl feed weather
+pbl emulator feed weather
 ```
 
 ### Apps
@@ -135,9 +135,9 @@ per-thread backtraces work; see {doc}`../debugging`.
 | Endpoint | Use |
 | --- | --- |
 | The launching terminal | Interactive QEMU monitor |
-| `build/qemu-mon.sock` | Socket monitor, used by `pbl screenshot` and scripts |
+| `build/qemu-mon.sock` | Socket monitor, used by `pbl emulator screenshot` and scripts |
 | `localhost:12345` | Serial console, used by `pbl console` |
-| `localhost:12344` | Pebble protocol, used by the `pebble` tool and `pbl feed` |
+| `localhost:12344` | Pebble protocol, used by the `pebble` tool and `pbl emulator feed` |
 | `localhost:1234` | GDB server |
 | `uart1.log` | The first UART's output, in the repository root |
 

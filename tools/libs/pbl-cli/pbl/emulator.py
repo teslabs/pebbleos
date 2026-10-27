@@ -11,6 +11,7 @@ firmware's Pebble protocol is served over a TCP serial port, reached with
 
 import json
 import socket
+import time
 
 from pbl.errors import CommandContextError
 
@@ -126,6 +127,43 @@ class Qmp:
     @staticmethod
     def button(down):
         return [{"type": "btn", "data": {"button": "left", "down": down}}]
+
+
+def running(build):
+    """The running emulator of the build."""
+    if build.config.CONFIG_QEMU:
+        return QemuEmulator(build)
+    raise CommandContextError(f"board {build.board} is not an emulated board")
+
+
+class QemuEmulator:
+    def __init__(self, build):
+        self.build = build
+
+    def screenshot(self, output):
+        with Monitor(self.build.join(MONITOR_SOCKET)) as monitor:
+            response = monitor.command(f"screendump {output} -f png")
+        return response
+
+    def touch(self, x1, y1, x2, y2, duration, steps=12):
+        """Put a finger down, move it to the end in ``steps`` and lift it."""
+        with Qmp(self.build.join(QMP_SOCKET)) as qmp:
+            width, height = qmp.touch_display()
+            qmp.send(qmp.move(width, height, x1, y1) + qmp.button(True))
+            if (x1, y1) == (x2, y2):
+                time.sleep(duration)
+            else:
+                for step in range(1, steps + 1):
+                    time.sleep(duration / steps)
+                    qmp.send(
+                        qmp.move(
+                            width,
+                            height,
+                            x1 + (x2 - x1) * step // steps,
+                            y1 + (y2 - y1) * step // steps,
+                        )
+                    )
+            qmp.send(qmp.button(False))
 
 
 def connect_watch(host="127.0.0.1", port=PEBBLE_TOOL_PORT):
