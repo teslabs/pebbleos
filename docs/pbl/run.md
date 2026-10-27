@@ -33,7 +33,7 @@ The launched QEMU exposes:
 - A programmatic socket monitor (`-monitor unix:build/qemu-mon.sock`)
 - The serial console over TCP on `localhost:12345`, for {doc}`console`
 - The Pebble protocol over TCP on `localhost:12344`, for the `pebble` tool
-  and {doc}`feed`
+  and {doc}`emulator`
 
 UART1 output is also captured to `uart1.log` in the repository root.
 {doc}`../development/emulation/emulator` covers what the emulator models and how to

@@ -79,17 +79,21 @@ def pbl_subparsers():
 
 
 class PblCommandDirective(SphinxDirective):
-    """Usage line and options of a ``pbl`` command, without the shared
-    options every command takes."""
+    """Usage line and options of a ``pbl`` command, or of one of its
+    subcommands (``emulator touch``), without the shared options every
+    command takes."""
 
     required_arguments = 1
+    final_argument_whitespace = True
 
     def run(self):
         name = self.arguments[0]
         commands = self.env.app.pbl_commands
-        if name not in commands:
-            raise self.error(f"unknown pbl command {name!r}")
-        parser = commands[name]
+        for word in name.split():
+            if word not in commands:
+                raise self.error(f"unknown pbl command {name!r}")
+            parser = commands[word]
+            commands = self._subcommands(parser)
         formatter = parser._get_formatter()
 
         usage = formatter._format_usage(
@@ -116,6 +120,13 @@ class PblCommandDirective(SphinxDirective):
         for path in (PBL_CLI / "pbl").rglob("*.py"):
             self.env.note_dependency(str(path))
         return result
+
+    @staticmethod
+    def _subcommands(parser):
+        for action in parser._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                return action.choices
+        return {}
 
     @staticmethod
     def _invocation(formatter, action):

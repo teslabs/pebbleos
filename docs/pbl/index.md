@@ -25,15 +25,15 @@ command's own options.
 
 ## Commands
 
-| Build | Device | Emulator |
-| --- | --- | --- |
-| {doc}`configure` | {doc}`run` | {doc}`screenshot` |
-| {doc}`build` | {doc}`console` | {doc}`touch` |
-| {doc}`bundle` | {doc}`debug` | {doc}`swipe` |
-| {doc}`menuconfig` | {doc}`image_resources` | {doc}`feed` |
-| {doc}`clean` | {doc}`image_recovery` | |
-| {doc}`test` | {doc}`erase` | |
-| {doc}`itest` | | |
+| Build | Device |
+| --- | --- |
+| {doc}`configure` | {doc}`run` |
+| {doc}`build` | {doc}`console` |
+| {doc}`bundle` | {doc}`debug` |
+| {doc}`menuconfig` | {doc}`emulator` |
+| {doc}`clean` | {doc}`image_resources` |
+| {doc}`test` | {doc}`image_recovery` |
+| {doc}`itest` | {doc}`erase` |
 
 ## Shared options
 
@@ -119,19 +119,10 @@ itest.md
 run.md
 console.md
 debug.md
+emulator.md
 image_resources.md
 image_recovery.md
 erase.md
-```
-
-```{toctree}
-:hidden:
-:caption: Emulator
-
-screenshot.md
-touch.md
-swipe.md
-feed.md
 ```
 
 ```{toctree}

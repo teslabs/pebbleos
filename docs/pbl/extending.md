@@ -49,7 +49,7 @@ top-level help the command is listed under.
 
 ### Feeds
 
-`pbl feed <feed>` writes simulated phone data into the emulator. Each feed
+`pbl emulator feed <feed>` writes simulated phone data into the emulator. Each feed
 is a module in `pbl/feeds/` with a `Feed` subclass, discovered the same
 way commands are: it names its subcommand, adds its own options in
 `add_arguments()` and writes its data in `run()` through the `Watch` it is
