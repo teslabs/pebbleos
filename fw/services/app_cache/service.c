@@ -55,6 +55,10 @@ PBL_LOG_MODULE_DEFINE(service_app_cache, CONFIG_SERVICE_APP_CACHE_LOG_LEVEL);
 
 #define MAX_PRIORITY ((uint32_t)~0)
 
+//! Grace earned per launch, capped so a once-popular app cannot become unevictable.
+#define LAUNCH_BONUS_PER_LAUNCH_S (24 * 60 * 60)
+#define LAUNCH_BONUS_MAX_LAUNCHES (30)
+
 // 8 quick launch apps, 1 default watchface, 1 default worker
 #define DO_NOT_EVICT_LIST_SIZE (10)
 
@@ -91,9 +95,13 @@ typedef struct {
 //! Takes the information given in entry and calculates a new priority for the app.
 //!
 //! Policy rules:
-//! 1. App that has least recently launched or been installed app is evicted.
+//! 1. The least recently launched (or installed) app is evicted first.
+//! 2. Each launch earns the app a day of grace, up to LAUNCH_BONUS_MAX_LAUNCHES, so an app used
+//!    regularly outlives one installed more recently but never opened.
 static uint32_t prv_calculate_priority(AppCacheEntry *entry) {
-  return (uint32_t)MAX(entry->last_launch, entry->install_date);
+  const uint32_t last_used = (uint32_t)MAX(entry->last_launch, entry->install_date);
+  const uint32_t launches = MIN(entry->launch_count, LAUNCH_BONUS_MAX_LAUNCHES);
+  return last_used + (launches * LAUNCH_BONUS_PER_LAUNCH_S);
 }
 
 //! Comparator for EvictListNode

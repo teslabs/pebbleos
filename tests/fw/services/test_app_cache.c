@@ -244,6 +244,31 @@ void test_app_cache__update_all_lots_evict_one(void) {
   cl_assert_equal_i(DESIRED_EVICT_ID, app_cache_get_next_eviction());
 }
 
+/*************************************
+ * A regularly used app outlives a newer, never launched one *
+ *************************************/
+
+void test_app_cache__frequent_app_outlives_newer_idle_app(void) {
+  const time_t day = 24 * 60 * 60;
+  time_t now = rtc_get_time();
+
+  cl_assert_equal_i(S_SUCCESS, app_cache_add_entry(app1.id, app1.size));
+  for (int i = 0; i < 5; i++) {
+    cl_assert_equal_i(S_SUCCESS, app_cache_app_launched(app1.id));
+  }
+
+  // app2 is installed 3 days later but never opened
+  rtc_set_time(now + 3 * day);
+  cl_assert_equal_i(S_SUCCESS, app_cache_add_entry(app2.id, app2.size));
+  cl_assert_equal_i(app2.id, app_cache_get_next_eviction());
+
+  // ...but it does win against an app last used much longer ago than its launches cover
+  rtc_set_time(now + 40 * day);
+  cl_assert_equal_i(S_SUCCESS, app_cache_add_entry(app3.id, app3.size));
+  cl_assert_equal_i(S_SUCCESS, app_cache_remove_entry(app2.id));
+  cl_assert_equal_i(app1.id, app_cache_get_next_eviction());
+}
+
 void test_app_cache__clear(void) {
   // add all three
   cl_assert_equal_i(S_SUCCESS, app_cache_add_entry(app1.id, app1.size));
