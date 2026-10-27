@@ -37,6 +37,18 @@ static void prv_rediscover_kernelbg_cb(void *data) {
 bool gatt_service_changed_client_handle_indication(struct GAPLEConnection *connection,
                                                    uint16_t att_handle, const uint8_t *value,
                                                    uint16_t value_length) {
+  if (connection->gatt_is_service_discovery_in_progress) {
+    // A database change mid-discovery leaves the result stale. Before the
+    // handle is known, any range-sized indication is taken as Service Changed.
+    const bool is_svc_chgd = connection->gatt_service_changed_att_handle
+                                 ? (connection->gatt_service_changed_att_handle == att_handle)
+                                 : (value_length == sizeof(struct pbl_bt_att_handle_range));
+    if (is_svc_chgd) {
+      PBL_LOG_INFO("Service Changed during discovery, will rediscover");
+      connection->gatt_service_changed_during_discovery = true;
+    }
+    return is_svc_chgd;
+  }
   if (connection->gatt_service_changed_att_handle != att_handle) {
     return false;
   }

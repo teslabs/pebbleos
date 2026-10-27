@@ -181,3 +181,46 @@ void test_gatt_service_changed_client__handle_indication_service_changed_malform
       &s_connection, att_handle, (const uint8_t *)handle_range, sizeof(uint16_t) * 1);
   cl_assert_equal_b(handled, true);
 }
+
+void test_gatt_service_changed_client__no_indication_during_discovery(void) {
+  const int start_count = fake_gatt_is_service_discovery_start_count();
+  fake_gatt_put_discovery_complete_event(GATT_SERVICE_DISCOVERY_STATUS_SUCCESS,
+                                         TEST_GATT_CONNECTION_ID);
+  cl_assert_equal_i(fake_gatt_is_service_discovery_start_count(), start_count);
+  cl_assert_equal_b(s_connection.gatt_is_service_discovery_in_progress, false);
+}
+
+void test_gatt_service_changed_client__indication_during_discovery_unknown_handle(void) {
+  const uint16_t handle_range[2] = {0x1, 0xffff};
+  const bool handled = gatt_service_changed_client_handle_indication(
+      &s_connection, 0x0003, (const uint8_t *)handle_range, sizeof(handle_range));
+  cl_assert_equal_b(handled, true);
+
+  const int start_count = fake_gatt_is_service_discovery_start_count();
+  fake_gatt_put_discovery_complete_event(GATT_SERVICE_DISCOVERY_STATUS_SUCCESS,
+                                         TEST_GATT_CONNECTION_ID);
+  cl_assert_equal_i(fake_gatt_is_service_discovery_start_count(), start_count + 1);
+  cl_assert_equal_b(s_connection.gatt_is_service_discovery_in_progress, true);
+  cl_assert_equal_b(s_connection.gatt_service_changed_during_discovery, false);
+}
+
+void test_gatt_service_changed_client__indication_during_discovery_known_handle(void) {
+  fake_gatt_put_discovery_indication_gatt_profile_service(
+      TEST_GATT_CONNECTION_ID, true /* has_service_changed_characteristic */);
+  const uint16_t att_handle = fake_gatt_gatt_profile_service_service_changed_att_handle();
+
+  const uint16_t handle_range[2] = {0x1, 0xffff};
+  cl_assert_equal_b(
+      gatt_service_changed_client_handle_indication(
+          &s_connection, att_handle + 1, (const uint8_t *)handle_range, sizeof(handle_range)),
+      false);
+  cl_assert_equal_b(
+      gatt_service_changed_client_handle_indication(
+          &s_connection, att_handle, (const uint8_t *)handle_range, sizeof(handle_range)),
+      true);
+
+  const int start_count = fake_gatt_is_service_discovery_start_count();
+  fake_gatt_put_discovery_complete_event(GATT_SERVICE_DISCOVERY_STATUS_SUCCESS,
+                                         TEST_GATT_CONNECTION_ID);
+  cl_assert_equal_i(fake_gatt_is_service_discovery_start_count(), start_count + 1);
+}

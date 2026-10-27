@@ -357,6 +357,7 @@ static void prv_finalize_discovery(GAPLEConnection *connection, enum pbl_bt_errn
 
   prv_remove_current_discovery_job(connection);
   connection->gatt_is_service_discovery_in_progress = false;
+  connection->gatt_service_changed_during_discovery = false;
   connection->gatt_service_discovery_retries = 0;
   if (errno == PBL_BT_ERRNO_SERVICE_DISCOVERY_DATABASE_CHANGED) {
     prv_send_services_invalidate_all_event(connection, errno);
@@ -422,7 +423,14 @@ bool pbl_bt_cb_gatt_client_discovery_complete(GAPLEConnection *connection,
                                           PBL_BT_RESPONSE_TIME_MIN, 10);
     }
 
-    if (finalize_discovery) {
+    if (finalize_discovery && errno == PBL_BT_ERRNO_OK &&
+        connection->gatt_service_changed_during_discovery) {
+      prv_finalize_discovery(connection, PBL_BT_ERRNO_SERVICE_DISCOVERY_DATABASE_CHANGED);
+      prv_add_discovery_job(connection, nullptr);
+      if (!connection->gatt_is_service_discovery_in_progress) {
+        prv_run_next_job(connection);
+      }
+    } else if (finalize_discovery) {
       prv_finalize_discovery(connection, errno);
     }
   }

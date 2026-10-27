@@ -219,57 +219,43 @@ static bool prv_find_dsc_uuid(GATTServiceDiscoveryContext *context, const ble_uu
   return true;
 }
 
-typedef struct {
-  GAPLEConnection *connection;
-  uint16_t chr_handle;
-} GATTServiceDiscoveryDescriptorContext;
-
 static int prv_on_svc_chgd_subscribe(uint16_t conn_handle, const struct ble_gatt_error *error,
                                      struct ble_gatt_attr *attr, void *arg) {
   if (error->status != 0) {
     PBL_LOG_ERR("Failed to subscribe to service changed: 0x%" PRIx16, error->status);
   } else {
-    GATTServiceDiscoveryDescriptorContext *ctx = arg;
-    if (prv_lock_connection(ctx->connection)) {
-      pbl_bt_cb_gatt_client_discovery_handle_service_changed(ctx->connection, ctx->chr_handle);
-      bt_unlock();
-    }
-
     PBL_LOG_DBG("Subscribed to service changed");
   }
-
-  kernel_free(arg);
 
   return 0;
 }
 
 static void prv_convert_service_and_notify_os(uint16_t conn_handle,
                                               GATTServiceDiscoveryContext *context) {
+  uint16_t chr_handle, dsc_handle;
+  const bool has_svc_chgd =
+      prv_find_dsc_uuid(context, BLE_UUID16_DECLARE(BLE_GATT_SVC_UUID16),
+                        BLE_UUID16_DECLARE(BLE_SVC_GATT_CHR_SERVICE_CHANGED_UUID16),
+                        BLE_UUID16_DECLARE(BLE_GATT_DSC_CLT_CFG_UUID16), &chr_handle, &dsc_handle);
+
   if (!prv_lock_connection(context->connection)) {
     prv_free_discovery_context(context);
     return;
+  }
+  // Some servers indicate Service Changed without a CCCD write, so the handle
+  // must be known before discovery is reported complete.
+  if (has_svc_chgd) {
+    pbl_bt_cb_gatt_client_discovery_handle_service_changed(context->connection, chr_handle);
   }
   list_foreach(context->services, prv_convert_service_and_notify_os_cb, context->connection);
   pbl_bt_cb_gatt_client_discovery_complete(context->connection, PBL_BT_ERRNO_OK);
   bt_unlock();
 
   // Subscribe to service changed indications (BLE Core 6.0, part G 7.7.1)
-  uint16_t chr_handle, dsc_handle;
-  if (prv_find_dsc_uuid(context, BLE_UUID16_DECLARE(BLE_GATT_SVC_UUID16),
-                        BLE_UUID16_DECLARE(BLE_SVC_GATT_CHR_SERVICE_CHANGED_UUID16),
-                        BLE_UUID16_DECLARE(BLE_GATT_DSC_CLT_CFG_UUID16), &chr_handle,
-                        &dsc_handle)) {
-    uint16_t value;
-    int ret;
-
-    GATTServiceDiscoveryDescriptorContext *ctx =
-        kernel_zalloc_check(sizeof(GATTServiceDiscoveryDescriptorContext));
-    ctx->connection = context->connection;
-    ctx->chr_handle = chr_handle;
-
-    value = 0x0002;
-    ret = ble_gattc_write_flat(conn_handle, dsc_handle, &value, sizeof(value),
-                               prv_on_svc_chgd_subscribe, ctx);
+  if (has_svc_chgd) {
+    const uint16_t value = 0x0002;
+    const int ret = ble_gattc_write_flat(conn_handle, dsc_handle, &value, sizeof(value),
+                                         prv_on_svc_chgd_subscribe, nullptr);
     if (ret != 0) {
       PBL_LOG_ERR("Failed to subscribe to service changed: %d", ret);
     }

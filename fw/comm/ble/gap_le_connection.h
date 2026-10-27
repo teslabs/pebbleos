@@ -59,6 +59,9 @@ typedef struct GAPLEConnection {
   //! Whether GATT service discovery is in progress
   bool gatt_is_service_discovery_in_progress : 1;
 
+  //! Whether the remote database changed while discovery was in progress
+  bool gatt_service_changed_during_discovery : 1;
+
   //! Whether the connected device is our gateway (aka "the phone running Pebble app")
   bool is_gateway : 1;
 
