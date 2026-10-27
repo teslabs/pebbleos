@@ -34,12 +34,6 @@ static void prv_deepsleep_allow(const struct pbl_i2c_sf32lb *i2c) {
   }
 }
 
-static bool prv_dma_usable(const struct pbl_i2c_sf32lb *i2c,
-                           const struct pbl_i2c_transfer *transfer) {
-  return transfer->dma && i2c->state->hdma_rx.Instance != nullptr && transfer->with_reg &&
-         transfer->dir == PBL_I2C_READ && transfer->size >= I2C_SF32LB_DMA_MIN_BYTES;
-}
-
 //! Makes a completed DMA read visible to the CPU; stops an aborted one.
 static void prv_dma_finish(const struct pbl_i2c_sf32lb *i2c, bool completed) {
   struct pbl_i2c_sf32lb_state *state = i2c->state;
@@ -59,7 +53,7 @@ static void prv_dma_finish(const struct pbl_i2c_sf32lb *i2c, bool completed) {
 void pbl_i2c_sf32lb_irq_handler(const struct pbl_i2c_sf32lb *i2c) {
   I2C_HandleTypeDef *hdl = &i2c->state->hdl;
   HAL_I2C_StateTypeDef state;
-  enum pbl_i2c_event event;
+  int status;
 
   if (hdl->XferISR == nullptr) {
     return;
@@ -71,22 +65,22 @@ void pbl_i2c_sf32lb_irq_handler(const struct pbl_i2c_sf32lb *i2c) {
   if ((state == HAL_I2C_STATE_BUSY_TX) || (state == HAL_I2C_STATE_BUSY_RX)) {
     return;
   } else if (state == HAL_I2C_STATE_READY) {
-    event = PBL_I2C_EVENT_COMPLETE;
+    status = 0;
   } else {
-    event = PBL_I2C_EVENT_ERROR;
+    status = -EIO;
   }
 
   prv_deepsleep_allow(i2c);
-  prv_dma_finish(i2c, event == PBL_I2C_EVENT_COMPLETE);
+  prv_dma_finish(i2c, status == 0);
 
-  pbl_i2c_bus_event(&i2c->bus, event);
+  pbl_i2c_bus_complete(&i2c->bus, status);
 }
 
 void pbl_i2c_sf32lb_dma_irq_handler(const struct pbl_i2c_sf32lb *i2c) {
   HAL_DMA_IRQHandler(&i2c->state->hdma_rx);
 }
 
-static void prv_abort_transfer(const struct pbl_i2c_bus *bus) {
+static void prv_abort(const struct pbl_i2c_bus *bus) {
   const struct pbl_i2c_sf32lb *i2c = prv_i2c(bus);
 
   HAL_I2C_Reset(&i2c->state->hdl);
@@ -95,44 +89,71 @@ static void prv_abort_transfer(const struct pbl_i2c_bus *bus) {
   prv_dma_finish(i2c, false);
 }
 
-static void prv_start_transfer(const struct pbl_i2c_bus *bus) {
+// Memory address of a register access: a 1 or 2-byte write followed by another message
+static bool prv_mem_addr(const struct pbl_i2c_msg *msgs, uint8_t num_msgs, uint16_t *mem_addr,
+                         uint16_t *mem_size) {
+  if (num_msgs != 2U || (msgs[0].flags & PBL_I2C_MSG_READ) != 0U) {
+    return false;
+  }
+
+  if (msgs[0].len == 1U) {
+    *mem_addr = msgs[0].buf[0];
+    *mem_size = I2C_MEMADD_SIZE_8BIT;
+  } else if (msgs[0].len == 2U) {
+    *mem_addr = (uint16_t)((msgs[0].buf[0] << 8) | msgs[0].buf[1]);
+    *mem_size = I2C_MEMADD_SIZE_16BIT;
+  } else {
+    return false;
+  }
+
+  return true;
+}
+
+static int prv_start(const struct pbl_i2c_bus *bus, uint16_t addr, struct pbl_i2c_msg *msgs,
+                     uint8_t num_msgs) {
   const struct pbl_i2c_sf32lb *i2c = prv_i2c(bus);
   I2C_HandleTypeDef *hdl = &i2c->state->hdl;
-  const struct pbl_i2c_transfer *transfer = &bus->state->transfer;
+  struct pbl_i2c_msg *data = &msgs[num_msgs - 1U];
+  bool read = (data->flags & PBL_I2C_MSG_READ) != 0U;
+  uint16_t mem_addr;
+  uint16_t mem_size;
   HAL_StatusTypeDef ret;
 
-  prv_deepsleep_block(i2c);
-
-  if (prv_dma_usable(i2c, transfer)) {
-    // Dropping the buffer's lines now keeps a dirty one from being evicted over the DMA data.
-    i2c->state->dma_data = transfer->data;
-    i2c->state->dma_size = transfer->size;
-    dcache_invalidate(transfer->data, DCACHE_ROUND_UP(transfer->size));
-    HAL_DMA_Init(&i2c->state->hdma_rx);
-    ret = HAL_I2C_Mem_Read_DMA(hdl, transfer->addr, transfer->reg, I2C_MEMADD_SIZE_8BIT,
-                               transfer->data, transfer->size);
-  } else if (transfer->with_reg) {
-    if (transfer->dir == PBL_I2C_READ) {
-      ret = HAL_I2C_Mem_Read_IT(hdl, transfer->addr, transfer->reg, I2C_MEMADD_SIZE_8BIT,
-                                transfer->data, transfer->size);
+  if (num_msgs == 1U) {
+    prv_deepsleep_block(i2c);
+    if (read) {
+      ret = HAL_I2C_Master_Receive_IT(hdl, addr, data->buf, data->len);
     } else {
-      ret = HAL_I2C_Mem_Write_IT(hdl, transfer->addr, transfer->reg, I2C_MEMADD_SIZE_8BIT,
-                                 transfer->data, transfer->size);
+      ret = HAL_I2C_Master_Transmit_IT(hdl, addr, data->buf, data->len);
+    }
+  } else if (prv_mem_addr(msgs, num_msgs, &mem_addr, &mem_size) &&
+             (read || (data->flags & PBL_I2C_MSG_NOSTART) != 0U)) {
+    prv_deepsleep_block(i2c);
+    if (read && (data->flags & PBL_I2C_MSG_DMA_SAFE) != 0U &&
+        i2c->state->hdma_rx.Instance != nullptr && data->len >= I2C_SF32LB_DMA_MIN_BYTES) {
+      // Dropping the buffer's lines now keeps a dirty one from being evicted over the DMA data.
+      i2c->state->dma_data = data->buf;
+      i2c->state->dma_size = data->len;
+      dcache_invalidate(data->buf, DCACHE_ROUND_UP(data->len));
+      HAL_DMA_Init(&i2c->state->hdma_rx);
+      ret = HAL_I2C_Mem_Read_DMA(hdl, addr, mem_addr, mem_size, data->buf, data->len);
+    } else if (read) {
+      ret = HAL_I2C_Mem_Read_IT(hdl, addr, mem_addr, mem_size, data->buf, data->len);
+    } else {
+      ret = HAL_I2C_Mem_Write_IT(hdl, addr, mem_addr, mem_size, data->buf, data->len);
     }
   } else {
-    if (transfer->dir == PBL_I2C_READ) {
-      ret = HAL_I2C_Master_Receive_IT(hdl, transfer->addr, transfer->data, transfer->size);
-    } else {
-      ret = HAL_I2C_Master_Transmit_IT(hdl, transfer->addr, transfer->data, transfer->size);
-    }
+    return -ENOTSUP;
   }
 
   if (ret != HAL_OK) {
     HAL_I2C_Reset(hdl);
     prv_deepsleep_allow(i2c);
     prv_dma_finish(i2c, false);
-    pbl_i2c_bus_event(bus, PBL_I2C_EVENT_ERROR);
+    return -EIO;
   }
+
+  return 0;
 }
 
 static void prv_enable(const struct pbl_i2c_bus *bus) {
@@ -147,10 +168,6 @@ static void prv_disable(const struct pbl_i2c_bus *bus) {
 
   __HAL_I2C_DISABLE(&i2c->state->hdl);
   HAL_RCC_DisableModule(i2c->module);
-}
-
-static bool prv_is_busy(const struct pbl_i2c_bus *bus) {
-  return HAL_I2C_GetState(&prv_i2c(bus)->state->hdl) != HAL_I2C_STATE_READY;
 }
 
 static int prv_init(const struct pbl_i2c_bus *bus) {
@@ -191,7 +208,6 @@ const struct pbl_i2c_bus_ops pbl_i2c_sf32lb_ops = {
   .init = prv_init,
   .enable = prv_enable,
   .disable = prv_disable,
-  .is_busy = prv_is_busy,
-  .start_transfer = prv_start_transfer,
-  .abort_transfer = prv_abort_transfer,
+  .start = prv_start,
+  .abort = prv_abort,
 };

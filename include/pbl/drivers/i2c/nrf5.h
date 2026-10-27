@@ -13,6 +13,10 @@
  * @ingroup drivers_i2c
  * @brief @ref drivers_i2c bus driver for the nRF5 TWIM peripheral.
  *
+ * The TWIM issues one write, one read, or a write then a read after a repeated START; writes
+ * continued with @ref PBL_I2C_MSG_NOSTART are gathered in a buffer of
+ * @ref I2C_NRF5_BOUNCE_BUF_SIZE bytes. Other sequences fail with @c -ENOTSUP.
+ *
  * SCL and SDA are configured as open-drain inputs with their wiring flags, e.g. the pull-up, and
  * keep that configuration while the bus is disabled. The TWIM interrupt is connected by the
  * board:
@@ -25,19 +29,18 @@
  * @{
  */
 
-/** @brief Longest register write, register address included. */
-#define I2C_NRF5_REG_WRITE_BUF_SIZE 16
+/** @brief Longest write made of several messages, which the driver gathers in one buffer. */
+#define I2C_NRF5_BOUNCE_BUF_SIZE 16
 
 /** @cond INTERNAL_HIDDEN */
 struct pbl_i2c_nrf5_state {
   uint32_t frequency;
-  volatile bool busy;
-  bool error;
+  int error;
   bool tx;
   bool rx;
   uint32_t tx_len;
   uint32_t rx_len;
-  uint8_t reg_write_buf[I2C_NRF5_REG_WRITE_BUF_SIZE];
+  uint8_t bounce[I2C_NRF5_BOUNCE_BUF_SIZE];
 };
 /** @endcond */
 
