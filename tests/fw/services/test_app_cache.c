@@ -75,6 +75,17 @@ AppInstallId worker_preferences_get_default_worker(void) {
   return s_test_id_worker;
 }
 
+AppInstallId s_test_id_running_app;
+AppInstallId s_test_id_running_worker;
+
+AppInstallId app_manager_get_current_app_id(void) {
+  return s_test_id_running_app;
+}
+
+AppInstallId worker_manager_get_current_worker_id(void) {
+  return s_test_id_running_worker;
+}
+
 extern AppInstallId app_cache_get_next_eviction(void);
 
 /* Start of test */
@@ -116,6 +127,8 @@ void test_app_cache__cleanup(void) {
   s_test_id_ql_down = 0;
   s_test_id_watchface = 0;
   s_test_id_worker = 0;
+  s_test_id_running_app = 0;
+  s_test_id_running_worker = 0;
 }
 
 /*************************************
@@ -366,6 +379,23 @@ void prv_load_lotta_apps(void) {
 void prv_cleanup(void) {
   app_cache_flush();
   prv_load_lotta_apps();
+}
+
+/*************************************
+ * The running app and worker are never evicted *
+ *************************************/
+
+void test_app_cache__free_up_space_keeps_running_processes(void) {
+  s_test_id_running_app = 17;
+  s_test_id_running_worker = 50;
+
+  prv_cleanup();
+  // ask for everything: only the two running processes may survive
+  cl_assert_equal_i(S_SUCCESS, app_cache_free_up_space(SIZE_SUM));
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_b(true, app_cache_entry_exists(17));
+  cl_assert_equal_b(true, app_cache_entry_exists(50));
+  cl_assert_equal_i(t_data[16].size + t_data[49].size, app_cache_get_size());
 }
 
 void test_app_cache__free_up_space_lots_apps(void) {
