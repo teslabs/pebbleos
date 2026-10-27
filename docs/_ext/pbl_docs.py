@@ -7,6 +7,8 @@
   ``@defgroup`` comments in ``include/``.
 - ``pbl-command`` renders the usage and options of a ``pbl`` command
   from its own argument parser.
+- The API reference entry of the sidebar, which a toctree only takes as a
+  full URL, links to the Doxygen reference of the same build.
 """
 
 import argparse
@@ -21,6 +23,7 @@ from sphinx.util.docutils import SphinxDirective, SphinxRole
 ROOT = Path(__file__).resolve().parents[2]
 SOURCES = [ROOT / "include", ROOT / "docs" / "_doxygen"]
 PBL_CLI = ROOT / "tools" / "libs" / "pbl-cli"
+APIDOC_TOCTREE_URL = "https://pebbleos.readthedocs.io/en/latest/apidoc/index.html"
 
 COMMENT_RE = re.compile(r"/\*\*(.*?)\*/", re.DOTALL)
 DEFGROUP_RE = re.compile(r"[@\\]defgroup\s+(\w+)\s+(.+)")
@@ -150,8 +153,19 @@ def builder_inited(app):
     app.pbl_commands = pbl_subparsers()
 
 
+def html_page_context(app, pagename, templatename, context, doctree):
+    toctree = context.get("toctree")
+    if toctree is None:
+        return
+    uri = context["pathto"]("apidoc/index.html", 1)
+    context["toctree"] = lambda **kwargs: toctree(**kwargs).replace(
+        APIDOC_TOCTREE_URL, uri
+    )
+
+
 def setup(app):
     app.add_role("apidoc", ApidocRole())
     app.add_directive("pbl-command", PblCommandDirective)
     app.connect("builder-inited", builder_inited)
+    app.connect("html-page-context", html_page_context)
     return {"parallel_read_safe": True, "parallel_write_safe": True}
