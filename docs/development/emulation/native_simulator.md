@@ -74,6 +74,10 @@ A reset of the watch restarts the process.
 | Right, Enter, Space | Select |
 | Left, Backspace, Escape | Back |
 
+`L` toggles showing the colors as a watch's panel does in sunlight, as
+measured for the color picker's "Sunlight" palette, rather than the exact
+colors the firmware draws.
+
 The mouse drives the touchscreen: click and drag, or scroll with the wheel
 or two fingers on a trackpad, which drags a finger from the pointer.
 
@@ -104,6 +108,7 @@ quits.
   `tcp-server` transport) or a serial device, such as an nRF52840 dongle
   running `hci_uart`, as described for the {doc}`emulator <emulator>`.
 - `-S FILE`: save the last frame to a BMP file on quitting.
+- `-l`: start with the colors as in sunlight.
 - `-i FILE`: install a `.pbw` app and launch it; repeat for more.
 
 (native-third-party-apps)=
@@ -186,7 +191,8 @@ pbl run
 <http://localhost:8000/pebbleos.html> in a browser. The watch has the emulator's
 frame: click its buttons, or use the arrow keys (left is back, right is
 select); on touch platforms the mouse is a finger on the screen. The
-firmware log is a click away. The flash lives in memory, so the watch starts
+firmware log is a click away. The Sunlight button, `L` or `?sunlight` in the
+page's address show the colors as in sunlight. The flash lives in memory, so the watch starts
 afresh on every load, and there is no shell. The {doc}`/playground` embeds
 these builds in the documentation, one per board in `pbl_playground_boards`
 in `docs/conf.py`.

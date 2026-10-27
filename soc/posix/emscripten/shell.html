@@ -8,7 +8,8 @@
   // Embedded in the documentation: ?embed, and the page's ?theme. Embedded
   // in another page as just the display: ?screen, which shows the screen alone
   // and takes no input; ?serial, which gives the parent page the QEMU serial
-  // protocol and app installs over postMessage.
+  // protocol and app installs over postMessage. ?sunlight starts with the
+  // colors as a watch shows them in sunlight.
   const params = new URLSearchParams(location.search);
   const screenOnly = params.has('screen');
   const embedded = params.has('embed') || screenOnly;
@@ -107,6 +108,7 @@
   button.text { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px;
                 background: var(--panel); color: var(--fg); font: inherit; cursor: pointer; }
   button.text:hover { border-color: var(--dim); }
+  button.text[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
   #apps[hidden] { display: none; }
   #app-url { width: 240px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px;
              background: var(--panel); color: var(--fg); font: inherit; }
@@ -136,6 +138,8 @@
   <span class="group" id="touch-hint">Mouse is a finger, wheel drags</span>
   <span class="group" id="swatches"></span>
   <span class="group">
+    <button class="text" id="sunlight" aria-pressed="false" title="Colors as in sunlight (L)"
+            hidden>Sunlight</button>
     <button class="text" id="reset">Reset</button>
     <button class="text" id="toggle-log" aria-expanded="false">Show log</button>
   </span>
@@ -406,10 +410,32 @@
       $('boot').classList.add('done');
       // Embedded, focus would scroll the documentation page to the frame.
       if (!embedded) canvas.focus();
+      enableSunlight();
       enableApps();
       enableSerial();
     },
   };
+
+  // Sunlight: the colors as a watch's panel shows them in sunlight, from
+  // ?sunlight, the button or L.
+  function enableSunlight() {
+    if (!Module._display_sdl_bottom_set_sunlight) return;
+    const button = $('sunlight');
+    const sync = () =>
+      button.setAttribute('aria-pressed', String(!!Module._display_sdl_bottom_sunlight()));
+    if (params.has('sunlight')) Module._display_sdl_bottom_set_sunlight(true);
+    button.hidden = false;
+    button.addEventListener('click', () => {
+      Module._display_sdl_bottom_set_sunlight(!Module._display_sdl_bottom_sunlight());
+      sync();
+      if (!embedded) canvas.focus();
+    });
+    // SDL takes the key on its own.
+    window.addEventListener('keyup', (e) => {
+      if (e.key.toLowerCase() === 'l') sync();
+    });
+    sync();
+  }
 
   // Apps: a .pbw from a file, dropped on the page or picked, or from a URL,
   // also given as ?pbw= in the page's address.
