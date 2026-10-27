@@ -218,9 +218,7 @@ void board_early_init(void) {
 
 void board_init(void) {
   uint8_t da7212_powerdown[] = {0xFD /* SYSTEM_ACTIVE */, 0};
-  pbl_i2c_use(I2C_DA7212);
-  pbl_i2c_write_block(I2C_DA7212, 2, da7212_powerdown);
-  pbl_i2c_release(I2C_DA7212);
+  pbl_i2c_write(I2C_DA7212, da7212_powerdown, 2);
 }
 
 const struct pbl_temp *const DIE_TEMP = NRF5_TEMP;
