@@ -6,7 +6,7 @@
 # the doxygen-awesome-css theme cloned during the RTD pre_build step, in its
 # sidebar layout and with the accent color of the Sphinx documentation.
 
-@INCLUDE = Doxyfile
+@INCLUDE = docs/_doxygen/Doxyfile
 
 OUTPUT_DIRECTORY       = docs/_apidoc
 HTML_OUTPUT            = apidoc
