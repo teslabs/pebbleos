@@ -7,7 +7,7 @@ Center Service."""
 import time
 
 import pytest
-from harness.ble.apple import Action, Command, EventFlag
+from harness.ble.apple import Action, Category, Command, EventFlag
 from harness.helpers.ui import TRANSITION_S, Button
 
 pytestmark = pytest.mark.integration_boards("qemu_emery", "getafix@dvt2")
@@ -101,3 +101,15 @@ def test_dismissed_on_watch(ui, ancs):
     ui.press(Button.SELECT)
     request = ancs.wait_action(notification.uid, since=since)
     assert request.action == Action.NEGATIVE
+
+
+def test_missed_call_without_actions(ui, ancs):
+    """A missed call the phone sends without actions is shown, and its
+    timeline pin added."""
+    ancs.post(
+        "Missed Call",
+        title="Anna",
+        app_id="com.apple.mobilephone",
+        category=Category.MISSED_CALL,
+    )
+    _wait_modal(ui)
