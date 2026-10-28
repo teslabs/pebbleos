@@ -594,14 +594,19 @@ int pbl_flash_unprotect(const struct pbl_flash *flash) {
   return 0;
 }
 
+// An erase in progress keeps the flash and its controller powered
+static bool prv_can_power_down(const struct pbl_flash *flash) {
+  return pbl_device_is_ready(&flash->dev) && !flash->state->erase.in_progress;
+}
+
 void pbl_flash_power_down(const struct pbl_flash *flash) {
-  if (flash->ops->power_down != nullptr && pbl_device_is_ready(&flash->dev)) {
+  if (flash->ops->power_down != nullptr && prv_can_power_down(flash)) {
     flash->ops->power_down(flash);
   }
 }
 
 void pbl_flash_power_up(const struct pbl_flash *flash) {
-  if (flash->ops->power_up != nullptr && pbl_device_is_ready(&flash->dev)) {
+  if (flash->ops->power_up != nullptr && prv_can_power_down(flash)) {
     flash->ops->power_up(flash);
   }
 }

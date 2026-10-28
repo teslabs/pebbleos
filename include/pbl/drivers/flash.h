@@ -331,6 +331,8 @@ int pbl_flash_coredump_init(const struct pbl_flash *flash);
 /**
  * @brief Power the flash down before MCU stop mode, with interrupts disabled.
  *
+ * Does nothing while an erase is in progress, nor does the matching pbl_flash_power_up().
+ *
  * @param flash Flash.
  */
 void pbl_flash_power_down(const struct pbl_flash *flash);

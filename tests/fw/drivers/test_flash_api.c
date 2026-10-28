@@ -27,6 +27,7 @@ static int s_erase_errors;
 static int s_suspends;
 static int s_resumes;
 static int s_writes;
+static int s_power_downs;
 
 static int prv_read(const struct pbl_flash *flash, uint32_t addr, void *buf, size_t len) {
   memset(buf, s_blank ? 0xFF : 0x00, len);
@@ -68,6 +69,10 @@ static const struct pbl_flash_ops s_sync_ops = {
   .erase = prv_erase,
 };
 
+static void prv_power_down(const struct pbl_flash *flash) {
+  s_power_downs++;
+}
+
 static const struct pbl_flash_ops s_async_ops = {
   .read = prv_read,
   .write = prv_write,
@@ -75,6 +80,7 @@ static const struct pbl_flash_ops s_async_ops = {
   .erase_status = prv_erase_status,
   .erase_suspend = prv_erase_suspend,
   .erase_resume = prv_erase_resume,
+  .power_down = prv_power_down,
 };
 
 static const struct pbl_flash_geometry s_geometry = {
@@ -129,6 +135,7 @@ void test_flash_api__initialize(void) {
   s_suspends = 0;
   s_resumes = 0;
   s_writes = 0;
+  s_power_downs = 0;
   s_cb_status = 1;
   s_cb_calls = 0;
   s_cb_arg = nullptr;
@@ -326,4 +333,20 @@ void test_flash_api__coredump_mode_is_synchronous(void) {
   cl_assert_equal_i(s_erases[1].size, SUBSECTOR_SIZE);
   cl_assert_equal_i(s_suspends, 0);
   cl_assert_equal_i(pbl_flash_erase_async(&s_async, BASE, SUBSECTOR_SIZE, prv_cb, nullptr), -EPERM);
+}
+
+void test_flash_api__stays_powered_during_erase(void) {
+  s_erase_status = -EBUSY;
+
+  cl_assert_equal_i(
+      pbl_flash_erase_async(&s_async, BASE + SECTOR_SIZE, SECTOR_SIZE, prv_cb, nullptr), 0);
+  pbl_flash_power_down(&s_async);
+  cl_assert_equal_i(s_power_downs, 0);
+
+  s_erase_status = 0;
+  prv_fire_timers(1);
+  cl_assert_equal_i(s_cb_calls, 1);
+
+  pbl_flash_power_down(&s_async);
+  cl_assert_equal_i(s_power_downs, 1);
 }
