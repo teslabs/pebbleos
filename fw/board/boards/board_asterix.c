@@ -4,7 +4,7 @@
 #include <pbl/drivers/ambient/opt3001.h>
 #include <pbl/drivers/audio.h>
 #include <pbl/drivers/backlight/pwm.h>
-#include <pbl/drivers/flash/nrf5_qspi.h>
+#include <pbl/drivers/flash/spi_nor.h>
 #include <pbl/drivers/i2c.h>
 #include <pbl/drivers/i2c/nrf5.h>
 #include <pbl/drivers/imu/lsm6dso/lsm6dso.h>
@@ -16,6 +16,7 @@
 #include <pbl/drivers/regulator/npm1300.h>
 #include <pbl/drivers/rtc.h>
 #include <pbl/drivers/speaker/nrf5/da7212_definitions.h>
+#include <pbl/drivers/spi_mem/nrf5_qspi.h>
 #include <pbl/drivers/temperature/nrf5.h>
 #include <pbl/drivers/uart/nrf5.h>
 #include <pbl/drivers/vibe/drv2604.h>
@@ -29,12 +30,13 @@
 #include <nrfx_i2s.h>
 #include <nrfx_pdm.h>
 
-PBL_FLASH_NRF5_QSPI_DEFINE(s_flash, "flash", &pbl_flash_nor_gd25lq255e, 8000000,
-                           PBL_FLASH_NRF5_QSPI_READ4IO, PBL_FLASH_NRF5_QSPI_PP4O,
-                           PBL_GPIO(NRF5_GPIO_P0, 19, 0), PBL_GPIO(NRF5_GPIO_P0, 17, 0),
-                           PBL_GPIO(NRF5_GPIO_P0, 20, 0), PBL_GPIO(NRF5_GPIO_P0, 21, 0),
-                           PBL_GPIO(NRF5_GPIO_P0, 22, 0), PBL_GPIO(NRF5_GPIO_P0, 23, 0));
-PBL_IRQ_CONNECT(QSPI, 5, pbl_flash_nrf5_qspi_irq_handler, &s_flash, 0);
+PBL_SPI_MEM_NRF5_QSPI_DEFINE(s_qspi, "qspi", 8000000, PBL_GPIO(NRF5_GPIO_P0, 19, 0),
+                             PBL_GPIO(NRF5_GPIO_P0, 17, 0), PBL_GPIO(NRF5_GPIO_P0, 20, 0),
+                             PBL_GPIO(NRF5_GPIO_P0, 21, 0), PBL_GPIO(NRF5_GPIO_P0, 22, 0),
+                             PBL_GPIO(NRF5_GPIO_P0, 23, 0));
+PBL_IRQ_CONNECT(QSPI, 5, pbl_spi_mem_nrf5_qspi_irq_handler, &s_qspi, 0);
+
+PBL_FLASH_SPI_NOR_DEFINE(s_flash, "flash", &s_qspi.mem, &pbl_flash_nor_gd25lq255e);
 
 const struct pbl_flash *const FLASH = &s_flash.flash;
 /* PERIPHERAL ID 43 */
