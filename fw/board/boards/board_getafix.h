@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <pbl/drivers/touch/cst816/touch_sensor_definitions.h>
 #include <pbl/services/imu/units.h>
 
 #define BT_VENDOR_ID   0x0EEA
@@ -18,7 +17,6 @@ extern QSPIFlash *const QSPI_FLASH;
 extern const BoardConfigPower BOARD_CONFIG_POWER;
 extern const BoardConfig BOARD_CONFIG;
 extern const MicDevice *MIC;
-extern const TouchSensor *CST816;
 
 static const BoardConfigAccel BOARD_CONFIG_ACCEL = {
   .default_motion_sensitivity = 55U, // Medium

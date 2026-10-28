@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <pbl/drivers/touch/touch_sensor.h>
+#include <pbl/drivers/touch.h>
 #include <pbl/input/input.h>
 #include <pbl/kernel/assert.h>
 #include <pbl/kernel/mutex.h>
@@ -38,6 +38,7 @@ static bool s_system_hold_subscribed = false;
 static bool s_nav_enabled = false;
 static bool s_app_nav_active = false;
 static bool s_globally_enabled = true;
+static bool s_sensor_enabled = false;
 static bool s_rotated = false;
 //! Set while an injected gesture owns the sensor, between its touchdown and liftoff. Physical
 //! samples are ignored for its duration so the synthetic path cannot be corrupted mid-swipe.
@@ -50,13 +51,33 @@ static void prv_apply_rotation(int16_t *x, int16_t *y) {
   }
 }
 
+//! Powers the sensor while touch is globally enabled and has subscribers. Caller must hold
+//! s_touch_mutex.
+static void prv_update_sensor(void) {
+  const bool enable = s_globally_enabled && (s_subscriber_count > 0);
+  int ret;
+
+  if (enable == s_sensor_enabled) {
+    return;
+  }
+
+  if (enable) {
+    ret = pbl_touch_enable(TOUCH);
+    if (ret != 0) {
+      PBL_LOG_WRN("Touch: could not enable the touchscreen (%d)", ret);
+      return;
+    }
+  } else {
+    (void)pbl_touch_disable(TOUCH);
+  }
+
+  s_sensor_enabled = enable;
+}
+
 static void prv_add_subscriber_cb(PebbleTask task) {
   pbl_mutex_lock(&s_touch_mutex, PBL_FOREVER);
-  // Honor the global kill switch: when touch is globally disabled, track the
-  // subscriber count but don't power up the sensor.
-  if (++s_subscriber_count == 1 && s_globally_enabled) {
-    touch_sensor_set_enabled(true);
-  }
+  s_subscriber_count++;
+  prv_update_sensor();
   PBL_LOG_DBG("Touch: subscriber added, count=%" PRIu8, s_subscriber_count);
   pbl_mutex_unlock(&s_touch_mutex);
 }
@@ -64,9 +85,8 @@ static void prv_add_subscriber_cb(PebbleTask task) {
 static void prv_remove_subscriber_cb(PebbleTask task) {
   pbl_mutex_lock(&s_touch_mutex, PBL_FOREVER);
   PBL_ASSERTN(s_subscriber_count > 0);
-  if (--s_subscriber_count == 0 && s_globally_enabled) {
-    touch_sensor_set_enabled(false);
-  }
+  s_subscriber_count--;
+  prv_update_sensor();
   // An app whose shared touch subscription disappears (task exit, or both
   // slots emptied) cannot have a live raw handler or nav dispatcher anymore;
   // drop its raw-slot mark and the app-nav-active flag so a crashed app cannot
@@ -137,10 +157,9 @@ void touch_service_set_globally_enabled(bool enabled) {
     return;
   }
   s_globally_enabled = enabled;
-  const bool sensor_enabled = enabled && (s_subscriber_count > 0);
+  prv_update_sensor();
   pbl_mutex_unlock(&s_touch_mutex);
 
-  touch_sensor_set_enabled(sensor_enabled);
   if (!enabled) {
     // A finger down when touch is torn down never gets a Liftoff otherwise, so
     // the backlight hold counter stays pinned. Synthesize one before the reset

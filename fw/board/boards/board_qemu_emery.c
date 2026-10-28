@@ -8,6 +8,7 @@
 #include <pbl/drivers/imu/qemu.h>
 #include <pbl/drivers/input/gpio_keys.h>
 #include <pbl/drivers/temperature/qemu.h>
+#include <pbl/drivers/touch/qemu.h>
 #include <pbl/drivers/vibe/qemu.h>
 #include <pbl/kernel/irq.h>
 
@@ -122,3 +123,5 @@ const struct pbl_backlight *const BACKLIGHT = QEMU_BACKLIGHT;
 const struct pbl_vibe *const VIBE = QEMU_VIBE;
 
 const struct pbl_temp *const DIE_TEMP = QEMU_TEMP;
+
+const struct pbl_touch *const TOUCH = QEMU_TOUCH;
