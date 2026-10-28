@@ -9,12 +9,14 @@
 #include <pbl/services/event_service.h>
 #include <pbl/services/new_timer/new_timer.h>
 #include <pbl/services/settings/settings_file.h>
+#include <pbl/services/stationary.h>
 #include <pbl/services/system_task.h>
 #include <pbl/services/time.h>
 #include <pbl/services/wakeup.h>
 #include <pbl/util/math.h>
 #include <pbl/util/units.h>
 
+#include <kernel/event_loop.h>
 #include <kernel/pbl_malloc.h>
 #include <popups/wakeup_ui.h>
 #include <process_management/app_install_manager.h>
@@ -84,6 +86,10 @@ static bool s_catchup_enabled = false; // enables catching up with missed events
 static bool s_dispatched = false;
 static time_t s_last_dispatch_time;
 
+static void prv_stationary_wake_up_cb(void *unused) {
+  stationary_wake_up();
+}
+
 void wakeup_dispatcher_system_task(void *data) {
   WakeupId wakeup_id = (WakeupId)(intptr_t)data;
   WakeupEntry entry = prv_wakeup_settings_get_entry(wakeup_id);
@@ -100,6 +106,12 @@ void wakeup_dispatcher_system_task(void *data) {
   s_last_dispatch_time = rtc_get_time();
 
   AppInstallId app_id = app_install_get_id_for_uuid(&entry.uuid);
+
+  // Stationary mode disables vibes and backlight, leave it like alarms do. Queued ahead of the
+  // launch so the app comes up in the normal runlevel.
+  if (app_id != INSTALL_ID_INVALID) {
+    launcher_task_add_callback(prv_stationary_wake_up_cb, nullptr);
+  }
 
   // If specified app isn't currently running, launch
   if (!(app_manager_get_current_app_id() == app_id)) {

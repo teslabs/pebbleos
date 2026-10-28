@@ -70,6 +70,11 @@ bool clock_is_timezone_set(void) {
   return false;
 }
 
+static int s_stationary_wake_up_count;
+void stationary_wake_up(void) {
+  s_stationary_wake_up_count++;
+}
+
 // Tests
 ///////////////////////////////////////////////////////////
 void test_wakeup__initialize(void) {
@@ -86,6 +91,7 @@ void test_wakeup__initialize(void) {
 
   // Reset variable due to previous callbacks
   s_popup_occurred = false;
+  s_stationary_wake_up_count = 0;
 
   wakeup_init();
   wakeup_enable(true);
@@ -428,4 +434,22 @@ void test_wakeup__far_future_not_early(void) {
   cl_assert_equal_i(sys_wakeup_query(wakeup_id), event_time);
   cl_assert_equal_i(wakeup_get_next_scheduled(), wakeup_id);
   cl_assert(stub_new_timer_timeout(wakeup_get_current()) / 1000 > 0);
+}
+
+void test_wakeup__dispatch_leaves_stationary(void) {
+  const time_t event_time = sys_get_time() + 31 * 60;
+  stub_app_set_install_id(1);
+
+  WakeupId wakeup_id = sys_wakeup_schedule(event_time, 0, false);
+  cl_assert(wakeup_id > 0);
+
+  // Not yet due, stays in stationary
+  rtc_set_time(event_time - 1);
+  wakeup_dispatcher_system_task((void *)(uintptr_t)wakeup_id);
+  cl_assert_equal_i(s_stationary_wake_up_count, 0);
+
+  rtc_set_time(event_time);
+  wakeup_dispatcher_system_task((void *)(uintptr_t)wakeup_id);
+  cl_assert_equal_i(s_stationary_wake_up_count, 1);
+  cl_assert_equal_i(sys_wakeup_query(wakeup_id), E_DOES_NOT_EXIST);
 }
