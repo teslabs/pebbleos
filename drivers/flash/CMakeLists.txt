@@ -9,7 +9,6 @@ pbl_library_sources(
 pbl_library_sources_ifdef(CONFIG_FLASH_SEC_REGS sec_regs.c)
 pbl_library_sources_ifdef(CONFIG_FLASH_GD25LQ255E gd25lq255e.c)
 pbl_library_sources_ifdef(CONFIG_FLASH_GD25Q256E gd25q256e.c)
-pbl_library_sources_ifdef(CONFIG_FLASH_NRF5_QSPI nrf5_qspi.c)
 pbl_library_sources_ifdef(CONFIG_FLASH_SPI_NOR spi_nor.c)
 pbl_library_sources_ifdef(CONFIG_FLASH_SF32LB52_MPI sf32lb52_mpi.c)
 pbl_library_sources_ifdef(CONFIG_FLASH_QEMU qemu.c)
