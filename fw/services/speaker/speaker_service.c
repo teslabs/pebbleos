@@ -118,18 +118,18 @@ static void prv_audio_trans_cb(uint32_t *free_size);
 static void prv_refill_locked(void);
 static void prv_refill_realtime_locked(void);
 
-static bool prv_is_speaker_muted(void) {
-  if (alerts_preferences_get_speaker_muted()) {
-    return true;
-  }
-  if (alerts_preferences_dnd_get_mute_speaker() && do_not_disturb_is_active()) {
-    return true;
-  }
-  return false;
+//! Quiet Time does not silence critical sounds (alarms), like it does not stop their vibration.
+static bool prv_is_muted_by_quiet_time(SpeakerPriority pri) {
+  return pri < SpeakerPriorityCritical && alerts_preferences_dnd_get_mute_speaker() &&
+         do_not_disturb_is_active();
+}
+
+static bool prv_is_speaker_muted(SpeakerPriority pri) {
+  return alerts_preferences_get_speaker_muted() || prv_is_muted_by_quiet_time(pri);
 }
 
 static uint8_t prv_effective_volume(uint8_t vol) {
-  if (prv_is_speaker_muted()) {
+  if (prv_is_speaker_muted(s_state.priority)) {
     return 0;
   }
   if (s_state.volume_absolute) {
@@ -181,7 +181,7 @@ static void prv_log_silence(uint8_t vol, uint8_t effective_vol) {
     if (alerts_preferences_get_speaker_muted()) {
       reasons |= SPEAKER_SILENT_BY_MUTE;
     }
-    if (alerts_preferences_dnd_get_mute_speaker() && do_not_disturb_is_active()) {
+    if (prv_is_muted_by_quiet_time(s_state.priority)) {
       reasons |= SPEAKER_SILENT_BY_DND;
     }
   }
@@ -885,7 +885,7 @@ void speaker_service_set_volume_owned(PebbleTask owner, uint8_t vol) {
 }
 
 bool speaker_service_is_muted(void) {
-  return prv_is_speaker_muted();
+  return prv_is_speaker_muted(SpeakerPriorityApp);
 }
 
 void speaker_service_handle_audio_prefs_changed(void) {
