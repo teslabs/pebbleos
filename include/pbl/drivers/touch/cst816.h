@@ -11,7 +11,6 @@
 #include <pbl/drivers/intc.h>
 #include <pbl/drivers/rtc.h>
 #include <pbl/drivers/touch.h>
-#include <pbl/services/regular_timer.h>
 
 /**
  * @defgroup drivers_touch_cst816 CST816
@@ -33,12 +32,9 @@
 /** @cond INTERNAL_HIDDEN */
 struct pbl_cst816_state {
   struct pbl_irq_spec irq;
-  RegularTimerInfo watchdog;
   RtcTicks last_irq_ticks;
   bool enabled;
   bool work_pending;
-  bool reset_pending;
-  bool active_since_check;
   bool palm_down;
   bool palm_click_pending;
 };
