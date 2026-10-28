@@ -4,7 +4,7 @@
 #include <pbl/drivers/ambient/opt3001.h>
 #include <pbl/drivers/audio.h>
 #include <pbl/drivers/backlight/pwm.h>
-#include <pbl/drivers/flash/qspi_flash_definitions.h>
+#include <pbl/drivers/flash/nrf5_qspi.h>
 #include <pbl/drivers/i2c.h>
 #include <pbl/drivers/i2c/nrf5.h>
 #include <pbl/drivers/imu/lsm6dso/lsm6dso.h>
@@ -13,7 +13,6 @@
 #include <pbl/drivers/mic/nrf5/pdm_definitions.h>
 #include <pbl/drivers/pmic/npm1300.h>
 #include <pbl/drivers/pwm/nrf5.h>
-#include <pbl/drivers/qspi_definitions.h>
 #include <pbl/drivers/regulator/npm1300.h>
 #include <pbl/drivers/rtc.h>
 #include <pbl/drivers/speaker/nrf5/da7212_definitions.h>
@@ -25,36 +24,19 @@
 
 #include <board/board.h>
 #include <flash_region/flash_region.h>
-#include <nrfx_i2s.h>
-
-// QSPI
 #include <hal/nrf_clock.h>
 #include <hal/nrf_gpio.h>
+#include <nrfx_i2s.h>
 #include <nrfx_pdm.h>
 
-static QSPIPortState s_qspi_port_state;
-static QSPIPort QSPI_PORT = {
-  .state = &s_qspi_port_state,
-  .clk_freq_hz = 8000000UL,
-  .cs_gpio = NRF_GPIO_PIN_MAP(0, 17),
-  .clk_gpio = NRF_GPIO_PIN_MAP(0, 19),
-  .data_gpio = {
-    NRF_GPIO_PIN_MAP(0, 20),
-    NRF_GPIO_PIN_MAP(0, 21),
-    NRF_GPIO_PIN_MAP(0, 22),
-    NRF_GPIO_PIN_MAP(0, 23),
-  },
-};
-QSPIPort *const QSPI = &QSPI_PORT;
+PBL_FLASH_NRF5_QSPI_DEFINE(s_flash, "flash", &pbl_flash_nor_gd25lq255e, 8000000,
+                           PBL_FLASH_NRF5_QSPI_READ4IO, PBL_FLASH_NRF5_QSPI_PP4O,
+                           PBL_GPIO(NRF5_GPIO_P0, 19, 0), PBL_GPIO(NRF5_GPIO_P0, 17, 0),
+                           PBL_GPIO(NRF5_GPIO_P0, 20, 0), PBL_GPIO(NRF5_GPIO_P0, 21, 0),
+                           PBL_GPIO(NRF5_GPIO_P0, 22, 0), PBL_GPIO(NRF5_GPIO_P0, 23, 0));
+PBL_IRQ_CONNECT(QSPI, 5, pbl_flash_nrf5_qspi_irq_handler, &s_flash, 0);
 
-static QSPIFlashState s_qspi_flash_state;
-static QSPIFlash QSPI_FLASH_DEVICE = {
-  .state = &s_qspi_flash_state,
-  .qspi = &QSPI_PORT,
-  .read_mode = QSPI_FLASH_READ_READ4IO,
-  .write_mode = QSPI_FLASH_WRITE_PP4O,
-};
-QSPIFlash *const QSPI_FLASH = &QSPI_FLASH_DEVICE;
+const struct pbl_flash *const FLASH = &s_flash.flash;
 /* PERIPHERAL ID 43 */
 
 static UARTDeviceState s_dbg_uart_state;

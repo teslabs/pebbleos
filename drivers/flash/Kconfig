@@ -8,6 +8,12 @@ menuconfig FLASH
 
 if FLASH
 
+config FLASH_SEC_REGS
+    bool
+    help
+      Selected by drivers that provide the security register functions,
+      pbl_flash_sec_reg_*().
+
 config FLASH_GD25LQ255E
     bool "GigaDevice GD25LQ255E"
     help
@@ -17,6 +23,22 @@ config FLASH_GD25Q256E
     bool "GigaDevice GD25Q256E"
     help
       Support for the GigaDevice GD25Q256E NOR flash.
+
+config FLASH_NRF5_QSPI
+    bool "Nordic nRF5 QSPI"
+    default y if SOC_NRF52
+    depends on SOC_NRF52
+    select FLASH_SEC_REGS
+    help
+      Support for a NOR flash on the Nordic nRF5 QSPI peripheral.
+
+config FLASH_SF32LB52_MPI
+    bool "SiFli SF32LB52 MPI"
+    default y if SOC_SF32LB52
+    depends on SOC_SF32LB52
+    select FLASH_SEC_REGS
+    help
+      Support for a NOR flash on a SiFli SF32LB52 MPI controller.
 
 config FLASH_QEMU
     bool "QEMU External Flash"
@@ -29,6 +51,13 @@ config FLASH_POSIX
     default y if SOC_POSIX
     help
       External flash backed by a file on the host.
+
+config FLASH_SHELL
+    bool "Shell commands"
+    default y
+    depends on SHELL
+    help
+      The flash shell command, to inspect, erase and test the flash.
 
 module = DRIVER_FLASH
 module-str = Flash

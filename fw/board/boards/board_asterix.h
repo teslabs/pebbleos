@@ -65,9 +65,6 @@ static const BoardConfigSharpDisplay BOARD_CONFIG_DISPLAY = {
   .extcomin = PBL_PWM(&EXTCOMIN_PWM.ctrl, 0, PBL_PWM_HZ(120), 0),
 };
 
-extern QSPIPort *const QSPI;
-extern QSPIFlash *const QSPI_FLASH;
-
 extern MicDevice *const MIC;
 extern AudioDevice *const AUDIO;
 

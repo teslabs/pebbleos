@@ -10,6 +10,7 @@ if OTP
 
 config OTP_FLASH
     bool "Flash security registers"
+    depends on FLASH_SEC_REGS
     help
       OTP backed by SPI NOR flash security registers
       (e.g. GD25 / GD25LQ family). Driver: otp_flash.c.

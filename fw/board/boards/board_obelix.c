@@ -4,6 +4,7 @@
 #include <pbl/drivers/ambient/w1160.h>
 #include <pbl/drivers/backlight/aw2016.h>
 #include <pbl/drivers/dma/sf32lb52.h>
+#include <pbl/drivers/flash/sf32lb52_mpi.h>
 #include <pbl/drivers/gpio/npm1300.h>
 #include <pbl/drivers/hrm/gh3x2x.h>
 #include <pbl/drivers/imu/lsm6dso/lsm6dso.h>
@@ -155,37 +156,10 @@ static UARTDevice HCI_TRACE_UART_DEVICE = {
 UARTDevice *const HCI_TRACE_UART = &HCI_TRACE_UART_DEVICE;
 #endif // NIMBLE_HCI_SF32LB52_TRACE_BINARY
 
-static QSPIPortState s_qspi_port_state = {
-  .cfg =
-      {
-        .Instance = FLASH2,
-        .line = HAL_FLASH_QMODE,
-        .base = FLASH2_BASE_ADDR,
-        .msize = 16,
-        .SpiMode = SPI_MODE_NOR,
-      },
-  .dma =
-      {
-        .Instance = DMA1_Channel2,
-        .dma_irq = DMAC1_CH2_IRQn,
-        .request = DMA_REQUEST_1,
-      },
-  .t_enter_deep_us = 3,
-  .t_exit_deep_us = 20,
-};
+PBL_FLASH_SF32LB52_MPI_DEFINE(s_flash, "flash", &pbl_flash_nor_gd25q256e, FLASH2, FLASH2_BASE_ADDR,
+                              16, 0, DMA1_Channel2, DMAC1_CH2_IRQn, DMA_REQUEST_1);
 
-static QSPIPort QSPI_PORT = {
-  .state = &s_qspi_port_state,
-  .clk_div = 0U,
-};
-QSPIPort *const QSPI = &QSPI_PORT;
-
-static QSPIFlashState s_qspi_flash_state;
-static QSPIFlash QSPI_FLASH_DEVICE = {
-  .state = &s_qspi_flash_state,
-  .qspi = &QSPI_PORT,
-};
-QSPIFlash *const QSPI_FLASH = &QSPI_FLASH_DEVICE;
+const struct pbl_flash *const FLASH = &s_flash.flash;
 
 PBL_PINCTRL_STATE_DEFINE(s_i2c1_default, SF32LB52_PINCTRL,
                          SF32LB52_PA31_I2C1_SCL | PBL_PINCTRL_SF32LB52_INPUT |
