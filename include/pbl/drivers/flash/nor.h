@@ -33,6 +33,18 @@
 #define PBL_FLASH_NOR_CMD_WRSR2 0x31U
 /** Read JEDEC ID. */
 #define PBL_FLASH_NOR_CMD_RDID 0x9FU
+/** Read SFDP. */
+#define PBL_FLASH_NOR_CMD_RDSFDP 0x5AU
+/** Fast read (1-1-1). */
+#define PBL_FLASH_NOR_CMD_FAST_READ 0x0BU
+/** Page program (1-1-1). */
+#define PBL_FLASH_NOR_CMD_PP 0x02U
+/** Quad input page program (1-1-4). */
+#define PBL_FLASH_NOR_CMD_PP_1_1_4 0x32U
+/** 4 KiB erase. */
+#define PBL_FLASH_NOR_CMD_SE 0x20U
+/** 64 KiB erase. */
+#define PBL_FLASH_NOR_CMD_BE 0xD8U
 /** Enter 4-byte address mode. */
 #define PBL_FLASH_NOR_CMD_EN4B 0xB7U
 /** Reset enable. */

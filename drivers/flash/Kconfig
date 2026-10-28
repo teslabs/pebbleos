@@ -32,6 +32,14 @@ config FLASH_NRF5_QSPI
     help
       Support for a NOR flash on the Nordic nRF5 QSPI peripheral.
 
+config FLASH_SPI_NOR
+    bool "SPI NOR"
+    depends on SPI_MEM
+    select FLASH_SEC_REGS
+    help
+      Support for a JEDEC NOR flash on a SPI memory controller, described
+      by its SFDP tables and the board's part description.
+
 config FLASH_SF32LB52_MPI
     bool "SiFli SF32LB52 MPI"
     default y if SOC_SF32LB52
