@@ -10,7 +10,7 @@
 
 #include <string.h>
 
-#include <pbl/drivers/audio.h>
+#include <pbl/drivers/speaker.h>
 #include <pbl/drivers/rtc.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/logging/logging.h>
