@@ -9,7 +9,6 @@
 #include <pbl/kernel/delay.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/analytics/analytics.h>
-#include <pbl/services/regular_timer.h>
 #include <pbl/services/system_task.h>
 #include <pbl/util/bits.h>
 #include <pbl/util/math.h>
@@ -57,10 +56,6 @@ PBL_LOG_MODULE_DEFINE(driver_touch_cst816, CONFIG_DRIVER_TOUCH_LOG_LEVEL);
 
 #define CST816_FW_HEADER_SIZE    6
 #define CST816_FW_VER_INFO_INDEX (-11)
-
-/* The chip occasionally wedges and stops asserting its interrupt line: reset it when it has been
- * silent for a whole watchdog period. */
-#define CST816_WATCHDOG_PERIOD_MIN 30
 
 /* The chip stays awake for 2 s after a wake, so an interrupt at least that long after the previous
  * one is a sleep to awake transition. */
@@ -321,8 +316,6 @@ static int prv_wake(const struct pbl_cst816 *cst) {
 
   state->palm_down = false;
   state->palm_click_pending = false;
-  state->active_since_check = true;
-
   return pbl_intc_enable(&state->irq);
 }
 
@@ -347,7 +340,6 @@ static void prv_work(void *arg) {
     return;
   }
 
-  state->active_since_check = true;
   prv_count_irq(state);
 
   ret = prv_read(cst, CST816_GESTURE_ID_REG, &gesture, sizeof(gesture));
@@ -431,56 +423,11 @@ static void prv_irq_handler(void *arg) {
   }
 }
 
-static void prv_watchdog_work(void *arg) {
-  const struct pbl_cst816 *cst = arg;
-  struct pbl_cst816_state *state = cst->state;
-  int ret;
-
-  pbl_touch_lock(&cst->touch);
-
-  state->reset_pending = false;
-  if (!state->enabled) {
-    pbl_touch_unlock(&cst->touch);
-    return;
-  }
-
-  (void)pbl_intc_disable(&state->irq);
-  ret = prv_wake(cst);
-  if (ret != 0) {
-    PBL_LOG_ERR("Reset failed (%d)", ret);
-  }
-
-  pbl_touch_unlock(&cst->touch);
-}
-
-// Runs on the regular timer task: the reset sleeps, so it is left to the system task.
-static void prv_watchdog_expired(void *data) {
-  const struct pbl_cst816 *cst = data;
-  struct pbl_cst816_state *state = cst->state;
-
-  if (!state->enabled || state->reset_pending) {
-    return;
-  }
-
-  if (state->active_since_check) {
-    state->active_since_check = false;
-    return;
-  }
-
-  state->reset_pending = true;
-  if (!system_task_add_callback(prv_watchdog_work, data)) {
-    state->reset_pending = false;
-  }
-}
-
 static int prv_sleep(const struct pbl_cst816 *cst) {
   struct pbl_cst816_state *state = cst->state;
   int ret;
 
   state->enabled = false;
-  if (regular_timer_is_scheduled(&state->watchdog)) {
-    regular_timer_remove_callback(&state->watchdog);
-  }
 
   ret = pbl_intc_disable(&state->irq);
   if (ret != 0) {
@@ -541,8 +488,6 @@ static int prv_init(const struct pbl_touch *touch) {
     return ret;
   }
 
-  state->watchdog = (RegularTimerInfo){.cb = prv_watchdog_expired, .cb_data = (void *)cst};
-
   ret = pbl_intc_request(&state->irq, prv_irq_handler, (void *)cst);
   if (ret != 0) {
     return ret;
@@ -562,7 +507,6 @@ static int prv_enable(const struct pbl_touch *touch) {
   }
 
   state->enabled = true;
-  regular_timer_add_multiminute_callback(&state->watchdog, CST816_WATCHDOG_PERIOD_MIN);
 
   return 0;
 }
