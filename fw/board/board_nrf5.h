@@ -19,9 +19,6 @@
 #include <nrfx_timer.h>
 // clang-format on
 
-#define GPIO_Port_NULL (nullptr)
-#define GPIO_Pin_NULL  ((uint16_t)-1)
-
 typedef struct {
   const char *name;
   struct pbl_gpio gpio;

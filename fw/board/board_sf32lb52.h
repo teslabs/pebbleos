@@ -14,9 +14,6 @@
 
 #include <bf0_hal_pinmux.h>
 
-#define GPIO_Port_NULL nullptr
-#define GPIO_Pin_NULL  0U
-
 typedef struct {
   uint8_t backlight_on_percent;
   // ambient light config
