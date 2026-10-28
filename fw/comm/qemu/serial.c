@@ -198,7 +198,7 @@ static void prv_heart_rate_msg_callback(const uint8_t *data, uint32_t len) {
   }
 
   PBL_LOG_DBG("Got heart rate msg: bpm: %d, quality: %d", hdr->bpm, hdr->quality);
-#if defined(CONFIG_HRM)
+#if defined(CONFIG_SERVICE_HRM)
   HRMData hrm_data = {
     .features = HRMFeature_BPM,
     .hrm_bpm = hdr->bpm,
