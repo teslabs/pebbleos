@@ -13,7 +13,6 @@
 #include <pbl/drivers/otp.h>
 #include <pbl/drivers/rtc.h>
 #include <pbl/drivers/sf32lb52/rc10k.h>
-#include <pbl/drivers/touch/touch_sensor.h>
 #include <pbl/drivers/vibe.h>
 #include <pbl/drivers/watchdog.h>
 #include <pbl/kernel/assert.h>
@@ -140,10 +139,6 @@ static void init_drivers(void) {
 
 #ifdef CONFIG_MIC
   mic_init(MIC);
-#endif
-
-#ifdef CONFIG_TOUCH
-  touch_sensor_init();
 #endif
 
   rtc_init_timers();

@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <pbl/drivers/touch/cst816/touch_sensor_definitions.h>
 #include <pbl/services/imu/units.h>
 
 #define BT_VENDOR_ID   0x0EEA
@@ -19,7 +18,6 @@ extern const BoardConfigPower BOARD_CONFIG_POWER;
 extern const BoardConfig BOARD_CONFIG;
 extern const MicDevice *MIC;
 extern HRMDevice *const HRM;
-extern const TouchSensor *CST816;
 extern const AudioDevice *AUDIO;
 
 static const BoardConfigAccel BOARD_CONFIG_ACCEL = {

@@ -16,6 +16,7 @@
 #include <pbl/drivers/regulator/npm1300.h>
 #include <pbl/drivers/reset/sf32lb.h>
 #include <pbl/drivers/temperature/sf32lb.h>
+#include <pbl/drivers/touch/cst816.h>
 #include <pbl/drivers/vibe/aw86225.h>
 #include <pbl/drivers/vibe/aw8623x.h>
 #include <pbl/kernel/irq.h>
@@ -211,18 +212,11 @@ PBL_PINCTRL_STATE_DEFINE(s_i2c2_default, SF32LB52_PINCTRL,
 PBL_I2C_SF32LB_DEFINE(s_i2c2, "i2c2", 2, 400000, &s_i2c2_default, nullptr);
 PBL_IRQ_CONNECT(I2C2, 5, pbl_i2c_sf32lb_irq_handler, &s_i2c2, 0);
 
-static const struct pbl_i2c_dev s_i2c_cst816 = PBL_I2C_DEV(&s_i2c2.bus, 0x15);
+PBL_CST816_DEFINE(s_cst816, &s_i2c2.bus, 0x15, 0x6A, PBL_GPIO(SF32LB_GPIO1, 38, PBL_GPIO_PULL_UP),
+                  PBL_GPIO(SF32LB_GPIO1, 28, PBL_GPIO_ACTIVE_LOW), .size_x = PBL_DISPLAY_WIDTH,
+                  .size_y = PBL_DISPLAY_HEIGHT);
 
-static const struct pbl_i2c_dev s_i2c_cst816_boot = PBL_I2C_DEV(&s_i2c2.bus, 0x6A);
-
-static const TouchSensor s_touch_cst816 = {
-  .i2c = &s_i2c_cst816,
-  .i2c_boot = &s_i2c_cst816_boot,
-  .int_gpio = PBL_GPIO(SF32LB_GPIO1, 38, PBL_GPIO_PULL_UP),
-  .reset = PBL_GPIO(SF32LB_GPIO1, 28, PBL_GPIO_ACTIVE_LOW),
-};
-
-const TouchSensor *CST816 = &s_touch_cst816;
+const struct pbl_touch *const TOUCH = &s_cst816.touch;
 
 PBL_PINCTRL_STATE_DEFINE(s_i2c3_default, SF32LB52_PINCTRL,
                          SF32LB52_PA31_I2C3_SCL | PBL_PINCTRL_SF32LB52_INPUT |
