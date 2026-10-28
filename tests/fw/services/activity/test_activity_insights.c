@@ -986,6 +986,56 @@ void test_activity_insights__sleep_summary_no_renotify_same_window(void) {
 }
 
 // ---------------------------------------------------------------------------------------
+// A time zone change (travel or DST) shifts the local 9pm cutoff, but it is still the same
+// sleep window: the summary notification must not fire again
+void test_activity_insights__sleep_summary_no_renotify_timezone_change(void) {
+  prv_use_utc_timezone();
+  prv_set_sleep_history_avg();
+
+  activity_insights_init(rtc_get_time());
+  rtc_set_time(rtc_get_time() + 13 * PBL_SEC_PER_HOUR + 30 * PBL_SEC_PER_MIN);
+
+  s_data.metric_history[ActivityMetricSleepState][0] = ActivitySleepStateAwake;
+  s_data.metric_history[ActivityMetricSleepStateSeconds][0] = 30 * PBL_SEC_PER_MIN;
+
+  // Sleep 10pm-11pm Thursday and midnight-7am Friday, notification at 7:35am
+  prv_add_sleep_session(22, 1);
+  activity_insights_process_sleep_data(rtc_get_time());
+  rtc_set_time(rtc_get_time() + 30 * PBL_SEC_PER_MIN);
+  activity_insights_recalculate_stats();
+  rtc_set_time(rtc_get_time() + 7 * PBL_SEC_PER_HOUR + 5 * PBL_SEC_PER_MIN);
+  prv_add_sleep_session(1, 7);
+  activity_insights_process_sleep_data(rtc_get_time());
+  s_data.steps_per_minute = 80;
+  prv_minute_update(2);
+  rtc_set_time(rtc_get_time() + 28 * PBL_SEC_PER_MIN);
+  activity_insights_process_sleep_data(rtc_get_time());
+  cl_assert_equal_i(fake_kernel_services_notifications_ancs_notifications_count(), 1);
+
+  // Travel one time zone west, later that morning
+  static TimezoneInfo tz = {
+    .tm_gmtoff = -1 * PBL_SEC_PER_HOUR,
+  };
+  time_util_update_timezone(&tz);
+  rtc_set_time(rtc_get_time() + 2 * PBL_SEC_PER_HOUR);
+  activity_insights_process_sleep_data(rtc_get_time());
+  prv_minute_update(2);
+  rtc_set_time(rtc_get_time() + 30 * PBL_SEC_PER_MIN);
+  activity_insights_process_sleep_data(rtc_get_time());
+  cl_assert_equal_i(fake_kernel_services_notifications_ancs_notifications_count(), 1);
+
+  // And back east again
+  tz.tm_gmtoff = 0;
+  time_util_update_timezone(&tz);
+  rtc_set_time(rtc_get_time() + 2 * PBL_SEC_PER_HOUR);
+  activity_insights_process_sleep_data(rtc_get_time());
+  prv_minute_update(2);
+  rtc_set_time(rtc_get_time() + 30 * PBL_SEC_PER_MIN);
+  activity_insights_process_sleep_data(rtc_get_time());
+  cl_assert_equal_i(fake_kernel_services_notifications_ancs_notifications_count(), 1);
+}
+
+// ---------------------------------------------------------------------------------------
 // A new sleep window (past the 9pm cutoff) resets the notification guard: the next night's
 // sleep notifies again
 void test_activity_insights__sleep_summary_notify_next_window(void) {

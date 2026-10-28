@@ -42,6 +42,10 @@ PBL_LOG_MODULE_DECLARE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 #define SLEEP_SUMMARY_NOTIF_WAKE_MINUTE_MIN (4 * PBL_MIN_PER_HOUR)
 #define SLEEP_SUMMARY_NOTIF_WAKE_MINUTE_MAX (18 * PBL_MIN_PER_HOUR)
 
+// Consecutive sleep windows start at least 23h apart (DST), so a smaller move of the window
+// start comes from a UTC offset change, not from a new window.
+#define SLEEP_WINDOW_TZ_SHIFT_MAX (12 * PBL_SEC_PER_HOUR)
+
 typedef struct NotificationConfig {
   time_t notif_time;
   ActivitySession *session;
@@ -1059,6 +1063,14 @@ static void prv_do_sleep_summary(time_t now_utc) {
   // Bounds changes within one window (merged sessions, evening extensions) update the pin
   // below without re-arming the notification.
   const time_t window_utc = activity_sessions_prv_get_sleep_window_start_utc(now_utc);
+  const time_t window_shift = window_utc - s_sleep_pin_state.window_utc;
+  if (window_shift != 0 && window_shift > -SLEEP_WINDOW_TZ_SHIFT_MAX &&
+      window_shift < SLEEP_WINDOW_TZ_SHIFT_MAX) {
+    // A UTC offset change (travel, DST) moves the local 9pm cutoff without starting a new
+    // window. Follow it, keeping the notified state.
+    PBL_LOG_DBG("Sleep window moved by %ld s, keeping pin state", (long)window_shift);
+    s_sleep_pin_state.window_utc = window_utc;
+  }
   if (window_utc != s_sleep_pin_state.window_utc ||
       now_utc < s_sleep_pin_state.last_triggered_utc) {
     // Checking "now_utc < s_sleep_pin_state.last_triggered_utc" catches cases where
