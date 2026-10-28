@@ -127,11 +127,15 @@ Launch with `--keep-flash-image` to keep installed apps across launches.
 ### Microphone
 
 The emulator's microphone captures audio sent from the host, and silence
-otherwise. With an app capturing, play a tone, noise or a WAV file into it:
+otherwise. With dictation or an app capturing, play a tone, noise, a WAV file
+or your computer's microphone into it:
 
 ```shell
-pebble emu-mic --qemu localhost:12344 --file speech.wav
+pbl emulator mic --file speech.wav
 ```
+
+See {doc}`../../pbl/emulator` for the options. With the `pebble` tool
+connected instead, use `pebble emu-mic --qemu localhost:12344`.
 
 Apps need the phone to grant them the microphone, which only the SDK
 emulator (`pebble install --emulator`) does; see

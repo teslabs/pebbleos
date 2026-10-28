@@ -39,6 +39,26 @@ pbl emulator swipe 130 220 130 40 --duration 0.4
 ```{pbl-command} emulator swipe
 ```
 
+## Microphone
+
+Play audio into the emulator's microphone, which captures silence
+otherwise: a tone, white noise, a WAV file (any rate and channel count is
+converted) or your computer's microphone. Audio only goes in while something
+captures, dictation or an app, so start it before or while it listens.
+
+```shell
+pbl emulator mic                              # a 440 Hz tone until Ctrl-C
+pbl emulator mic --tone 1000 --duration 5
+pbl emulator mic --file speech.wav --loop
+pbl emulator mic --live                       # needs the sounddevice package
+```
+
+The audio goes over the Pebble protocol port, which serves one host client
+at a time: it cannot play while a feed or the `pebble` tool is connected.
+
+```{pbl-command} emulator mic
+```
+
 ## Phone data
 
 Write into the running emulator what the phone app would, over the Pebble

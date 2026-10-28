@@ -1,9 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
+import itertools
 import os
 
-from pbl import emulator
+from pbl import emulator, mic
 from pbl.command import PblCommand, global_options
 from pbl.feeds import Watch, builtin_feeds
 
@@ -15,9 +16,9 @@ class Emulator(PblCommand):
         super().__init__(
             "emulator",
             "Interact with the running emulator",
-            "Capture the screen of, inject touches into, or feed phone data to "
-            "the emulator 'pbl run' is running: QEMU, or the firmware as a "
-            "native program.",
+            "Capture the screen of, inject touches into, play audio into the "
+            "microphone of, or feed phone data to the emulator 'pbl run' is "
+            "running: QEMU, or the firmware as a native program.",
         )
         self.feeds = builtin_feeds()
 
@@ -63,6 +64,56 @@ class Emulator(PblCommand):
             type=float,
             default=0.25,
             help="total duration in seconds (default: %(default)s)",
+        )
+
+        microphone = add(
+            "mic",
+            "Play audio into the microphone",
+            "Play audio into the emulator's microphone, which captures silence "
+            "otherwise. It only takes audio while something captures, so start "
+            "this before or while dictation or an app listens.",
+        )
+        source = microphone.add_mutually_exclusive_group()
+        source.add_argument(
+            "--file",
+            metavar="WAV",
+            help="a WAV file to play; any rate and channel count is converted",
+        )
+        source.add_argument(
+            "--tone",
+            type=float,
+            default=440,
+            metavar="HZ",
+            help="a sine tone at this frequency (the default, at %(default)s Hz)",
+        )
+        source.add_argument("--noise", action="store_true", help="white noise")
+        source.add_argument(
+            "--live",
+            action="store_true",
+            help="relay your computer's microphone (needs the sounddevice package)",
+        )
+        microphone.add_argument(
+            "--loop", action="store_true", help="repeat the WAV file until stopped"
+        )
+        microphone.add_argument(
+            "--duration",
+            type=float,
+            metavar="SECONDS",
+            help="stop after this long (default: the end of the file, or Ctrl-C)",
+        )
+        microphone.add_argument(
+            "--volume",
+            type=float,
+            default=25,
+            metavar="PERCENT",
+            help="amplitude of the tone or noise, as a percentage of full scale "
+            "(default: %(default)s)",
+        )
+        microphone.add_argument(
+            "--host",
+            default=f"127.0.0.1:{emulator.PEBBLE_TOOL_PORT}",
+            help="host:port of the emulator's Pebble protocol serial port "
+            "(default: %(default)s)",
         )
 
         feed = add(
@@ -113,6 +164,33 @@ class Emulator(PblCommand):
     def _swipe(self, target, args):
         target.touch(args.x1, args.y1, args.x2, args.y2, args.duration)
         self.inf(f"swiped ({args.x1}, {args.y1}) -> ({args.x2}, {args.y2})")
+
+    def _mic(self, target, args):
+        amplitude = int(32767 * args.volume / 100)
+        if args.file is not None:
+            source = mic.blocks(mic.read_wav(args.file), args.loop)
+            what = args.file
+        elif args.noise:
+            source, what = mic.noise(amplitude), "white noise"
+        elif args.live:
+            source, what = mic.live(self.wrn), "your computer's microphone"
+        else:
+            source, what = mic.tone(args.tone, amplitude), f"a {args.tone:g} Hz tone"
+        if args.duration is not None:
+            source = itertools.islice(
+                source, int(args.duration * mic.SAMPLE_RATE / mic.BLOCK_SAMPLES)
+            )
+        if self.dry_run:
+            self.inf(f"would play {what} into the emulator's microphone")
+            return
+
+        host, _, port = args.host.rpartition(":")
+        pebble = emulator.connect_watch(host or "127.0.0.1", int(port))
+        self.inf(f"playing {what} into the emulator's microphone; Ctrl-C stops")
+        try:
+            mic.stream(pebble, source, paced=not args.live)
+        except KeyboardInterrupt:
+            pass
 
     def _feed(self, target, args):
         feed = self.feeds[args.feed]
