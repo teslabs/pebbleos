@@ -74,15 +74,12 @@ const BoardConfig BOARD_CONFIG = {
 };
 
 const BoardConfigButton BOARD_CONFIG_BUTTON = {
-  .buttons =
-      {
-        [BUTTON_ID_BACK] = {"Back", nullptr, 0, GPIO_PuPd_NOPULL, true, PBL_INPUT_KEY_BACK},
-        [BUTTON_ID_UP] = {"Up", nullptr, 1, GPIO_PuPd_UP, false, PBL_INPUT_KEY_UP},
-        [BUTTON_ID_SELECT] = {"Select", nullptr, 2, GPIO_PuPd_UP, false, PBL_INPUT_KEY_SELECT},
-        [BUTTON_ID_DOWN] = {"Down", nullptr, 3, GPIO_PuPd_UP, false, PBL_INPUT_KEY_DOWN},
-      },
-  .timer = nullptr,
-  .timer_irqn = TIMER0_IRQn,
+  .buttons = {
+    [BUTTON_ID_BACK] = {"Back", PBL_INPUT_KEY_BACK},
+    [BUTTON_ID_UP] = {"Up", PBL_INPUT_KEY_UP},
+    [BUTTON_ID_SELECT] = {"Select", PBL_INPUT_KEY_SELECT},
+    [BUTTON_ID_DOWN] = {"Down", PBL_INPUT_KEY_DOWN},
+  },
 };
 
 // Audio device

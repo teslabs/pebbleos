@@ -10,17 +10,6 @@
 #include <pbl/drivers/button_id.h>
 #include <pbl/input/input.h>
 
-typedef void GPIO_TypeDef;
-
-#define GPIO_Port_NULL nullptr
-#define GPIO_Pin_NULL  0U
-
-typedef enum {
-  GPIO_PuPd_NOPULL,
-  GPIO_PuPd_UP,
-  GPIO_PuPd_DOWN,
-} GPIOPuPd_TypeDef;
-
 typedef struct {
   uint8_t backlight_on_percent;
   uint32_t ambient_light_dark_threshold;
