@@ -4,7 +4,10 @@
 #include <errno.h>
 
 #include <pbl/drivers/spi_mem.h>
+#include <pbl/logging/logging.h>
 #include <pbl/util/misc.h>
+
+PBL_LOG_MODULE_DEFINE(driver_spi_mem, CONFIG_DRIVER_SPI_MEM_LOG_LEVEL);
 
 PBL_DEVICE_CLASS_DEFINE(pbl_spi_mem_class, "spi_mem");
 
