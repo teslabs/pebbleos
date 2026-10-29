@@ -8,11 +8,6 @@ pbl_clar_test(test_ble_hrm
   DEFINES CONFIG_HRM
 )
 
-pbl_clar_test(test_local_addr
-  SOURCES
-    fw/services/bluetooth/local_addr.c
-)
-
 pbl_clar_test(test_bluetooth_persistent_storage_prf
   SOURCES
     fw/services/bluetooth/bluetooth_persistent_storage_prf.c
