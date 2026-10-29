@@ -23,9 +23,18 @@ pbl_clar_test(test_bluetooth_persistent_storage
   MODULES settings
   SOURCES
     fw/services/bluetooth/bluetooth_persistent_storage_normal.c
+    fw/services/bluetooth/bt_settings_normal.c
     fw/system/hexdump.c
     tests/fakes/fake_shared_prf_storage.c
     tests/fakes/fake_events.c
     tests/fakes/fake_rtc.c
   OVERRIDES dummy_board bluetooth_persistent_storage_v2
+)
+
+pbl_clar_test(test_bt_settings
+  MODULES settings
+  SOURCES
+    fw/services/bluetooth/bt_settings_normal.c
+    tests/fakes/fake_events.c
+    tests/fakes/fake_rtc.c
 )

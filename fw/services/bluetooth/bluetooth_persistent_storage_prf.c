@@ -219,14 +219,6 @@ bool bt_persistent_storage_get_active_gateway(pbl_bt_bonding_id_t *bonding_out,
   return false;
 }
 
-bool bt_persistent_storage_is_unfaithful(void) {
-  return true;
-}
-
-void bt_persistent_storage_set_unfaithful(bool is_unfaithful) {
-  return;
-}
-
 bool bt_persistent_storage_get_root_key(enum pbl_bt_sm_root_key_type key_type,
                                         struct pbl_bt_sm_key *key_out) {
   return shared_prf_storage_get_root_key(key_type, key_out);
@@ -242,17 +234,6 @@ bool bt_persistent_storage_get_local_device_name(char *local_device_name_out, si
 
 void bt_persistent_storage_set_local_device_name(char *local_device_name, size_t size) {
   shared_prf_storage_set_local_device_name(local_device_name);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-//! Remote Device Info
-
-void bt_persistent_storage_get_cached_system_capabilities(
-    PebbleProtocolCapabilities *capabilities_out) {
-}
-
-void bt_persistent_storage_set_cached_system_capabilities(
-    const PebbleProtocolCapabilities *capabilities) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

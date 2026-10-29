@@ -6,7 +6,6 @@
 #include <pbl/bluetooth/bonding_sync.h>
 #include <pbl/bluetooth/sm_types.h>
 #include <pbl/bluetooth/types.h>
-#include <pbl/services/comm_session/session_remote_version.h>
 
 /**
  * @defgroup services_bluetooth_bluetooth_persistent_storage Bonding database
@@ -212,22 +211,6 @@ bool bt_persistent_storage_get_active_gateway(pbl_bt_bonding_id_t *bonding_out,
                                               BtPersistBondingType *type_out);
 
 /**
- * @brief Check whether the watch is unfaithful.
- *
- * The watch becomes unfaithful when its gateway changes, until the next sync.
- *
- * @return True if unfaithful; true by default.
- */
-bool bt_persistent_storage_is_unfaithful(void);
-
-/**
- * @brief Set whether the watch is unfaithful.
- *
- * @param is_unfaithful New state.
- */
-void bt_persistent_storage_set_unfaithful(bool is_unfaithful);
-
-/**
  * @brief Get a BLE root key.
  *
  * @param key_type Encryption root (ER) or identity root (IR).
@@ -263,43 +246,9 @@ bool bt_persistent_storage_get_local_device_name(char *local_device_name_out, si
 void bt_persistent_storage_set_local_device_name(char *local_device_name, size_t max_size);
 
 /**
- * @brief Get the stored airplane mode setting.
- *
- * @return True if airplane mode is on; false by default.
- */
-bool bt_persistent_storage_get_airplane_mode_enabled(void);
-
-/**
- * @brief Store the airplane mode setting.
- *
- * @param enable Airplane mode state.
- */
-void bt_persistent_storage_set_airplane_mode_enabled(bool enable);
-
-/**
- * @brief Get the cached capabilities of the last system session.
- *
- * Prefer comm_session_get_capabilities() when connected.
- *
- * @param[out] capabilities_out Capabilities, zero if none cached. Ignored if NULL.
- */
-void bt_persistent_storage_get_cached_system_capabilities(
-    PebbleProtocolCapabilities *capabilities_out);
-
-/**
- * @brief Cache the capabilities of the system session.
- *
- * When they change, they are persisted and a capabilities changed event is emitted.
- *
- * @param capabilities Capabilities, or NULL to clear the cache.
- */
-void bt_persistent_storage_set_cached_system_capabilities(
-    const PebbleProtocolCapabilities *capabilities);
-
-/**
  * @brief Initialize the database, before the Bluetooth stack starts.
  *
- * Merges data from shared PRF storage and loads the cached capabilities.
+ * Merges data from shared PRF storage.
  */
 void bt_persistent_storage_init(void);
 
