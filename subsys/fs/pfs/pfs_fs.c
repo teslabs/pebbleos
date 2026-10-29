@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "../fs_priv.h"
+#include "pfs.h"
 
 #include <errno.h>
 #include <stdbool.h>
@@ -10,7 +11,6 @@
 
 #include <pbl/fs/fs.h>
 #include <pbl/fs/pfs.h>
-#include <pbl/services/filesystem/pfs.h>
 #include <pbl/util/math.h>
 
 #include <kernel/pbl_malloc.h>
