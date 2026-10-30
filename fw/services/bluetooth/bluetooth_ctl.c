@@ -16,7 +16,6 @@
 #include <pbl/services/analytics/analytics.h>
 #include <pbl/services/bluetooth/battery_level.h>
 #include <pbl/services/bluetooth/ble_hrm.h>
-#include <pbl/services/bluetooth/bluetooth_persistent_storage.h>
 #include <pbl/services/bluetooth/bt_settings.h>
 #include <pbl/services/bluetooth/dis.h>
 #include <pbl/services/bluetooth/local_id.h>
@@ -78,11 +77,6 @@ static void prv_comm_start(void) {
   config->is_hrm_supported_and_enabled = ble_hrm_is_supported_and_enabled();
   PBL_LOG_INFO("BLE HRM sharing prefs: is_enabled=%u", config->is_hrm_supported_and_enabled);
 #endif
-  // Register existing bondings before bringing the connection up: NimBLE
-  // restores them before the link is established. The other backends use
-  // no-op bonding handlers, so doing it early is harmless for them too.
-  bt_persistent_storage_register_existing_ble_bondings();
-
   s_comm_is_running = pbl_bt_start(config);
   kernel_free(config);
 

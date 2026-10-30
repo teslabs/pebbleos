@@ -525,6 +525,16 @@ void shared_prf_storage_store_ble_pairing_data(const struct pbl_bt_sm_pairing_in
   prv_unlock();
 }
 
+void shared_prf_storage_set_ble_pairing_name(const char *name) {
+  prv_lock();
+  {
+    SprfBlePairingName name_data = {};
+    strncpy(name_data.name, name, sizeof(name_data.name));
+    SPRF_PERSIST_FIELD(name_data, ble_pairing_name);
+  }
+  prv_unlock();
+}
+
 void shared_prf_storage_erase_ble_pairing_data(void) {
   prv_lock();
   {

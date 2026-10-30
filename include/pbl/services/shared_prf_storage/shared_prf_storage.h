@@ -79,6 +79,13 @@ bool shared_prf_storage_get_ble_pairing_data(struct pbl_bt_sm_pairing_info *pair
 void shared_prf_storage_store_ble_pairing_data(const struct pbl_bt_sm_pairing_info *pairing_info,
                                                const char *name, uint8_t flags);
 
+/**
+ * @brief Store the remote device name of the BLE pairing.
+ *
+ * @param name Remote device name.
+ */
+void shared_prf_storage_set_ble_pairing_name(const char *name);
+
 /** @brief Erase the BLE pairing and its device name. */
 void shared_prf_storage_erase_ble_pairing_data(void);
 

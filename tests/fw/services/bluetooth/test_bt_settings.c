@@ -79,9 +79,26 @@ void test_bt_settings__migrate(void) {
   bt_settings_get_capabilities(&capabilities_out);
   cl_assert_equal_i(capabilities_out.flags, capabilities.flags);
 
-  cl_assert_equal_i(settings_file_open(&fd, "gap_bonding_db", 4096), S_SUCCESS);
-  cl_assert(!settings_file_exists(&fd, "AIRPLANE_MODE", sizeof("AIRPLANE_MODE")));
-  cl_assert(!settings_file_exists(&fd, "IS_UNFAITHFUL", sizeof("IS_UNFAITHFUL")));
-  cl_assert(!settings_file_exists(&fd, "SYSTEM_CAPABILITIES", sizeof("SYSTEM_CAPABILITIES")));
-  settings_file_close(&fd);
+  // The bonding database is gone: the stack imports its bond from shared PRF storage.
+  cl_assert(pfs_open("gap_bonding_db", OP_FLAG_READ, FILE_TYPE_STATIC, 0) < 0);
+}
+
+void test_bt_settings__peer_name(void) {
+  const struct pbl_bt_device_internal addr = {
+    .address = {.octets = {1, 2, 3, 4, 5, 6}},
+  };
+  const struct pbl_bt_device_internal other = {
+    .address = {.octets = {6, 5, 4, 3, 2, 1}},
+  };
+  char name[PBL_BT_DEVICE_NAME_BUFFER_SIZE];
+
+  cl_assert(!bt_settings_get_peer_name(&addr, name));
+
+  bt_settings_set_peer_name(&addr, "iPhone");
+  cl_assert(bt_settings_get_peer_name(&addr, name));
+  cl_assert_equal_s(name, "iPhone");
+  cl_assert(!bt_settings_get_peer_name(&other, name));
+
+  bt_settings_delete_peer_name(&addr);
+  cl_assert(!bt_settings_get_peer_name(&addr, name));
 }

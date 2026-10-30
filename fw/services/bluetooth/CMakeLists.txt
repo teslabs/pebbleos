@@ -3,8 +3,8 @@
 
 set(sources
   bluetooth_ctl.c
-  bluetooth_persistent_storage_debug.c
   bonding.c
+  bt_settings_sprf.c
   dis.c
   local_id.c
   pairability.c
@@ -12,9 +12,9 @@ set(sources
   pp_ble_control.c
 )
 if(NOT CONFIG_RECOVERY_FW)
-  list(APPEND sources bluetooth_persistent_storage_normal.c bt_settings_normal.c)
+  list(APPEND sources bt_settings_normal.c)
 else()
-  list(APPEND sources bluetooth_persistent_storage_prf.c bt_settings_prf.c)
+  list(APPEND sources bt_settings_prf.c)
 endif()
 pbl_library()
 pbl_library_sources(${sources})

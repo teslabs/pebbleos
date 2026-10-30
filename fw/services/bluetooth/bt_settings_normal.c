@@ -1,6 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "bt_settings_priv.h"
+
+#include <string.h>
+
+#include <pbl/kernel/compiler.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/bluetooth/bt_settings.h>
@@ -23,6 +28,11 @@ static const char AIRPLANE_MODE_KEY[] = "airplane";
 static const char UNFAITHFUL_KEY[] = "unfaithful";
 static const char CAPABILITIES_KEY[] = "capabilities";
 
+struct PBL_PACKED peer_name_key {
+  char tag;
+  struct pbl_bt_device_internal addr;
+};
+
 static const struct {
   const char *legacy_key;
   size_t legacy_key_len;
@@ -40,7 +50,7 @@ static PBL_MUTEX_DEFINE(s_mutex);
 //! @note s_mutex must be held to access it.
 static PebbleProtocolCapabilities s_capabilities;
 
-static bool prv_get(const char *key, size_t key_len, void *val, size_t val_len) {
+static bool prv_get(const void *key, size_t key_len, void *val, size_t val_len) {
   SettingsFile fd;
   bool ret = false;
 
@@ -60,7 +70,7 @@ unlock:
   return ret;
 }
 
-static void prv_set(const char *key, size_t key_len, const void *val, size_t val_len) {
+static void prv_set(const void *key, size_t key_len, const void *val, size_t val_len) {
   SettingsFile fd;
 
   pbl_mutex_lock(&s_mutex, PBL_FOREVER);
@@ -101,7 +111,8 @@ static bool prv_legacy_file_exists(void) {
   return true;
 }
 
-//! Older firmware kept these settings in the bonding database.
+//! Older firmware kept these settings in the bonding database. Its bond is also in shared PRF
+//! storage, where the stack imports it from, so the database is no longer needed.
 static void prv_migrate(void) {
   SettingsFile legacy;
 
@@ -122,10 +133,10 @@ static void prv_migrate(void) {
     }
 
     prv_set(s_legacy_keys[i].key, s_legacy_keys[i].key_len, val, len);
-    settings_file_delete(&legacy, legacy_key, legacy_key_len);
   }
 
   settings_file_close(&legacy);
+  pfs_remove(LEGACY_FILE_NAME);
 }
 
 void bt_settings_init(void) {
@@ -183,4 +194,44 @@ void bt_settings_set_capabilities(const PebbleProtocolCapabilities *capabilities
     .capabilities.flags_diff = diff,
   };
   event_put(&event);
+}
+
+static struct peer_name_key prv_peer_name_key(const struct pbl_bt_device_internal *addr) {
+  return (struct peer_name_key){
+    .tag = 'n',
+    .addr = *addr,
+  };
+}
+
+bool bt_settings_get_peer_name(const struct pbl_bt_device_internal *addr,
+                               char name[PBL_BT_DEVICE_NAME_BUFFER_SIZE]) {
+  const struct peer_name_key key = prv_peer_name_key(addr);
+
+  if (prv_get(&key, sizeof(key), name, PBL_BT_DEVICE_NAME_BUFFER_SIZE)) {
+    return true;
+  }
+
+  // Bonded in recovery firmware, or by older firmware.
+  return bt_settings__sprf_get_peer_name(addr, name);
+}
+
+void bt_settings_set_peer_name(const struct pbl_bt_device_internal *addr, const char *name) {
+  const struct peer_name_key key = prv_peer_name_key(addr);
+  char buf[PBL_BT_DEVICE_NAME_BUFFER_SIZE] = {};
+
+  strncpy(buf, name, sizeof(buf) - 1);
+  prv_set(&key, sizeof(key), buf, sizeof(buf));
+  bt_settings__sprf_set_peer_name(addr, buf);
+}
+
+void bt_settings_delete_peer_name(const struct pbl_bt_device_internal *addr) {
+  const struct peer_name_key key = prv_peer_name_key(addr);
+  SettingsFile fd;
+
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
+  if (settings_file_open(&fd, SETTINGS_FILE_NAME, SETTINGS_FILE_SIZE) == S_SUCCESS) {
+    (void)settings_file_delete(&fd, &key, sizeof(key));
+    settings_file_close(&fd);
+  }
+  pbl_mutex_unlock(&s_mutex);
 }

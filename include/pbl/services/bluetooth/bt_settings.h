@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 
+#include <pbl/bluetooth/types.h>
 #include <pbl/services/comm_session/session_remote_version.h>
 
 /**
@@ -13,7 +14,8 @@
  * @brief Persistent Bluetooth settings of the firmware.
  *
  * Recovery firmware does not persist them: airplane mode is off, the watch is unfaithful and no
- * capabilities are cached.
+ * capabilities are cached. Peer names are kept in shared PRF storage, which only has room for
+ * the name of its bond.
  * @{
  */
 
@@ -67,5 +69,30 @@ void bt_settings_get_capabilities(PebbleProtocolCapabilities *capabilities_out);
  * @param capabilities Capabilities, or NULL to clear the cache.
  */
 void bt_settings_set_capabilities(const PebbleProtocolCapabilities *capabilities);
+
+/**
+ * @brief Get the name of a bonded peer.
+ *
+ * @param addr Identity address of the peer.
+ * @param[out] name Buffer of @c PBL_BT_DEVICE_NAME_BUFFER_SIZE bytes.
+ * @return True if a name is stored.
+ */
+bool bt_settings_get_peer_name(const struct pbl_bt_device_internal *addr,
+                               char name[PBL_BT_DEVICE_NAME_BUFFER_SIZE]);
+
+/**
+ * @brief Store the name of a bonded peer.
+ *
+ * @param addr Identity address of the peer.
+ * @param name Name of the peer.
+ */
+void bt_settings_set_peer_name(const struct pbl_bt_device_internal *addr, const char *name);
+
+/**
+ * @brief Delete the name of a peer.
+ *
+ * @param addr Identity address of the peer.
+ */
+void bt_settings_delete_peer_name(const struct pbl_bt_device_internal *addr);
 
 /** @} */

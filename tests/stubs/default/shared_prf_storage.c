@@ -31,6 +31,9 @@ PBL_WEAK bool shared_prf_storage_get_ble_pairing_data(
   return false;
 }
 
+PBL_WEAK void shared_prf_storage_set_ble_pairing_name(const char *name) {
+}
+
 PBL_WEAK void shared_prf_storage_store_ble_pairing_data(
     const struct pbl_bt_sm_pairing_info *pairing_info, const char *name, uint8_t flags) {
 }

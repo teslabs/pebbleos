@@ -62,6 +62,9 @@ void shared_prf_storage_store_ble_pairing_data(const struct pbl_bt_sm_pairing_in
   s_prf_storage_ble_store_count++;
 }
 
+void shared_prf_storage_set_ble_pairing_name(const char *name) {
+}
+
 void shared_prf_storage_erase_ble_pairing_data(void) {
   s_prf_storage_ble_delete_count++;
 }

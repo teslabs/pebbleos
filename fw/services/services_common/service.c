@@ -9,7 +9,6 @@
 
 #include <pbl/cron/cron.h>
 #include <pbl/services/accel_manager.h>
-#include <pbl/services/bluetooth/bluetooth_persistent_storage.h>
 #include <pbl/services/bluetooth/bt_settings.h>
 #include <pbl/services/comm_session/app_session_capabilities.h>
 #include <pbl/services/comm_session/default_kernel_sender.h>
@@ -40,7 +39,6 @@ void services_common_init(void) {
 
   shared_prf_storage_init();
   bt_settings_init();
-  bt_persistent_storage_init();
 
   comm_default_kernel_sender_init();
 #if !defined(CONFIG_RECOVERY_FW)
