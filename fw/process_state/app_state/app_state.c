@@ -1,7 +1,6 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <pbl/drivers/button_id.h>
 #include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
 #include <pbl/services/touch/touch.h>
@@ -14,6 +13,7 @@
 #include <applib/touch_service_private.h>
 #include <applib/ui/animation_private.h>
 #include <applib/ui/app_window_stack.h>
+#include <applib/ui/click.h>
 #include <applib/ui/click_internal.h>
 #include <applib/ui/layer.h>
 #include <applib/ui/recognizer/recognizer_list.h>

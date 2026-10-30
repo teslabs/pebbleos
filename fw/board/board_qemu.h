@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 
-#include <pbl/drivers/button_id.h>
 #include <pbl/input/input.h>
 
 #include <cmsis_core.h>

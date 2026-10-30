@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-#include <pbl/drivers/button_id.h>
+#include <applib/ui/click.h>
 
 //! Input key code that acts as a button.
 uint16_t input_buttons_code(ButtonId id);

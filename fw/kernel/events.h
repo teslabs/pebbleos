@@ -8,7 +8,6 @@
 
 #include <pbl/bluetooth/types.h>
 #include <pbl/drivers/battery.h>
-#include <pbl/drivers/button_id.h>
 #include <pbl/kernel/compiler.h>
 #include <pbl/kernel/msgq.h>
 #include <pbl/services/battery/battery_monitor.h>
