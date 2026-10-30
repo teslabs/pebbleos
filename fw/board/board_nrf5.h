@@ -8,7 +8,6 @@
 
 #include <stdint.h>
 
-#include <pbl/drivers/button_id.h>
 #include <pbl/input/input.h>
 #include <pbl/drivers/gpio/nrf5.h>
 #include <pbl/drivers/pwm.h>

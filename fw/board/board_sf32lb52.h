@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 
-#include <pbl/drivers/button_id.h>
 #include <pbl/drivers/gpio/sf32lb.h>
 #include <pbl/drivers/pinctrl.h>
 #include <pbl/input/input.h>

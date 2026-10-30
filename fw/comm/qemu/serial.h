@@ -5,12 +5,12 @@
 
 #include <stdint.h>
 
-#include <pbl/drivers/button_id.h>
 #include <pbl/kernel/compiler.h>
 
 #include <applib/accel_service.h>
 #include <applib/compass_service.h>
 #include <applib/preferred_content_size.h>
+#include <applib/ui/click.h>
 
 /**
  * @defgroup comm_qemu QEMU host channel
