@@ -7,6 +7,7 @@
 
 #include <pbl/drivers/spi_mem/sf32lb52_mpi.h>
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/irq.h>
 #include <pbl/kernel/mmio.h>
 #include <pbl/kernel/section.h>
 #include <pbl/kernel/time.h>
@@ -35,6 +36,12 @@
 #define DWT_CTRL           0xE0001000UL
 #define DWT_CTRL_CYCCNTENA PBL_BIT(0)
 #define DWT_CYCCNT         0xE0001004UL
+// Interrupt controller
+#define NVIC_ISER(i) (0xE000E100UL + ((i) * 4U))
+#define NVIC_ISPR(i) (0xE000E200UL + ((i) * 4U))
+#define NVIC_IPR(n)  (0xE000E400UL + (n))
+#define NVIC_WORDS   ((CONFIG_NUM_IRQS + 31U) / 32U)
+#define KERNEL_PRIO  (PBL_IRQ_PRIO_KERNEL & ~((1U << (8U - CONFIG_NUM_IRQ_PRIO_BITS)) - 1U))
 
 // Data written through the DMA, or pushed to the FIFO, is staged here: the source may be the
 // memory being programmed
@@ -215,6 +222,25 @@ static PBL_ALWAYS_INLINE uint8_t prv_read_status(uintptr_t base, const struct cc
   return val;
 }
 
+// An enabled interrupt that would run with BASEPRI at @p level is pending
+static PBL_ALWAYS_INLINE bool prv_irq_pending(uint32_t level) {
+  for (uint32_t i = 0U; i < NVIC_WORDS; i++) {
+    uint32_t pending = pbl_readl(NVIC_ISPR(i)) & pbl_readl(NVIC_ISER(i));
+
+    while (pending != 0U) {
+      uint32_t n = (i * 32U) + (uint32_t)__builtin_ctz(pending);
+
+      if (pbl_readb(NVIC_IPR(n)) < level) {
+        return true;
+      }
+
+      pending &= pending - 1U;
+    }
+  }
+
+  return false;
+}
+
 static PBL_SECTION_RAM void prv_ram_read(uintptr_t base, const struct ccr_op *cmd, uint8_t *buf,
                                          size_t len) {
   uint32_t primask = prv_irq_save();
@@ -256,6 +282,48 @@ static PBL_ALWAYS_INLINE void prv_read_window(uintptr_t mem_base, uint32_t *word
   for (size_t i = 0U; i < CHECK_WORDS; i++) {
     words[i] = *(const volatile uint32_t *)(mem_base + (i * WORD_SIZE));
   }
+}
+
+// Polls the status in software, and whenever an interrupt is pending suspends the operation,
+// lets the interrupts more urgent than the kernel's own run, and resumes it; never sooner than
+// resume_cyc after the last resume, so that the operation progresses
+static PBL_SECTION_RAM void prv_ram_poll_suspend(uintptr_t base, const struct ccr_op *cmd,
+                                                 const struct ccr_op *status, uint8_t mask,
+                                                 uint8_t match, const struct ccr_op *suspend,
+                                                 const struct ccr_op *resume, uint32_t suspend_cyc,
+                                                 uint32_t resume_cyc) {
+  uint32_t primask = prv_irq_save();
+  uint32_t basepri;
+  uint32_t level;
+  uint32_t resumed;
+
+  // The window never lets in more than the caller does, and never the kernel's own interrupts
+  __asm volatile("mrs %0, basepri" : "=r"(basepri));
+  level = (basepri != 0U && basepri < KERNEL_PRIO) ? basepri : KERNEL_PRIO;
+
+  prv_issue(base, cmd);
+  resumed = prv_cycles();
+
+  while ((prv_read_status(base, status) & mask) != match) {
+    if (primask != 0U || (prv_cycles() - resumed) < resume_cyc || !prv_irq_pending(level)) {
+      continue;
+    }
+
+    prv_issue(base, suspend);
+    prv_delay_cycles(suspend_cyc);
+    while ((prv_read_status(base, status) & mask) != match) {
+    }
+
+    __asm volatile(
+        "msr basepri, %0\n\tcpsie i\n\tisb 0xf\n\tcpsid i\n\tmsr basepri, %1" ::"r"(level),
+        "r"(basepri)
+        : "memory");
+
+    prv_issue(base, resume);
+    resumed = prv_cycles();
+  }
+
+  prv_irq_restore(primask);
 }
 
 // Changes the window's read command, keeping the previous one if the window reads differently
@@ -425,6 +493,17 @@ static int prv_poll_status(const struct pbl_spi_mem *mem, const struct pbl_spi_m
 
   if (op->data.dir == PBL_SPI_MEM_DATA_OUT) {
     return prv_write(mem, op, status, mask, match);
+  }
+
+  if (susp != nullptr && susp->suspend.data.dir == PBL_SPI_MEM_NO_DATA &&
+      susp->resume.data.dir == PBL_SPI_MEM_NO_DATA) {
+    const uint32_t cycles_per_us = (pbl_cycles_per_sec() + 999999U) / 1000000U;
+    const struct ccr_op suspend = prv_encode(&susp->suspend);
+    const struct ccr_op resume = prv_encode(&susp->resume);
+
+    prv_ram_poll_suspend(base, &cmd, &st, mask, match, &suspend, &resume,
+                         susp->suspend_us * cycles_per_us, susp->resume_us * cycles_per_us);
+    return 0;
   }
 
   prv_ram_poll(base, &cmd, &st, mask, match);
