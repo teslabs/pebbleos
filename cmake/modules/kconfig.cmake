@@ -14,6 +14,7 @@ set(kconfig_args
   --builddir ${PROJECT_BINARY_DIR}
   --board ${BOARD}
   --variant ${VARIANT}
+  --cc ${CMAKE_C_COMPILER}
 )
 # Kept by `./pbl menuconfig`; delete it to go back to the board defaults.
 if(EXISTS ${PROJECT_BINARY_DIR}/menuconfig.conf)

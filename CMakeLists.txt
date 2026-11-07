@@ -94,6 +94,7 @@ include(resources)
 include(native_sdk)
 include(sdk)
 include(firmware)
+include(devicetree)
 
 message(STATUS "Board: ${PBL_BOARD} (${PBL_PLATFORM_NAME}), variant: ${VARIANT}")
 
