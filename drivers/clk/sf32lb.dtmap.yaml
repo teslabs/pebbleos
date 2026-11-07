@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-hpsys-rcc
+config: CLK_SF32LB
+include: pbl/drivers/clk/sf32lb.h
+provides:
+  clock: "PBL_CLK(SF32LB_HPSYS_RCC, {0})"

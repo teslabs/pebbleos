@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+compatible: sifli,sf32lb52-gpio
+config: GPIO_SF32LB
+include: [pbl/drivers/gpio/sf32lb.h, pbl/drivers/intc.h]
+provides:
+  # Cells are <pin type>, type having the values of PBL_IRQ_TYPE_*
+  irq: "PBL_IRQ_SPEC(SF32LB_GPIO1_INTC, {0}, {1})"
+  # Level read-back on the pad of an interrupt
+  irq-gpio: "PBL_GPIO(SF32LB_GPIO1, {0}, 0)"
