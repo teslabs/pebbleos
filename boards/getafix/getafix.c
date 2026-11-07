@@ -154,7 +154,9 @@ PBL_PINCTRL_STATE_DEFINE(s_i2c1_default, SF32LB52_PINCTRL,
                              PBL_PINCTRL_SF32LB52_DRIVE_8MA);
 static const struct pbl_dma_chan s_i2c1_dma =
     PBL_DMA_CHAN(SF32LB52_DMAC1, 5, SF32LB52_DMA_REQ_I2C1, SF32LB52_DMA_PL_HIGH);
-PBL_I2C_SF32LB_DMA_DEFINE(s_i2c1, "i2c1", 1, 400000, &s_i2c1_default, &s_i2c1_dma, nullptr);
+PBL_I2C_SF32LB_DEFINE(s_i2c1, "i2c1", SF32LB52_I2C1_BASE, PBL_IRQN(I2C1),
+                      PBL_CLK(SF32LB_HPSYS_RCC, SF32LB52_HPSYS_CLK_I2C1), 400000, &s_i2c1_default,
+                      &s_i2c1_dma, nullptr);
 
 PBL_IRQ_CONNECT(I2C1, 5, pbl_i2c_sf32lb_irq_handler, &s_i2c1, 0);
 
@@ -177,7 +179,9 @@ PBL_PINCTRL_STATE_DEFINE(s_i2c2_default, SF32LB52_PINCTRL,
                              PBL_PINCTRL_SF32LB52_DRIVE_8MA,
                          SF32LB52_PA10_I2C2_SDA | PBL_PINCTRL_SF32LB52_INPUT |
                              PBL_PINCTRL_SF32LB52_DRIVE_8MA);
-PBL_I2C_SF32LB_DEFINE(s_i2c2, "i2c2", 2, 400000, &s_i2c2_default, nullptr);
+PBL_I2C_SF32LB_DEFINE(s_i2c2, "i2c2", SF32LB52_I2C2_BASE, PBL_IRQN(I2C2),
+                      PBL_CLK(SF32LB_HPSYS_RCC, SF32LB52_HPSYS_CLK_I2C2), 400000, &s_i2c2_default,
+                      nullptr, nullptr);
 PBL_IRQ_CONNECT(I2C2, 5, pbl_i2c_sf32lb_irq_handler, &s_i2c2, 0);
 
 PBL_CST816_DEFINE(s_cst816, &s_i2c2.bus, 0x15, 0x6A, PBL_GPIO(SF32LB_GPIO1, 38, PBL_GPIO_PULL_UP),
@@ -190,7 +194,9 @@ PBL_PINCTRL_STATE_DEFINE(s_i2c3_default, SF32LB52_PINCTRL,
                              PBL_PINCTRL_SF32LB52_DRIVE_8MA,
                          SF32LB52_PA30_I2C3_SDA | PBL_PINCTRL_SF32LB52_INPUT |
                              PBL_PINCTRL_SF32LB52_DRIVE_8MA);
-PBL_I2C_SF32LB_DEFINE(s_i2c3, "i2c3", 3, 400000, &s_i2c3_default, nullptr);
+PBL_I2C_SF32LB_DEFINE(s_i2c3, "i2c3", SF32LB52_I2C3_BASE, PBL_IRQN(I2C3),
+                      PBL_CLK(SF32LB_HPSYS_RCC, SF32LB52_HPSYS_CLK_I2C3), 400000, &s_i2c3_default,
+                      nullptr, nullptr);
 PBL_IRQ_CONNECT(I2C3, 5, pbl_i2c_sf32lb_irq_handler, &s_i2c3, 0);
 
 PBL_NPM1300_DEFINE(s_npm1300, &s_i2c3.bus, 0x6B);

@@ -5,9 +5,11 @@
 
 #include <stdint.h>
 
+#include <pbl/drivers/clk.h>
 #include <pbl/drivers/dma.h>
 #include <pbl/drivers/i2c.h>
 #include <pbl/drivers/pinctrl.h>
+#include <pbl/kernel/irq.h>
 
 /**
  * @defgroup drivers_i2c_sf32lb SF32LB I2C
@@ -27,7 +29,9 @@
  *                          SF32LB52_PA33_I2C2_SDA | PBL_PINCTRL_SF32LB52_INPUT);
  * static const struct pbl_dma_chan s_i2c2_dma =
  *     PBL_DMA_CHAN(SF32LB52_DMAC1, 5, SF32LB52_DMA_REQ_I2C2, SF32LB52_DMA_PL_HIGH);
- * PBL_I2C_SF32LB_DMA_DEFINE(s_i2c2, "i2c2", 2, 400000, &s_i2c2_default, &s_i2c2_dma, NULL);
+ * PBL_I2C_SF32LB_DEFINE(s_i2c2, "i2c2", SF32LB52_I2C2_BASE, PBL_IRQN(I2C2),
+ *                       PBL_CLK(SF32LB_HPSYS_RCC, SF32LB52_HPSYS_CLK_I2C2), 400000,
+ *                       &s_i2c2_default, &s_i2c2_dma, NULL);
  * PBL_IRQ_CONNECT(I2C2, 5, pbl_i2c_sf32lb_irq_handler, &s_i2c2, 0);
  * @endcode
  * @{
@@ -62,10 +66,14 @@ struct pbl_i2c_sf32lb {
   struct pbl_pinctrl pinctrl;
   /** Receive DMA channel, or NULL. */
   const struct pbl_dma_chan *dma;
+  /** Controller clock. */
+  struct pbl_clk clk;
+  /** Registers. */
+  uintptr_t base;
   /** Bus clock frequency, in Hz. */
   uint32_t clock_hz;
-  /** Controller instance, from 1. */
-  uint8_t index;
+  /** Interrupt line. */
+  pbl_irq_t irq;
 };
 
 /** @cond INTERNAL_HIDDEN */
@@ -73,41 +81,32 @@ extern const struct pbl_i2c_bus_ops pbl_i2c_sf32lb_ops;
 /** @endcond */
 
 /**
- * @brief Define a bus on an SF32LB I2C controller, with an optional receive DMA channel.
+ * @brief Define a bus on an SF32LB I2C controller.
  *
  * @param sym Symbol of the bus.
  * @param _name Name.
- * @param _idx Controller instance, 1 to 4.
+ * @param _base Registers.
+ * @param _irq Interrupt line.
+ * @param _clk Controller clock, from PBL_CLK().
  * @param _clock_hz Bus clock frequency.
  * @param _pinctrl Pin state with SCL and SDA, from PBL_PINCTRL_STATE_DEFINE().
  * @param _dma Receive DMA channel, or NULL.
  * @param _deps Dependencies from PBL_DEVICE_DEPS(), or NULL.
  */
-#define PBL_I2C_SF32LB_DMA_DEFINE(sym, _name, _idx, _clock_hz, _pinctrl, _dma, _deps) \
-  PBL_I2C_BUS_STATE_DEFINE(sym);                                                      \
-  static struct pbl_i2c_sf32lb_state sym##_sf32lb_state;                              \
-  const struct pbl_i2c_sf32lb sym = {                                                 \
-    .bus = PBL_I2C_BUS_INIT(sym, _name, &pbl_i2c_sf32lb_ops, _deps),                  \
-    .state = &sym##_sf32lb_state,                                                     \
-    .pinctrl = PBL_PINCTRL(_pinctrl, nullptr, 0),                                     \
-    .dma = (_dma),                                                                    \
-    .clock_hz = (_clock_hz),                                                          \
-    .index = (_idx),                                                                  \
-  };                                                                                  \
+#define PBL_I2C_SF32LB_DEFINE(sym, _name, _base, _irq, _clk, _clock_hz, _pinctrl, _dma, _deps) \
+  PBL_I2C_BUS_STATE_DEFINE(sym);                                                               \
+  static struct pbl_i2c_sf32lb_state sym##_sf32lb_state;                                       \
+  const struct pbl_i2c_sf32lb sym = {                                                          \
+    .bus = PBL_I2C_BUS_INIT(sym, _name, &pbl_i2c_sf32lb_ops, _deps),                           \
+    .state = &sym##_sf32lb_state,                                                              \
+    .pinctrl = PBL_PINCTRL(_pinctrl, nullptr, 0),                                              \
+    .dma = (_dma),                                                                             \
+    .clk = _clk,                                                                               \
+    .base = (_base),                                                                           \
+    .clock_hz = (_clock_hz),                                                                   \
+    .irq = (_irq),                                                                             \
+  };                                                                                           \
   PBL_DEVICE_REGISTER(sym, &sym.bus.dev)
-
-/**
- * @brief Define a bus on an SF32LB I2C controller.
- *
- * @param sym Symbol of the bus.
- * @param _name Name.
- * @param _idx Controller instance, 1 to 4.
- * @param _clock_hz Bus clock frequency.
- * @param _pinctrl Pin state with SCL and SDA, from PBL_PINCTRL_STATE_DEFINE().
- * @param _deps Dependencies from PBL_DEVICE_DEPS(), or NULL.
- */
-#define PBL_I2C_SF32LB_DEFINE(sym, _name, _idx, _clock_hz, _pinctrl, _deps) \
-  PBL_I2C_SF32LB_DMA_DEFINE(sym, _name, _idx, _clock_hz, _pinctrl, nullptr, _deps)
 
 /**
  * @brief Controller interrupt handler, to connect with PBL_IRQ_CONNECT().
