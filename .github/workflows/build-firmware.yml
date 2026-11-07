@@ -90,6 +90,9 @@ jobs:
         with:
           submodules: true
 
+      - name: Install dtc
+        uses: ./.github/actions/install-dtc
+
       - name: Install Python dependencies
         run: |
           pip install -U pip
@@ -207,6 +210,9 @@ jobs:
         uses: ./.github/actions/rebase
         with:
           submodules: true
+
+      - name: Install dtc
+        uses: ./.github/actions/install-dtc
 
       - name: Install Python dependencies
         run: |

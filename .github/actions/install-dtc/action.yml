@@ -1,0 +1,13 @@
+name: Install dtc
+description: >
+  Install the devicetree compiler. Temporary: remove this action and its uses
+  once the pebbleos-docker image includes dtc.
+
+runs:
+  using: composite
+  steps:
+    - name: Install dtc
+      shell: bash
+      run: |
+        apt-get update
+        apt-get install -y --no-install-recommends device-tree-compiler
