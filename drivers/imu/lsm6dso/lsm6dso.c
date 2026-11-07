@@ -1168,3 +1168,7 @@ const struct pbl_accel_ops pbl_lsm6dso_ops = {
   .set_shake_sensitivity_high = prv_set_shake_sensitivity_high,
   .set_shake_sensitivity_percent = prv_set_shake_sensitivity_percent,
 };
+
+#if __has_include(<devicetree/instances/st,lsm6dso.inc>)
+#include <devicetree/instances/st,lsm6dso.inc>
+#endif

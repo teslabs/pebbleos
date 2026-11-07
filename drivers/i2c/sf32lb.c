@@ -425,3 +425,7 @@ const struct pbl_i2c_bus_ops pbl_i2c_sf32lb_ops = {
   .start = prv_start,
   .abort = prv_abort,
 };
+
+#if __has_include(<devicetree/instances/sifli,sf32lb52-i2c.inc>)
+#include <devicetree/instances/sifli,sf32lb52-i2c.inc>
+#endif

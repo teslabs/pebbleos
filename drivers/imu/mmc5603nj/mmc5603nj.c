@@ -273,3 +273,7 @@ const struct pbl_mag_ops pbl_mmc5603nj_ops = {
   .set_sampling_interval = prv_set_sampling_interval,
   .peek = prv_peek,
 };
+
+#if __has_include(<devicetree/instances/memsic,mmc5603.inc>)
+#include <devicetree/instances/memsic,mmc5603.inc>
+#endif
