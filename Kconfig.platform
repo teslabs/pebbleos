@@ -67,7 +67,7 @@ config PLATFORM_LEGACY_3X_DISPLAY_HEIGHT
 # Animation timing apps see.
 
 config PLATFORM_ANIMATION_FRAME_INTERVAL_MS
-    int
+    int "Animation design frame interval (ms)"
     default 28 if PLATFORM_GABBRO
     default 33
     help
@@ -76,7 +76,7 @@ config PLATFORM_ANIMATION_FRAME_INTERVAL_MS
       read as sluggish at design speed.
 
 config PLATFORM_ANIMATION_RENDER_INTERVAL_MS
-    int
+    int "Animation render interval (ms)"
     default 48 if PLATFORM_GABBRO
     default PLATFORM_ANIMATION_FRAME_INTERVAL_MS
     help
