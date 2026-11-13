@@ -51,15 +51,15 @@
 #define PBL_PANEL_SHARP_LS013B7DD02_WIDTH      260U
 #define PBL_PANEL_SHARP_LS013B7DD02_HEIGHT     260U
 #define PBL_PANEL_SHARP_LS013B7DD02_ROUND_MASK pbl_panel_ls013b7dd02_round_mask
-#define PBL_PANEL_SHARP_LS013B7DD02_TIMING        \
-  {.clock_hz = 746268,                            \
-   .hactive = PBL_PANEL_SHARP_LS013B7DD02_WIDTH,  \
-   .hback_porch = 0,                              \
-   .hfront_porch = 8,                             \
-   .vactive = PBL_PANEL_SHARP_LS013B7DD02_HEIGHT, \
-   .vback_porch = 0,                              \
-   .vfront_porch = 4,                             \
-   .enable_start = 6,                             \
+#define PBL_PANEL_SHARP_LS013B7DD02_TIMING            \
+  {.clock_hz = CONFIG_PANEL_SHARP_LS013B7DD02_HCK_HZ, \
+   .hactive = PBL_PANEL_SHARP_LS013B7DD02_WIDTH,      \
+   .hback_porch = 0,                                  \
+   .hfront_porch = 8,                                 \
+   .vactive = PBL_PANEL_SHARP_LS013B7DD02_HEIGHT,     \
+   .vback_porch = 0,                                  \
+   .vfront_porch = 4,                                 \
+   .enable_start = 6,                                 \
    .enable_end = 128}
 /** @} */
 

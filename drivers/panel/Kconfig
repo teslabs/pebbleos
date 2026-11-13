@@ -15,3 +15,12 @@ config PANEL_JDI_MIP
     help
       Support for the JDI LPM015M135A and Sharp LS013B7DD02 memory-in-pixel
       panels on the JDI parallel interface.
+
+config PANEL_SHARP_LS013B7DD02_HCK_HZ
+    int "Sharp LS013B7DD02 HCK frequency (Hz)"
+    default 746268
+    depends on PANEL_JDI_MIP
+    help
+      Horizontal clock of the Sharp LS013B7DD02. A full frame takes
+      35376 HCK periods: 746268 Hz gives the specified ~21 Hz refresh.
+      Higher values overclock the panel, e.g. 1150000 Hz for ~32 Hz.
