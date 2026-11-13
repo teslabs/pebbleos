@@ -704,6 +704,14 @@
       "ifdefs": [
         "CONFIG_TOUCH"
       ]
+    },
+    {
+      "id": -103,
+      "enum": "DISPLAY_STRESS",
+      "md_fn": "display_stress_get_app_info",
+      "ifdefs": [
+        "CONFIG_DEMO_APP_DISPLAY_STRESS"
+      ]
     }
   ],
   "resource_apps": [
