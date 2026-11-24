@@ -18,11 +18,13 @@
  * Endpoint 0 is set up by the driver; the stack runs control transfers on it as a pair, 0x00 and
  * 0x80.
  *
- * Transfers are queued one at a time per endpoint with pbl_udc_ep_queue(). An IN transfer sends
- * its bytes, a zero-length packet when it has none; an OUT transfer ends with a short packet or
- * once its buffer is full. The driver reports the end of each with pbl_udc_xfer_done(), and bus
- * events, setup packets among them, with pbl_udc_event(), both from its interrupt: the stack's
- * callbacks run there.
+ * Transfers are queued with pbl_udc_ep_queue(): one at a time on endpoint 0, and up to
+ * @ref PBL_UDC_EP_QUEUE_LEN on the others, where the driver starts the next one as soon as the one
+ * before it ends, from its interrupt, so that the endpoint does not wait for the stack in between.
+ * An IN transfer sends its bytes, a zero-length packet when it has none; an OUT transfer ends with
+ * a short packet or once its buffer is full. The driver reports the end of each with
+ * pbl_udc_xfer_done(), and bus events, setup packets among them, with pbl_udc_event(), both from
+ * its interrupt: the stack's callbacks run there.
  *
  * The driver takes the address as soon as the stack sets it, before the status stage of the
  * SET_ADDRESS request, as controllers that apply it in hardware need.
@@ -31,6 +33,9 @@
 
 /** Direction bit of an IN endpoint address. */
 #define PBL_UDC_EP_IN 0x80U
+
+/** Transfers queued at once on an endpoint other than endpoint 0. */
+#define PBL_UDC_EP_QUEUE_LEN 2U
 
 /** @brief Endpoint transfer types, as the endpoint descriptor gives them. */
 enum pbl_udc_ep_type {
@@ -97,11 +102,14 @@ struct pbl_udc_ops {
   int (*set_address)(const struct pbl_udc *udc, uint8_t addr);
   /** Set an endpoint up. Returns 0 or a negative errno. */
   int (*ep_enable)(const struct pbl_udc *udc, uint8_t ep, enum pbl_udc_ep_type type, uint16_t mps);
-  /** Shut an endpoint down, ending its transfer with @c -ECONNABORTED. */
+  /** Shut an endpoint down, ending its transfers with @c -ECONNABORTED. */
   int (*ep_disable)(const struct pbl_udc *udc, uint8_t ep);
   /** Stall an endpoint, or clear its stall and its data toggle. */
   int (*ep_set_halt)(const struct pbl_udc *udc, uint8_t ep, bool halt);
-  /** Start a transfer. Returns 0, @c -EBUSY if one is under way, or another negative errno. */
+  /**
+   * Start a transfer, or queue it behind the one under way. Returns 0, @c -EBUSY if the endpoint
+   * has all the transfers it takes, or another negative errno.
+   */
   int (*ep_queue)(const struct pbl_udc *udc, uint8_t ep, void *buf, size_t len);
 };
 
@@ -230,13 +238,13 @@ int pbl_udc_ep_disable(const struct pbl_udc *udc, uint8_t ep);
 int pbl_udc_ep_set_halt(const struct pbl_udc *udc, uint8_t ep, bool halt);
 
 /**
- * @brief Start a transfer.
+ * @brief Start a transfer, or queue it behind the ones under way.
  *
  * @param udc Controller.
  * @param ep Endpoint address.
  * @param buf Data to send, or room for what arrives, until the transfer ends.
  * @param len Its length, in bytes.
- * @return 0, @c -EBUSY if a transfer is under way on the endpoint, or another negative errno.
+ * @return 0, @c -EBUSY if the endpoint has all the transfers it takes, or another negative errno.
  */
 int pbl_udc_ep_queue(const struct pbl_udc *udc, uint8_t ep, void *buf, size_t len);
 

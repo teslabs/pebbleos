@@ -58,6 +58,10 @@ struct prv_ep {
   size_t done;
   uint16_t mps;
   bool busy;
+  // A transfer queued behind the one under way, but on endpoint 0
+  bool next;
+  uint8_t *next_buf;
+  size_t next_len;
 };
 
 struct pbl_udc_musb_state {
@@ -126,9 +130,30 @@ static void prv_read_fifo(const struct pbl_udc_musb *m, uint8_t n, uint8_t *buf,
   }
 }
 
+static void prv_tx_packet(const struct pbl_udc_musb *m, uint8_t n);
+
+// The transfer queued next starts before this one is reported, so the endpoint does not wait for
+// the stack; an error ends it too
 static void prv_done(const struct pbl_udc_musb *m, uint8_t addr, struct prv_ep *ep, int ret) {
+  bool next = ep->next;
+
   ep->busy = false;
+  ep->next = false;
+  if (next && ret >= 0) {
+    ep->buf = ep->next_buf;
+    ep->len = ep->next_len;
+    ep->done = 0U;
+    ep->busy = true;
+    // An OUT one takes the next packet as it arrives
+    if ((addr & PBL_UDC_EP_IN) != 0U) {
+      prv_tx_packet(m, addr & ~PBL_UDC_EP_IN);
+    }
+  }
+
   pbl_udc_xfer_done(&m->udc, addr, ret);
+  if (next && ret < 0) {
+    pbl_udc_xfer_done(&m->udc, addr, ret);
+  }
 }
 
 // The next packet of an IN transfer, the last one ending the data stage on endpoint 0
@@ -478,8 +503,12 @@ static int prv_ep_queue(const struct pbl_udc *udc, uint8_t addr, void *buf, size
   }
 
   pbl_irq_lock();
-  if (ep->busy) {
+  if (ep->busy && (n == 0U || ep->next)) {
     ret = -EBUSY;
+  } else if (ep->busy) {
+    ep->next_buf = buf;
+    ep->next_len = len;
+    ep->next = true;
   } else {
     ep->buf = buf;
     ep->len = len;
