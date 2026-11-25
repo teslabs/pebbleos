@@ -95,7 +95,11 @@ console_uart:
 shows for it, its function and interface string.
 
 Received bytes go to the UART's receive callback, from the interrupt, without
-flow control: a callback that cannot keep up loses them. Bytes sent before the
+flow control: a callback that cannot keep up loses them. Two one-packet
+transfers stay queued, so the controller takes the next packet while the last
+one is handed over; a transfer per packet means a write that ends on a full
+packet is not held back waiting for more. Sent bytes go out in transfers of up
+to 512 bytes, a second one queued behind the one under way. Bytes sent before the
 host configures the device, or that do not fit while it does not read, are
 dropped.
 

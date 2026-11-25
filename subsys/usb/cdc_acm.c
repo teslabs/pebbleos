@@ -115,17 +115,25 @@ static const char *const s_strings[] = {
   CONFIG_USB_CDC_ACM_NAME,
 };
 
+// Transfers on each data endpoint, so that the controller goes on to the next one while the last
+// one is handed over
+#define XFERS PBL_UDC_EP_QUEUE_LEN
+
 static struct {
   atomic_bool configured;
-  bool tx_busy;
-  size_t tx_len;
+  // Transfers sending, the oldest one first
+  uint8_t tx_n;
+  uint8_t tx_first;
+  size_t tx_len[XFERS];
   uint16_t tx_head;
   uint16_t tx_tail;
+  // The receive buffer the next transfer that ends fills
+  uint8_t rx_next;
   // 115200 baud, 8N1, until the host sets its own
   uint8_t line_coding[7];
   uint8_t tx_ring[TX_RING];
-  uint8_t tx_buf[BUF_LEN];
-  uint8_t rx_buf[BUF_LEN];
+  uint8_t tx_buf[XFERS][BUF_LEN];
+  uint8_t rx_buf[XFERS][BUF_LEN];
 } s_acm = {
   .line_coding = {0x00, 0xc2, 0x01, 0x00, 0, 0, 8},
 };
@@ -134,30 +142,50 @@ static uint16_t prv_ring_used(void) {
   return (uint16_t)((s_acm.tx_head - s_acm.tx_tail) % TX_RING);
 }
 
-// With the IRQ lock held: what the ring holds goes out, in one transfer of up to a buffer
-static void prv_tx_start(void) {
-  size_t len = PBL_MIN((size_t)prv_ring_used(), sizeof(s_acm.tx_buf));
+// With the IRQ lock held: a transfer of up to a buffer, of what the ring holds, or of nothing to
+// end the one before it
+static void prv_tx_queue(size_t len) {
+  uint8_t idx = (uint8_t)((s_acm.tx_first + s_acm.tx_n) % XFERS);
 
   for (size_t i = 0U; i < len; i++) {
-    s_acm.tx_buf[i] = s_acm.tx_ring[s_acm.tx_tail];
+    s_acm.tx_buf[idx][i] = s_acm.tx_ring[s_acm.tx_tail];
     s_acm.tx_tail = (uint16_t)((s_acm.tx_tail + 1U) % TX_RING);
   }
 
-  s_acm.tx_len = len;
-  s_acm.tx_busy = pbl_udc_ep_queue(UDC, EP_DATA_IN, s_acm.tx_buf, len) == 0;
+  s_acm.tx_len[idx] = len;
+  if (pbl_udc_ep_queue(UDC, EP_DATA_IN, s_acm.tx_buf[idx], len) == 0) {
+    s_acm.tx_n++;
+  }
 }
 
-static void prv_rx_start(void) {
-  (void)pbl_udc_ep_queue(UDC, EP_DATA_OUT, s_acm.rx_buf, pbl_usbd_bulk_mps());
+// With the IRQ lock held: what the ring holds goes out, with a second transfer queued behind the
+// one under way, which the controller starts as soon as that one ends
+static void prv_tx_start(void) {
+  uint16_t used = prv_ring_used();
+
+  if (s_acm.tx_n < XFERS && used != 0U) {
+    prv_tx_queue(PBL_MIN((size_t)used, (size_t)BUF_LEN));
+  }
+}
+
+static void prv_rx_queue(uint8_t idx) {
+  (void)pbl_udc_ep_queue(UDC, EP_DATA_OUT, s_acm.rx_buf[idx], pbl_usbd_bulk_mps());
 }
 
 static void prv_configured(bool on) {
+  pbl_irq_lock();
   atomic_store(&s_acm.configured, on);
-  s_acm.tx_busy = false;
+  s_acm.tx_n = 0U;
+  s_acm.tx_first = 0U;
+  s_acm.rx_next = 0U;
   if (on) {
-    prv_rx_start();
-    if (prv_ring_used() != 0U) {
-      prv_tx_start();
+    prv_tx_start();
+  }
+  pbl_irq_unlock();
+
+  if (on) {
+    for (uint8_t i = 0U; i < XFERS; i++) {
+      prv_rx_queue(i);
     }
   }
 }
@@ -177,14 +205,20 @@ static int prv_class_request(const struct pbl_usb_setup *setup, uint8_t **data, 
   }
 }
 
-// A transfer that fills its packets ends with a zero-length one, for the host to take it now
+// A transfer that fills its packets ends with a zero-length one, unless more follows, for the host
+// to take it now
 static void prv_xfer_done(uint8_t ep, int ret) {
+  size_t len;
+
   if (ep == EP_DATA_OUT) {
+    uint8_t idx = s_acm.rx_next;
+
+    s_acm.rx_next = (uint8_t)((idx + 1U) % XFERS);
     for (int i = 0; i < ret; i++) {
-      (void)pbl_uart_receive(&pbl_usb_cdc_acm, s_acm.rx_buf[i]);
+      (void)pbl_uart_receive(&pbl_usb_cdc_acm, s_acm.rx_buf[idx][i]);
     }
     if (ret >= 0 && atomic_load(&s_acm.configured)) {
-      prv_rx_start();
+      prv_rx_queue(idx);
     }
     return;
   }
@@ -193,17 +227,22 @@ static void prv_xfer_done(uint8_t ep, int ret) {
     return;
   }
 
-  s_acm.tx_busy = false;
-  if (ret < 0 || !atomic_load(&s_acm.configured)) {
+  pbl_irq_lock();
+  if (s_acm.tx_n == 0U) {
+    pbl_irq_unlock();
     return;
   }
-
-  if (prv_ring_used() != 0U) {
-    prv_tx_start();
-  } else if (s_acm.tx_len != 0U && (s_acm.tx_len % pbl_usbd_bulk_mps()) == 0U) {
-    s_acm.tx_len = 0U;
-    s_acm.tx_busy = pbl_udc_ep_queue(UDC, EP_DATA_IN, nullptr, 0U) == 0;
+  len = s_acm.tx_len[s_acm.tx_first];
+  s_acm.tx_first = (uint8_t)((s_acm.tx_first + 1U) % XFERS);
+  s_acm.tx_n--;
+  if (ret >= 0 && atomic_load(&s_acm.configured)) {
+    if (prv_ring_used() != 0U) {
+      prv_tx_start();
+    } else if (s_acm.tx_n == 0U && len != 0U && (len % pbl_usbd_bulk_mps()) == 0U) {
+      prv_tx_queue(0U);
+    }
   }
+  pbl_irq_unlock();
 }
 
 PBL_USBD_FUNCTION_DEFINE(cdc_acm) = {
@@ -233,9 +272,7 @@ static void prv_poll_out(const struct pbl_uart *uart, uint8_t c) {
     if (prv_ring_used() < TX_RING - 1U) {
       s_acm.tx_ring[s_acm.tx_head] = c;
       s_acm.tx_head = (uint16_t)((s_acm.tx_head + 1U) % TX_RING);
-      if (!s_acm.tx_busy) {
-        prv_tx_start();
-      }
+      prv_tx_start();
       pbl_irq_unlock();
       return;
     }
