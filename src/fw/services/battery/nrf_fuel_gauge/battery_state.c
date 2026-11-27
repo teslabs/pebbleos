@@ -44,6 +44,9 @@ PBL_LOG_MODULE_DECLARE(service_battery, CONFIG_SERVICE_BATTERY_LOG_LEVEL);
 
 #define LOG_MIN_SEC 30
 
+// Below this discharge current the PMIC measurement is not accurate.
+#define IDLE_MAX_CURRENT_UA 10000
+
 // Minimum valid battery voltage for battery swap detection (mV)
 #define BATTERY_MIN_VALID_VOLTAGE_MV 3300
 
@@ -58,6 +61,15 @@ static const struct battery_model prv_battery_model = {
 #error "Battery model not defined for this platform"
 #endif
 };
+
+// Average current of an idle device, connected and not in use
+#ifdef CONFIG_BOARD_ASTERIX
+#define IDLE_CURRENT_UA 84
+#elif defined(CONFIG_BOARD_OBELIX)
+#define IDLE_CURRENT_UA 130
+#elif defined(CONFIG_BOARD_GETAFIX)
+#define IDLE_CURRENT_UA 119
+#endif
 
 static PreciseBatteryChargeState s_last_battery_charge_state;
 static TimerID s_periodic_timer_id = TIMER_INVALID_ID;
@@ -359,6 +371,14 @@ static void prv_update_state(void *force_update) {
 
   pct = nrf_fuel_gauge_process((float)constants.v_mv / 1000.0f, (float)constants.i_ua / 1000000.0f,
                                (float)constants.t_mc / 1000.0f, (float)delta, NULL);
+
+  // The current is sampled while the CPU is awake for the measurement, so a
+  // light load reads several mA high. Below the measurement's accuracy, let
+  // the gauge assume the idle current until the next update.
+  if (!is_plugged && (constants.i_ua < IDLE_MAX_CURRENT_UA)) {
+    nrf_fuel_gauge_idle_set((float)constants.v_mv / 1000.0f, (float)constants.t_mc / 1000.0f,
+                            (float)IDLE_CURRENT_UA / 1000000.0f);
+  }
 
   pct_int = (uint8_t)ceilf(pct);
   s_last_soc_cpct = (uint32_t)(pct * 100.0f);
