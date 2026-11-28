@@ -38,6 +38,16 @@ endchoice
 
 if SERVICE_BATTERY
 
+config SERVICE_BATTERY_IDLE_CURRENT_UA
+    int "Idle current (uA)"
+    default 0
+    help
+      Average current of the idle device. The charger measures the current
+      while the CPU is awake to request it, so a light load reads several
+      mA high. When unplugged and the measured current is below what the
+      charger measures accurately, the fuel gauge assumes this current
+      instead. 0 disables it.
+
 config SERVICE_BATTERY_LOW_POWER_PERCENT
     int "Low power threshold (%)"
     range 1 100

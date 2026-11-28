@@ -36,6 +36,9 @@ PBL_LOG_MODULE_DECLARE(service_battery, CONFIG_SERVICE_BATTERY_LOG_LEVEL);
 
 #define LOG_MIN_SEC 30
 
+// Below this discharge current the charger measurement is not accurate.
+#define IDLE_MAX_CURRENT_UA 10000
+
 // Minimum valid battery voltage for battery swap detection (mV)
 #define BATTERY_MIN_VALID_VOLTAGE_MV 3300
 
@@ -256,6 +259,15 @@ static void prv_update_state(void *force_update) {
   pct = nrf_fuel_gauge_process((float)constants.voltage_mv / 1000.0f,
                                (float)constants.current_ua / 1000000.0f,
                                (float)constants.temp_mc / 1000.0f, (float)delta, nullptr);
+
+  // Below the measurement's accuracy, let the gauge assume the idle current
+  // until the next update.
+  if ((CONFIG_SERVICE_BATTERY_IDLE_CURRENT_UA > 0) && !is_plugged &&
+      (constants.current_ua < IDLE_MAX_CURRENT_UA)) {
+    nrf_fuel_gauge_idle_set((float)constants.voltage_mv / 1000.0f,
+                            (float)constants.temp_mc / 1000.0f,
+                            (float)CONFIG_SERVICE_BATTERY_IDLE_CURRENT_UA / 1000000.0f);
+  }
 
   pct_int = (uint8_t)ceilf(pct);
   s_last_soc_cpct = (uint32_t)(pct * 100.0f);
