@@ -118,8 +118,6 @@ typedef struct {
 
   uint32_t drain_sec;
   int32_t drain_uah;
-  int32_t idle_uah;
-  int32_t idle_mean_ua;
 
   char fail_reason[64];
 
@@ -270,10 +268,6 @@ static void prv_set_phase(AppData *data, AgingState state) {
   if (data->state == AgingStateDraining) {
     data->drain_sec = data->phase_elapsed_sec;
     data->drain_uah = uah;
-  } else if (data->state == AgingStateIdle) {
-    data->idle_uah = uah;
-    data->idle_mean_ua =
-        data->phase_elapsed_sec ? (int32_t)(data->phase_uas / data->phase_elapsed_sec) : 0;
   }
 
   data->state = state;
@@ -287,10 +281,8 @@ static void prv_format_summary(const AppData *data, char *buf, size_t size) {
   uint32_t soc = battery_state_get_soc_cpct();
   sniprintf(buf, size,
             "Drain %" PRIu32 "min %" PRId32 ".%02" PRId32 "mAh\n"
-            "Idle %" PRId32 "uA %" PRId32 ".%02" PRId32 "mAh\n"
             "SoC %" PRIu32 ".%02" PRIu32 "->%" PRIu32 ".%02" PRIu32,
             data->drain_sec / 60, data->drain_uah / 1000, (data->drain_uah % 1000) / 10,
-            data->idle_mean_ua, data->idle_uah / 1000, (data->idle_uah % 1000) / 10,
             data->initial_soc_cpct / 100, data->initial_soc_cpct % 100, soc / 100, soc % 100);
 }
 
