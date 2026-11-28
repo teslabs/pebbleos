@@ -35,6 +35,12 @@ config SPEEX
     help
       Build the Speex audio codec.
 
+config SBC
+    bool "SBC"
+    help
+      Build the SBC audio codec, which also does mSBC, the wideband
+      speech codec of Bluetooth calls.
+
 config TINYMT
     bool "TinyMT"
     help

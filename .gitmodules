@@ -57,3 +57,6 @@
 	path = third_party/lvgl/lvgl
 	url = https://github.com/lvgl/lvgl
 	shallow = true
+[submodule "third_party/sbc/libsbc"]
+	path = third_party/sbc/libsbc
+	url = https://github.com/google/libsbc
