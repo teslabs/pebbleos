@@ -298,8 +298,10 @@ static void prv_update_state(void *force_update) {
   PBL_LOG_VERBOSE("Battery state: v_mv: %ld, i_ua: %ld, t_mc: %ld, td_ms: %lu, fg: %d",
                   constants.voltage_mv, constants.current_ua, constants.temp_mc,
                   (uint32_t)(delta * 1000.0f), (int)fg_state);
-  PBL_LOG_VERBOSE("Battery estimate: soc: %u, tte: %lu, ttf: %lu", s_last_battery_charge_state.pct,
-                  s_last_tte, s_last_ttf);
+  PBL_LOG_VERBOSE("Battery estimate: soc: %u, est: %lu, i_avg: %ld, tte: %lu",
+                  s_last_battery_charge_state.pct,
+                  (uint32_t)(pbl_fuel_gauge_soc_get(&s_fg) * 10000.0f),
+                  (int32_t)(meas.i_avg * 1000000.0f), s_last_tte);
 
   if (update || (((now - s_last_log) / PBL_TICK_HZ > LOG_MIN_SEC) &&
                  (s_last_battery_charge_state.is_charging || (pct < ALWAYS_UPDATE_PCT)))) {

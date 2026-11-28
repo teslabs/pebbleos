@@ -2,7 +2,7 @@ name: Build Firmware
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'fg-dbg-*']
   pull_request:
     branches: [main, '*-branch']
   workflow_call:
@@ -50,7 +50,7 @@ jobs:
 
   build-firmware:
     needs: changes-firmware
-    if: needs.changes-firmware.outputs.should-build == 'true'
+    if: false
     runs-on: ubuntu-24.04
 
     container:
@@ -197,7 +197,6 @@ jobs:
       matrix:
         board:
           - getafix@dvt2
-          - obelix@pvt
 
     steps:
       - name: Mark Github workspace as safe
@@ -434,6 +433,7 @@ jobs:
 
   merge-firmware:
     needs: build-firmware
+    if: false
     runs-on: ubuntu-24.04
 
     strategy:
