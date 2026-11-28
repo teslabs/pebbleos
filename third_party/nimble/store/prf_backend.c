@@ -19,6 +19,12 @@ int ble_store_config_persist_cccds(void) {
   return 0;
 }
 
+#ifdef CONFIG_NIMBLE_BLE_BREDR
+int ble_store_config_persist_br_link_keys(void) {
+  return 0;
+}
+#endif
+
 void ble_store_config_conf_init(void) {
   pbl_bt_prf_store_init();
   (void)nimble_store__prf_sync_load();

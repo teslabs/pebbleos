@@ -36,6 +36,9 @@ static const char s_key_layout[] = "layout";
 static const char s_key_our_secs[] = "our_secs";
 static const char s_key_peer_secs[] = "peer_secs";
 static const char s_key_cccds[] = "cccds";
+#ifdef CONFIG_NIMBLE_BLE_BREDR
+static const char s_key_br_link_keys[] = "br_link_keys";
+#endif
 static const char s_key_irk[] = "irk";
 
 static const struct layout s_layout = {
@@ -136,6 +139,13 @@ int ble_store_config_persist_cccds(void) {
                   ble_store_config_num_cccds * sizeof(ble_store_config_cccds[0]));
 }
 
+#ifdef CONFIG_NIMBLE_BLE_BREDR
+int ble_store_config_persist_br_link_keys(void) {
+  return prv_save(s_key_br_link_keys, ble_store_config_br_link_keys,
+                  ble_store_config_num_br_link_keys * sizeof(ble_store_config_br_link_keys[0]));
+}
+#endif
+
 /* The local IRK, generated once. LTKs and CSRKs are left to NimBLE. */
 static int prv_gen_key(uint8_t key, struct ble_store_gen_key *gen_key, uint16_t conn_handle) {
   struct pbl_settings_file file;
@@ -214,6 +224,11 @@ static void prv_load_all(void) {
   ble_store_config_num_cccds =
       prv_load(&file, s_key_cccds, ble_store_config_cccds, sizeof(ble_store_config_cccds[0]),
                MYNEWT_VAL(BLE_STORE_MAX_CCCDS));
+#ifdef CONFIG_NIMBLE_BLE_BREDR
+  ble_store_config_num_br_link_keys =
+      prv_load(&file, s_key_br_link_keys, ble_store_config_br_link_keys,
+               sizeof(ble_store_config_br_link_keys[0]), MYNEWT_VAL(BLE_BREDR_MAX_LINK_KEYS));
+#endif
 
   pbl_settings_close(&file);
 }
