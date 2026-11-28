@@ -1,0 +1,12 @@
+// SPDX-FileCopyrightText: 2026 Core Devices LLC
+// SPDX-License-Identifier: Apache-2.0
+
+/* A file system for the bonds, out of the way of the code and of the factory data */
+&flash0 {
+	partitions {
+		partition@1f40000 {
+			label = "filesystem";
+			reg = <0x1f40000 0x80000>;
+		};
+	};
+};
