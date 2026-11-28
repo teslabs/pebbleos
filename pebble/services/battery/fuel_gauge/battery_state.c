@@ -37,6 +37,9 @@ PBL_LOG_MODULE_DECLARE(service_battery, CONFIG_SERVICE_BATTERY_LOG_LEVEL);
 
 #define LOG_MIN_SEC 30
 
+// Below this discharge current the charger measurement is not accurate.
+#define IDLE_MAX_CURRENT_UA 10000
+
 static struct pbl_fuel_gauge_cell s_cell;
 static const struct pbl_fuel_gauge_estimator s_estimator = PBL_FUEL_GAUGE_ESTIMATOR_KCONFIG;
 static struct pbl_fuel_gauge_config s_fg_config = {
@@ -104,10 +107,21 @@ static bool prv_charger_online(void) {
   return online;
 }
 
-static struct pbl_fuel_gauge_meas prv_meas(const struct pbl_charger_measurements *constants) {
+static struct pbl_fuel_gauge_meas prv_meas(const struct pbl_charger_measurements *constants,
+                                           bool is_plugged) {
+  int32_t avg_ua = constants->current_ua;
+
+  // Below the measurement's accuracy, assume the idle current over the
+  // interval.
+  if ((CONFIG_SERVICE_BATTERY_IDLE_CURRENT_UA > 0) && !is_plugged &&
+      (constants->current_ua < IDLE_MAX_CURRENT_UA)) {
+    avg_ua = CONFIG_SERVICE_BATTERY_IDLE_CURRENT_UA;
+  }
+
   return (struct pbl_fuel_gauge_meas){
     .v = (float)constants->voltage_mv / 1000.0f,
     .i = (float)constants->current_ua / 1000000.0f,
+    .i_avg = (float)avg_ua / 1000000.0f,
     .t = (float)constants->temp_mc / 1000.0f,
   };
 }
@@ -138,7 +152,7 @@ static void prv_cell_init(void) {
 }
 
 static void prv_fuel_gauge_init(const struct pbl_charger_measurements *constants) {
-  const struct pbl_fuel_gauge_meas meas = prv_meas(constants);
+  const struct pbl_fuel_gauge_meas meas = prv_meas(constants, prv_charger_online());
   const struct pbl_fuel_gauge_state *saved = nullptr;
   int ret;
 
@@ -251,7 +265,7 @@ static void prv_update_state(void *force_update) {
   delta = (float)(now - prv_ref_time) / (float)PBL_TICK_HZ;
   prv_ref_time = now;
 
-  const struct pbl_fuel_gauge_meas meas = prv_meas(&constants);
+  const struct pbl_fuel_gauge_meas meas = prv_meas(&constants, is_plugged);
   fg_state = prv_charge_state(is_plugged, chg_status);
   pct = pbl_fuel_gauge_update(&s_fg, &meas, delta, fg_state);
 
@@ -357,7 +371,8 @@ void battery_state_init(void) {
       s_last_battery_charge_state.is_plugged && !(s_last_chg_status == PBL_CHARGER_STATUS_FULL ||
                                                   s_last_chg_status == PBL_CHARGER_STATUS_UNKNOWN);
 
-  const struct pbl_fuel_gauge_meas meas = prv_meas(&constants);
+  const struct pbl_fuel_gauge_meas meas =
+      prv_meas(&constants, s_last_battery_charge_state.is_plugged);
   float pct = pbl_fuel_gauge_update(
       &s_fg, &meas, 0.0f,
       prv_charge_state(s_last_battery_charge_state.is_plugged, s_last_chg_status));
