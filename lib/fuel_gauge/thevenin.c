@@ -62,8 +62,8 @@ float pbl_fuel_gauge__est_rest_voltage(const struct pbl_fuel_gauge_config *confi
   return meas->v + st->v1 + config->cell->r0 * prv_r_scale(config->estimator, meas->t) * meas->i;
 }
 
-// Coulomb counting and polarization decay over dt, with the current held at
-// the new sample. Both states are driven by the same current error, hence the
+// Coulomb counting and polarization decay over dt, with the average current
+// of the interval. Both states are driven by the same current error, hence the
 // noise covariance g * g^T * current_noise^2.
 static void prv_predict(const struct pbl_fuel_gauge_config *config,
                         struct pbl_fuel_gauge_estimator_state *st,
@@ -76,8 +76,8 @@ static void prv_predict(const struct pbl_fuel_gauge_config *config,
   g0 = -dt / (config->cell->capacity_ah * 3600.0f);
   g1 = e->r1 * prv_r_scale(e, meas->t) * (1.0f - a);
 
-  st->soc += g0 * meas->i;
-  st->v1 = a * st->v1 + g1 * meas->i;
+  st->soc += g0 * meas->i_avg;
+  st->v1 = a * st->v1 + g1 * meas->i_avg;
 
   st->p_soc += g0 * g0 * var_i;
   st->p_cross = a * st->p_cross + g0 * g1 * var_i;

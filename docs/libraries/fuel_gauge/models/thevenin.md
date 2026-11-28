@@ -46,20 +46,25 @@ more pairs only pay off with faster sampling.
 ### Discretization
 
 Samples come at times $t_k$, with $\Delta t_k = t_k - t_{k-1}$. The current
-$i_k$ is a single sample taken at $t_k$, and it is held over the whole
-interval $(t_{k-1}, t_k]$. For a constant current, the RC equation has the
-exact solution
+$i_k$ is a single sample taken at $t_k$, together with the voltage. Over the
+interval $(t_{k-1}, t_k]$ the model holds the average current $\bar\imath_k$
+(`i_avg`), which is $i_k$ unless the caller knows the sample doesn't
+represent the interval, e.g. when it always catches the host awake. For a
+constant current, the RC equation has the exact solution
 
 $$
-v_{1,k} = a_k\, v_{1,k-1} + R_1 (1 - a_k)\, i_k,
+v_{1,k} = a_k\, v_{1,k-1} + R_1 (1 - a_k)\, \bar\imath_k,
 \qquad a_k = e^{-\Delta t_k / \tau_1}
 $$
 
 and coulomb counting gives
 
 $$
-z_k = z_{k-1} - \frac{i_k\, \Delta t_k}{Q}.
+z_k = z_{k-1} - \frac{\bar\imath_k\, \Delta t_k}{Q}.
 $$
+
+The voltage correction below uses $i_k$, the current the voltage was
+measured with.
 
 The estimator and the fit use these same equations, so a model fitted on
 bench logs behaves the same way in the firmware, whatever the sample interval.
@@ -97,7 +102,7 @@ $$
 The process noise comes only from the current error $\sigma_i$
 (`current_noise`). Both states are driven by the same current, so its
 covariance is the outer product of $g_k$ with itself. $\sigma_i$ is how far
-the single sample $i_k$ can be from the true average current of the
+$\bar\imath_k$ can be from the true average current of the
 interval. With sparse samples and a bursty load, this dominates over the
 error of the current measurement itself.
 

@@ -55,6 +55,10 @@ struct pbl_fuel_gauge_meas {
   float v;
   //! Current, positive when discharging [A].
   float i;
+  //! Average current since the previous measurement, positive when
+  //! discharging [A]. Equal to @ref i unless the sample is known not to
+  //! represent the interval, e.g. when it always catches the host awake.
+  float i_avg;
   //! Cell temperature [C].
   float t;
 };

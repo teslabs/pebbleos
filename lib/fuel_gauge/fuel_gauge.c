@@ -157,7 +157,7 @@ float pbl_fuel_gauge_update(struct pbl_fuel_gauge *fg, const struct pbl_fuel_gau
   if (dt > 0.0f) {
     const float w = expf(-dt / AVG_TAU_S);
 
-    s->avg_charge = s->avg_charge * w + meas->i * dt;
+    s->avg_charge = s->avg_charge * w + meas->i_avg * dt;
     s->avg_time = s->avg_time * w + dt;
   }
 

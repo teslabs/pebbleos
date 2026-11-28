@@ -84,7 +84,7 @@ static void prv_cell_step(Cell *c, double i, double dt) {
 }
 
 static struct pbl_fuel_gauge_meas prv_meas(const Cell *c, double i) {
-  return (struct pbl_fuel_gauge_meas){.v = prv_cell_v(c, i), .i = i, .t = c->t};
+  return (struct pbl_fuel_gauge_meas){.v = prv_cell_v(c, i), .i = i, .i_avg = i, .t = c->t};
 }
 
 static uint32_t s_rand;
@@ -123,6 +123,7 @@ static float prv_run_minute(Cell *c, double (*load)(void), double scale, double 
 
   struct pbl_fuel_gauge_meas meas = prv_meas(c, i);
   meas.i = (float)(i * scale + offset);
+  meas.i_avg = meas.i;
   return pbl_fuel_gauge_update(&s_fg, &meas, 60.0f, cs);
 }
 
@@ -366,6 +367,31 @@ void test_fuel_gauge__tte_from_average_current(void) {
   cl_assert_equal_i(pbl_fuel_gauge_tte_get(&s_fg, &tte), 0);
 
   assert_near(tte, c.soc * Q_AH * 3600.0 / 0.002, 0.02 * tte);
+}
+
+// The current is sampled while the host is awake, at 7 mA, while the device
+// draws 0.12 mA the rest of the time. Fed the interval average, the estimate
+// and the time to empty follow the real drain.
+void test_fuel_gauge__uses_interval_average_current(void) {
+  Cell c = {.soc = 0.7, .t = 25.0};
+  struct pbl_fuel_gauge_meas meas = prv_meas(&c, 0.0);
+  uint32_t tte;
+
+  pbl_fuel_gauge_init(&s_fg, &s_config, &meas, NULL);
+  pbl_fuel_gauge_update(&s_fg, &meas, 0.0f, PBL_FUEL_GAUGE_DISCHARGING);
+
+  for (int m = 0; m < 8 * 60; m++) {
+    for (int s = 0; s < 60; s++) {
+      prv_cell_step(&c, 0.00012, 1.0);
+    }
+    meas = prv_meas(&c, 0.007);
+    meas.i_avg = 0.00012f;
+    pbl_fuel_gauge_update(&s_fg, &meas, 60.0f, PBL_FUEL_GAUGE_DISCHARGING);
+  }
+
+  assert_near(pbl_fuel_gauge_soc_get(&s_fg), c.soc, 0.005);
+  cl_assert_equal_i(pbl_fuel_gauge_tte_get(&s_fg, &tte), 0);
+  assert_near(tte, c.soc * Q_AH * 3600.0 / 0.00012, 0.05 * tte);
 }
 
 void test_fuel_gauge__restores_state(void) {

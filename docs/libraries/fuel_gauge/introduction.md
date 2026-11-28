@@ -43,9 +43,9 @@ The raw estimate is available through `pbl_fuel_gauge_soc_get()`.
 
 ## Time to empty and time to full
 
-Both use an exponentially weighted average current $\bar\imath$ (3 h time
-constant). It restarts whenever the charge state changes, and is reported
-once it covers 10 minutes.
+Both use an exponentially weighted average of the interval currents
+(`i_avg`, 3 h time constant). It restarts whenever the charge state changes,
+and is reported once it covers 10 minutes.
 
 - **Time to empty** is the reported SOC times the capacity, divided by the
   average discharge current.
